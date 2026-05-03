@@ -5,7 +5,6 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { loadFromSupabase } from "@/lib/sync";
 import { usePokedexStore } from "@/store/pokedexStore";
-import { ProgressPersistence } from "@/components/pokemon/ProgressPersistence";
 
 function AuthSync() {
   const setProgressSnapshot = usePokedexStore((s) => s.setProgressSnapshot);
@@ -46,7 +45,6 @@ export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthSync />
-      <ProgressPersistence />
       {children}
     </QueryClientProvider>
   );

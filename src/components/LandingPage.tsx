@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import {
   ArrowRightIcon,
   ArrowUpRightIcon,
@@ -157,9 +158,13 @@ export function LandingPage({ onSignIn }: LandingPageProps) {
                       {!pokemon.owned && pokemon.planned && <BookmarkIcon className="h-3.5 w-3.5 text-violet-400" />}
                     </span>
                   </div>
-                  <img
+                  <Image
                     src={`https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${pokemon.id}.png`}
                     alt={pokemon.name}
+                    width={56}
+                    height={56}
+                    unoptimized
+                    style={{ imageRendering: 'pixelated' }}
                     className={`h-14 w-14 object-contain [image-rendering:pixelated] ${
                       pokemon.owned || pokemon.inHome || pokemon.shiny ? '' : 'grayscale opacity-50'
                     }`}

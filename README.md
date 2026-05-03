@@ -76,13 +76,7 @@ NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_ANON_KEY=
 ```
 
-During the transition away from the local FastAPI backend, older code paths may also use:
-
-```txt
-NEXT_PUBLIC_API_URL=http://localhost:8000/api
-```
-
-The target production architecture is Vercel + Supabase only. The Python backend should be treated as a local seeding/data maintenance tool.
+The production app runs on Vercel + Supabase. The Python backend folder is now only a local seeding/data maintenance tool.
 
 ---
 

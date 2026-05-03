@@ -1,7 +1,37 @@
-import type { ApiHealth, GameDexEntry, LivingDexEntry, ProgressSnapshot } from '@/types/pokemon';
+import type { ApiHealth, GameDexEntry, LivingDexEntry } from '@/types/pokemon';
+import { GAME_LIST } from '@/config/games';
 import type { GameEntry } from '@/config/games';
+import { supabase } from './supabase';
 
-const BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000/api';
+const LIVING_DEX_PAGE_SIZE = 1000;
+
+const MYTHICAL_IDS = new Set([
+  151, 251, 385, 386, 489, 490, 491, 492, 493, 494,
+  647, 648, 649, 719, 720, 721, 801, 802, 807, 808,
+  809, 893, 1025,
+]);
+
+const NATIONAL_DEX_MAX_BY_GAME: Record<string, number> = {
+  'red-blue': 151,
+  yellow: 151,
+  'gold-silver': 251,
+  crystal: 251,
+  'ruby-sapphire': 386,
+  emerald: 386,
+  'firered-leafgreen': 386,
+  'diamond-pearl': 493,
+  platinum: 493,
+  'heartgold-soulsilver': 493,
+  'black-white': 649,
+  'black2-white2': 649,
+  'x-y': 721,
+  oras: 721,
+  bdsp: 493,
+};
+
+const SHINY_CHARM_GAME_IDS = new Set(
+  GAME_LIST.filter((game) => game.hasShinyCharm).map((game) => game.id)
+);
 
 type RawLivingDexEntry = {
   id: number;
@@ -19,26 +49,18 @@ type RawLivingDexEntry = {
   weight?: number | null;
 };
 
-type LivingDexEntriesResponse = {
-  entries: RawLivingDexEntry[];
-  total: number;
-};
-
-type GameDexResponse = {
+type RawGameDexEntry = {
   game_id: string;
-  entries: Array<{
-    species_id: number;
-    entry_number: number;
-    form_name: string | null;
-    display_name: string;
-    sprite_url: string;
-  }>;
+  species_id: number;
+  form_name: string;
+  entry_number: number | null;
 };
 
-type ProgressResponse = {
-  owned: ProgressSnapshot['owned'];
-  game_dex_progress: ProgressSnapshot['gameDexProgress'];
-  available_games: ProgressSnapshot['availableGames'];
+type RawEncounter = {
+  species_id: number;
+  form_name: string | null;
+  game_id: string;
+  location_name: string;
 };
 
 function getGenerationFromSpeciesId(speciesId: number): number {
@@ -87,79 +109,152 @@ function mapLivingDexEntry(entry: RawLivingDexEntry): LivingDexEntry {
   };
 }
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(`${BASE}${path}`, init);
-  if (!response.ok) {
-    throw new Error(`Local API request failed: ${response.status}`);
+function livingEntryKey(speciesId: number, formName: string | null): string {
+  return `${speciesId}:${formName ?? ''}`;
+}
+
+async function getRawLivingDexEntries(): Promise<RawLivingDexEntry[]> {
+  const rows: RawLivingDexEntry[] = [];
+  let from = 0;
+
+  while (true) {
+    const to = from + LIVING_DEX_PAGE_SIZE - 1;
+    const { data, error } = await supabase
+      .from('living_dex_entries')
+      .select('id,species_id,form_name,display_name,sprite_url,shiny_sprite_url,is_regional_form,region_label,sort_order,types,stats,height,weight')
+      .order('sort_order', { ascending: true })
+      .range(from, to);
+
+    if (error) throw error;
+
+    const page = (data ?? []) as RawLivingDexEntry[];
+    rows.push(...page);
+    if (page.length < LIVING_DEX_PAGE_SIZE) break;
+    from += LIVING_DEX_PAGE_SIZE;
   }
-  return response.json() as Promise<T>;
+
+  return rows;
+}
+
+async function getRawGameDexEntries(gameId: string): Promise<RawGameDexEntry[]> {
+  const { data, error } = await supabase
+    .from('game_dex_entries')
+    .select('game_id,species_id,form_name,entry_number')
+    .eq('game_id', gameId)
+    .order('entry_number', { ascending: true })
+    .order('species_id', { ascending: true })
+    .order('form_name', { ascending: false });
+
+  if (error) throw error;
+  return (data ?? []) as RawGameDexEntry[];
+}
+
+function isExcludedFromGameDex(gameId: string, speciesId: number): boolean {
+  return SHINY_CHARM_GAME_IDS.has(gameId) && MYTHICAL_IDS.has(speciesId);
+}
+
+function mapGameDexEntry(entry: LivingDexEntry, entryNumber: number): GameDexEntry {
+  return {
+    speciesId: entry.speciesId,
+    entryNumber,
+    formName: entry.formName,
+    displayName: entry.displayName,
+    spriteUrl: entry.spriteUrl,
+  };
 }
 
 export const api = {
   async getLivingDexEntries(): Promise<LivingDexEntry[]> {
-    const data = await request<LivingDexEntriesResponse>('/living-dex-entries');
-    return data.entries.map(mapLivingDexEntry);
+    const rows = await getRawLivingDexEntries();
+    return rows.map(mapLivingDexEntry);
   },
 
   async getGameDex(gameId: string): Promise<GameDexEntry[]> {
-    const data = await request<GameDexResponse>(`/games/${gameId}/dex`);
-    return data.entries.map((entry) => ({
-      speciesId: entry.species_id,
-      entryNumber: entry.entry_number,
-      formName: entry.form_name,
-      displayName: entry.display_name,
-      spriteUrl: entry.sprite_url,
-    }));
+    const livingEntries = (await getRawLivingDexEntries()).map(mapLivingDexEntry);
+    const maxSpeciesId = NATIONAL_DEX_MAX_BY_GAME[gameId];
+
+    if (maxSpeciesId) {
+      return livingEntries
+        .filter((entry) => entry.formName === null)
+        .filter((entry) => entry.speciesId <= maxSpeciesId)
+        .filter((entry) => !isExcludedFromGameDex(gameId, entry.speciesId))
+        .map((entry) => mapGameDexEntry(entry, entry.speciesId));
+    }
+
+    const gameRows = await getRawGameDexEntries(gameId);
+    const livingEntryByKey = new Map(
+      livingEntries.map((entry) => [livingEntryKey(entry.speciesId, entry.formName), entry])
+    );
+    const bySpecies = new Map<number, GameDexEntry>();
+
+    for (const row of gameRows) {
+      if (isExcludedFromGameDex(gameId, row.species_id)) continue;
+
+      const formName = row.form_name === '' ? null : row.form_name;
+      const livingEntry = livingEntryByKey.get(livingEntryKey(row.species_id, formName));
+      if (!livingEntry) continue;
+
+      const current = bySpecies.get(row.species_id);
+      if (!current || formName) {
+        bySpecies.set(row.species_id, mapGameDexEntry(livingEntry, row.entry_number ?? row.species_id));
+      }
+    }
+
+    return Array.from(bySpecies.values()).sort((a, b) =>
+      a.entryNumber === b.entryNumber ? a.speciesId - b.speciesId : a.entryNumber - b.entryNumber
+    );
   },
 
-  getEncounters(speciesId: number): Promise<Record<string, string[]>> {
-    return request<Record<string, string[]>>(`/encounters/${speciesId}`);
+  async getEncounters(speciesId: number): Promise<Record<string, string[]>> {
+    const { data, error } = await supabase
+      .from('encounters')
+      .select('species_id,form_name,game_id,location_name')
+      .eq('species_id', speciesId)
+      .order('game_id', { ascending: true })
+      .order('location_name', { ascending: true });
+
+    if (error) throw error;
+
+    const encountersByGame: Record<string, string[]> = {};
+    for (const row of (data ?? []) as RawEncounter[]) {
+      encountersByGame[row.game_id] ??= [];
+      if (!encountersByGame[row.game_id].includes(row.location_name)) {
+        encountersByGame[row.game_id].push(row.location_name);
+      }
+    }
+
+    return encountersByGame;
   },
 
   getGames(): Promise<GameEntry[]> {
-    return request<GameEntry[]>('/games');
+    return Promise.resolve([...GAME_LIST]);
   },
 
   async getSpeciesForms(speciesId: number): Promise<LivingDexEntry[]> {
-    const data = await request<LivingDexEntriesResponse>(`/living-dex-entries/${speciesId}`);
-    return data.entries.map(mapLivingDexEntry);
+    const { data, error } = await supabase
+      .from('living_dex_entries')
+      .select('id,species_id,form_name,display_name,sprite_url,shiny_sprite_url,is_regional_form,region_label,sort_order,types,stats,height,weight')
+      .eq('species_id', speciesId)
+      .order('sort_order', { ascending: true });
+
+    if (error) throw error;
+    return ((data ?? []) as RawLivingDexEntry[]).map(mapLivingDexEntry);
   },
 
-  health(): Promise<ApiHealth> {
-    return request<ApiHealth>('/health');
+  async health(): Promise<ApiHealth> {
+    const { count, error } = await supabase
+      .from('living_dex_entries')
+      .select('id', { count: 'exact', head: true });
+
+    if (error) throw error;
+    return { status: 'ok', seeded: (count ?? 0) > 0 };
   },
 
-  async getProgress(): Promise<ProgressSnapshot> {
-    const data = await request<ProgressResponse>('/progress');
-    return {
-      owned: data.owned,
-      gameDexProgress: data.game_dex_progress,
-      availableGames: data.available_games,
-    };
-  },
-
-  async saveProgress(progress: ProgressSnapshot): Promise<ProgressSnapshot> {
-    const data = await request<ProgressResponse>('/progress', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        owned: progress.owned,
-        game_dex_progress: progress.gameDexProgress,
-        available_games: progress.availableGames,
-      }),
-    });
-
-    return {
-      owned: data.owned,
-      gameDexProgress: data.game_dex_progress,
-      availableGames: data.available_games,
-    };
-  },
 };
 
 export function toPokemonListItem(entry: LivingDexEntry) {
   return {
     name: entry.name || titleCase(entry.displayName),
-    url: `${BASE}/pokemon/${entry.speciesId}`,
+    url: `supabase://living_dex_entries/${entry.speciesId}`,
   };
 }
