@@ -5,6 +5,7 @@ import { ownedKey, usePokedexStore } from '@/store/pokedexStore';
 import { useLivingDexEntries } from '@/hooks/usePokemon';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/lib/supabase';
+import type { KeyboardEvent } from 'react';
 import { PokemonGrid } from '@/components/pokemon/PokemonGrid';
 import { HomeBoxView } from '@/components/pokemon/HomeBoxView';
 import { GameDexView } from '@/components/pokemon/GameDexView';
@@ -50,7 +51,28 @@ export default function Home() {
   const [pokedexFiltersOpen, setPokedexFiltersOpen] = useState(false);
   const [homeSearch, setHomeSearch] = useState('');
   const [authOpen, setAuthOpen] = useState(false);
+  const [editingName, setEditingName] = useState(false);
+  const [nameInput, setNameInput] = useState('');
   const { user, loading } = useAuth();
+
+  const displayName = user?.user_metadata?.display_name as string | undefined;
+
+  function startEditName() {
+    setNameInput(displayName ?? '');
+    setEditingName(true);
+  }
+
+  async function saveName() {
+    setEditingName(false);
+    const trimmed = nameInput.trim();
+    if (trimmed === (displayName ?? '')) return;
+    await supabase.auth.updateUser({ data: { display_name: trimmed || null } });
+  }
+
+  function handleNameKey(e: KeyboardEvent<HTMLInputElement>) {
+    if (e.key === 'Enter') e.currentTarget.blur();
+    if (e.key === 'Escape') { setEditingName(false); }
+  }
   const ownedRecords = usePokedexStore((s) => s.owned);
 
   const ownedCount = Object.values(ownedRecords).filter((r) => r.owned).length;
@@ -131,7 +153,27 @@ export default function Home() {
           <div className="flex items-center gap-3">
             {user ? (
               <div className="flex items-center gap-2">
-                <span className="hidden text-xs text-gray-400 sm:block">{user.email}</span>
+                {editingName ? (
+                  <input
+                    autoFocus
+                    type="text"
+                    value={nameInput}
+                    onChange={(e) => setNameInput(e.target.value)}
+                    onBlur={saveName}
+                    onKeyDown={handleNameKey}
+                    placeholder="Your name"
+                    className="hidden w-32 rounded-md border border-blue-400 bg-transparent px-2 py-0.5 text-xs text-gray-700 focus:outline-none sm:block dark:text-gray-200"
+                  />
+                ) : (
+                  <button
+                    type="button"
+                    onClick={startEditName}
+                    className="hidden max-w-[140px] truncate text-xs text-gray-400 hover:text-gray-600 sm:block dark:hover:text-gray-200"
+                    title="Click to set your name"
+                  >
+                    {displayName ?? user.email}
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() => supabase.auth.signOut()}
@@ -171,7 +213,7 @@ export default function Home() {
               />
             </div>
 
-            <div className="grid grid-cols-1 gap-x-6 gap-y-2 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid grid-cols-2 gap-x-4 gap-y-2 lg:grid-cols-3">
               {generationProgress.map((g) => {
                 const pct = g.total > 0 ? (g.owned / g.total) * 100 : 0;
                 return (
