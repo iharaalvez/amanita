@@ -24,18 +24,24 @@ type SupabaseRow = {
   game_dex: Record<string, boolean>;
 };
 
-export async function loadFromSupabase(): Promise<ProgressSnapshot | null> {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return null;
+export async function loadFromSupabase(
+  userId?: string,
+): Promise<ProgressSnapshot | null> {
+  let resolvedUserId = userId;
+  if (!resolvedUserId) {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    resolvedUserId = user?.id;
+  }
+  if (!resolvedUserId) return null;
 
   const [pokemonResult, settingsResult] = await Promise.all([
-    supabase.from("pokedex").select("*").eq("user_id", user.id),
+    supabase.from("pokedex").select("*").eq("user_id", resolvedUserId),
     supabase
       .from("user_settings")
       .select("available_games")
-      .eq("user_id", user.id)
+      .eq("user_id", resolvedUserId)
       .maybeSingle(),
   ]);
 

@@ -94,6 +94,7 @@ export function PokemonCard({ entry, onSelect }: Props) {
           alt={displayName}
           width={64}
           height={64}
+          unoptimized
           style={{ imageRendering: "pixelated" }}
           className={`h-16 w-16 object-contain transition-all duration-200 group-hover:scale-110 ${
             owned || shinyOwned ? "" : "grayscale opacity-50"

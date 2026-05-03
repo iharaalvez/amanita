@@ -58,6 +58,7 @@ function GameSlot({ entry, gameId, onSelect }: GameSlotProps) {
         alt={entry.displayName}
         width={88}
         height={88}
+        unoptimized
         style={{ imageRendering: "pixelated" }}
         className={`h-20 w-20 object-contain transition-all duration-200 ${
           owned ? "" : "grayscale opacity-55"

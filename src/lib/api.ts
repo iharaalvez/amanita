@@ -4,6 +4,7 @@ import type { GameEntry } from "@/config/games";
 import { supabase } from "./supabase";
 
 const LIVING_DEX_PAGE_SIZE = 1000;
+let rawLivingDexEntriesPromise: Promise<RawLivingDexEntry[]> | null = null;
 
 const MYTHICAL_IDS = new Set([
   151, 251, 385, 386, 489, 490, 491, 492, 493, 494, 647, 648, 649, 719, 720,
@@ -120,6 +121,17 @@ function livingEntryKey(speciesId: number, formName: string | null): string {
 }
 
 async function getRawLivingDexEntries(): Promise<RawLivingDexEntry[]> {
+  if (rawLivingDexEntriesPromise) return rawLivingDexEntriesPromise;
+
+  rawLivingDexEntriesPromise = fetchRawLivingDexEntries().catch((error) => {
+    rawLivingDexEntriesPromise = null;
+    throw error;
+  });
+
+  return rawLivingDexEntriesPromise;
+}
+
+async function fetchRawLivingDexEntries(): Promise<RawLivingDexEntry[]> {
   const rows: RawLivingDexEntry[] = [];
   let from = 0;
 
@@ -256,16 +268,10 @@ export const api = {
   },
 
   async getSpeciesForms(speciesId: number): Promise<LivingDexEntry[]> {
-    const { data, error } = await supabase
-      .from("living_dex_entries")
-      .select(
-        "id,species_id,form_name,display_name,sprite_url,shiny_sprite_url,is_regional_form,region_label,sort_order,types,stats,height,weight",
-      )
-      .eq("species_id", speciesId)
-      .order("sort_order", { ascending: true });
-
-    if (error) throw error;
-    return ((data ?? []) as RawLivingDexEntry[]).map(mapLivingDexEntry);
+    const rows = await getRawLivingDexEntries();
+    return rows
+      .filter((entry) => entry.species_id === speciesId)
+      .map(mapLivingDexEntry);
   },
 
   async health(): Promise<ApiHealth> {

@@ -338,6 +338,7 @@ export function PokemonDetailModal({
                     alt={displayName}
                     width={112}
                     height={112}
+                    unoptimized
                     style={{ imageRendering: "pixelated" }}
                     className="h-28 w-28 object-contain"
                   />

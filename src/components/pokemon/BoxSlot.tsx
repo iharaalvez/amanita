@@ -88,6 +88,7 @@ export function BoxSlot({ entry, onSelect }: Props) {
           alt={entry.displayName}
           width={48}
           height={48}
+          unoptimized
           style={{ imageRendering: "pixelated" }}
           className={`h-10 w-10 object-contain transition-all duration-200 group-hover:scale-110 sm:h-12 sm:w-12 ${
             owned || inHome || shinyOwned ? "" : "grayscale opacity-50"

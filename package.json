@@ -7,6 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
     "seed": "docker compose -f backend/docker-compose.yml --profile seed run --rm seeder",
     "seed:forms": "tsx scripts/seed-cosmetic-forms.ts",
     "backend": "docker compose -f backend/docker-compose.yml up -d",
@@ -30,6 +32,7 @@
     "eslint": "^8",
     "eslint-config-next": "14.2.35",
     "postcss": "^8",
+    "prettier": "^3.8.3",
     "tailwindcss": "^3.4.1",
     "tsx": "^4.21.0",
     "typescript": "^5"

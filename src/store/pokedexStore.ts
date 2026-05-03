@@ -1,11 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import {
-  syncRecord,
-  deleteRecord,
-  syncAvailableGames,
-  syncAllRecords,
-} from "@/lib/sync";
+import { syncRecord, deleteRecord, syncAvailableGames } from "@/lib/sync";
 import type {
   OwnedRecord,
   OwnershipMethod,
@@ -88,7 +83,6 @@ export const usePokedexStore = create<PokedexState>()(
           gameDexProgress: snapshot.gameDexProgress,
           availableGames: snapshot.availableGames,
         });
-        void syncAllRecords(snapshot);
       },
 
       getProgressSnapshot: () => ({

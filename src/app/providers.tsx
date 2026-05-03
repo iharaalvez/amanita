@@ -14,7 +14,7 @@ function AuthSync() {
     // Load data for already-logged-in user on mount
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user) {
-        loadFromSupabase().then((snapshot) => {
+        loadFromSupabase(session.user.id).then((snapshot) => {
           if (snapshot) setProgressSnapshot(snapshot);
         });
       }
@@ -24,7 +24,7 @@ function AuthSync() {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === "SIGNED_IN" && session?.user) {
-        loadFromSupabase().then((snapshot) => {
+        loadFromSupabase(session.user.id).then((snapshot) => {
           if (snapshot) setProgressSnapshot(snapshot);
         });
       }
