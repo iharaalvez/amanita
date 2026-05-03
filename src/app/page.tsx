@@ -3,11 +3,14 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ownedKey, usePokedexStore } from '@/store/pokedexStore';
 import { useLivingDexEntries } from '@/hooks/usePokemon';
+import { useAuth } from '@/hooks/useAuth';
+import { supabase } from '@/lib/supabase';
 import { PokemonGrid } from '@/components/pokemon/PokemonGrid';
 import { HomeBoxView } from '@/components/pokemon/HomeBoxView';
 import { GameDexView } from '@/components/pokemon/GameDexView';
 import { StatsView } from '@/components/pokemon/StatsView';
 import { PokemonDetailModal } from '@/components/pokemon/PokemonDetailModal';
+import { AuthModal } from '@/components/auth/AuthModal';
 import { FilterIcon, XIcon } from '@/components/ui';
 
 type Tab = 'pokedex' | 'home' | 'gamedex' | 'stats';
@@ -45,6 +48,8 @@ export default function Home() {
   const [pokedexSearch, setPokedexSearch] = useState('');
   const [pokedexFiltersOpen, setPokedexFiltersOpen] = useState(false);
   const [homeSearch, setHomeSearch] = useState('');
+  const [authOpen, setAuthOpen] = useState(false);
+  const { user } = useAuth();
   const ownedRecords = usePokedexStore((s) => s.owned);
 
   const ownedCount = Object.values(ownedRecords).filter((r) => r.owned).length;
@@ -101,17 +106,39 @@ export default function Home() {
     <main className="min-h-screen bg-white dark:bg-gray-900">
       <header className="mx-auto max-w-7xl px-4 pb-0 pt-4 sm:pt-6">
         <div className="mb-4 flex items-baseline justify-between">
-          <h1 className="text-xl font-bold tracking-tight dark:text-white">Living Pokedex</h1>
-          {SHOW_PROGRESS_TABS.has(activeTab) && (
-            <div className="text-right">
-              <p className="text-lg font-bold tabular-nums text-green-400">{progressPct.toFixed(1)}%</p>
-              <p className="text-xs font-semibold tabular-nums text-gray-400">
-                <span className="text-green-400">{ownedCount}</span>
-                <span className="mx-1 text-gray-600">/</span>
-                {total}
-              </p>
-            </div>
-          )}
+          <h1 className="text-xl font-bold tracking-tight dark:text-white">Living Pokédex</h1>
+          <div className="flex items-center gap-3">
+            {user ? (
+              <div className="flex items-center gap-2">
+                <span className="hidden text-xs text-gray-400 sm:block">{user.email}</span>
+                <button
+                  type="button"
+                  onClick={() => supabase.auth.signOut()}
+                  className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-500 transition-colors hover:bg-gray-50 hover:text-gray-700 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-800"
+                >
+                  Sign out
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setAuthOpen(true)}
+                className="rounded-lg bg-blue-500 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-blue-600"
+              >
+                Sign in
+              </button>
+            )}
+            {SHOW_PROGRESS_TABS.has(activeTab) && (
+              <div className="text-right">
+                <p className="text-lg font-bold tabular-nums text-green-400">{progressPct.toFixed(1)}%</p>
+                <p className="text-xs font-semibold tabular-nums text-gray-400">
+                  <span className="text-green-400">{ownedCount}</span>
+                  <span className="mx-1 text-gray-600">/</span>
+                  {total}
+                </p>
+              </div>
+            )}
+          </div>
         </div>
 
         {SHOW_PROGRESS_TABS.has(activeTab) && (
@@ -252,6 +279,8 @@ export default function Home() {
           onNavigate={(pokemonId, speciesId, formName) => setSelected({ pokemonId, speciesId, formName })}
         />
       )}
+
+      {authOpen && <AuthModal onClose={() => setAuthOpen(false)} />}
 
       {milestoneMessage && (
         <div

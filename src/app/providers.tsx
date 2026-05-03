@@ -1,39 +1,51 @@
 "use client";
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { api } from "@/lib/api";
+import { useEffect, useState } from "react";
+import { supabase } from "@/lib/supabase";
+import { loadFromSupabase } from "@/lib/sync";
+import { usePokedexStore } from "@/store/pokedexStore";
 import { ProgressPersistence } from "@/components/pokemon/ProgressPersistence";
 
-function LocalApiHealthBanner() {
-  const { data, isError } = useQuery({
-    queryKey: ["local-api-health"],
-    queryFn: api.health,
-    retry: 1,
-    staleTime: 30 * 1000,
-  });
+function AuthSync() {
+  const setProgressSnapshot = usePokedexStore((s) => s.setProgressSnapshot);
+  const clearAll = usePokedexStore((s) => s.clearAll);
 
-  if (!isError && data?.seeded !== false) return null;
+  useEffect(() => {
+    // Load data for already-logged-in user on mount
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        loadFromSupabase().then((snapshot) => {
+          if (snapshot) setProgressSnapshot(snapshot);
+        });
+      }
+    });
 
-  return (
-    <div className="bg-amber-100 px-4 py-2 text-center text-sm font-medium text-amber-900 dark:bg-amber-950 dark:text-amber-200">
-      Local database not running — start with npm run backend
-    </div>
-  );
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_IN' && session?.user) {
+        loadFromSupabase().then((snapshot) => {
+          if (snapshot) setProgressSnapshot(snapshot);
+        });
+      }
+      if (event === 'SIGNED_OUT') {
+        clearAll();
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, [setProgressSnapshot, clearAll]);
+
+  return null;
 }
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(
-    () =>
-      new QueryClient({
-        defaultOptions: { queries: { staleTime: 60 * 1000 } },
-      })
+    () => new QueryClient({ defaultOptions: { queries: { staleTime: 60 * 1000 } } })
   );
 
   return (
     <QueryClientProvider client={queryClient}>
-      <LocalApiHealthBanner />
+      <AuthSync />
       <ProgressPersistence />
       {children}
     </QueryClientProvider>

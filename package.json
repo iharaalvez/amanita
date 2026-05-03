@@ -12,6 +12,7 @@
     "backend:down": "docker compose -f backend/docker-compose.yml down"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.105.1",
     "@tanstack/react-query": "^5.100.8",
     "idb-keyval": "^6.2.2",
     "next": "14.2.35",
