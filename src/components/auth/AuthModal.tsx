@@ -15,8 +15,27 @@ export function AuthModal({ onClose }: Props) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [oauthLoading, setOauthLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+
+  async function handleGoogleSignIn() {
+    setError(null);
+    setSuccess(null);
+    setOauthLoading(true);
+
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: window.location.origin,
+      },
+    });
+
+    if (error) {
+      setError(error.message);
+      setOauthLoading(false);
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -75,6 +94,24 @@ export function AuthModal({ onClose }: Props) {
               {m === 'signin' ? 'Sign in' : 'Sign up'}
             </button>
           ))}
+        </div>
+
+        <button
+          type="button"
+          onClick={handleGoogleSignIn}
+          disabled={oauthLoading || loading}
+          className="mb-4 flex w-full items-center justify-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm font-semibold text-gray-700 transition-colors hover:bg-gray-50 disabled:opacity-60 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 dark:hover:bg-gray-700"
+        >
+          <span className="flex h-5 w-5 items-center justify-center rounded-full bg-white text-sm font-black text-gray-900">
+            G
+          </span>
+          {oauthLoading ? 'Opening Google...' : 'Continue with Google'}
+        </button>
+
+        <div className="mb-4 flex items-center gap-3">
+          <div className="h-px flex-1 bg-gray-200 dark:bg-gray-700" />
+          <span className="text-[10px] font-bold uppercase tracking-wide text-gray-400">or</span>
+          <div className="h-px flex-1 bg-gray-200 dark:bg-gray-700" />
         </div>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-3">

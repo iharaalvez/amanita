@@ -11,6 +11,7 @@ import { GameDexView } from '@/components/pokemon/GameDexView';
 import { StatsView } from '@/components/pokemon/StatsView';
 import { PokemonDetailModal } from '@/components/pokemon/PokemonDetailModal';
 import { AuthModal } from '@/components/auth/AuthModal';
+import { LandingPage } from '@/components/LandingPage';
 import { FilterIcon, XIcon } from '@/components/ui';
 
 type Tab = 'pokedex' | 'home' | 'gamedex' | 'stats';
@@ -49,7 +50,7 @@ export default function Home() {
   const [pokedexFiltersOpen, setPokedexFiltersOpen] = useState(false);
   const [homeSearch, setHomeSearch] = useState('');
   const [authOpen, setAuthOpen] = useState(false);
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
   const ownedRecords = usePokedexStore((s) => s.owned);
 
   const ownedCount = Object.values(ownedRecords).filter((r) => r.owned).length;
@@ -100,6 +101,26 @@ export default function Home() {
   function handleSelect(speciesId: number, formName: string | null) {
     const entry = livingDexEntries?.find((e) => e.speciesId === speciesId && e.formName === formName);
     setSelected({ pokemonId: entry?.id ?? speciesId, speciesId, formName });
+  }
+
+  if (loading) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-[#08111f] px-4 text-white">
+        <div className="text-center">
+          <p className="text-lg font-bold">Living Pokedex</p>
+          <p className="mt-2 text-sm text-slate-400">Checking your session...</p>
+        </div>
+      </main>
+    );
+  }
+
+  if (!user) {
+    return (
+      <>
+        <LandingPage onSignIn={() => setAuthOpen(true)} />
+        {authOpen && <AuthModal onClose={() => setAuthOpen(false)} />}
+      </>
+    );
   }
 
   return (

@@ -1,45 +1,48 @@
-# Gotta Catch 'Em All — Living Pokédex Tracker
+# Living Pokedex Tracker
 
-A personal tracker for building a Living Pokédex: one of every Pokémon species, personally caught or bred, all the way from Gen I to Gen IX.
+A personal tracker for building a Living Pokedex: one of every Pokemon species, personally caught or bred, from Gen I to Gen IX.
 
-Built with Next.js, Tailwind CSS, and PokéAPI. Progress is saved locally in your browser — no account required.
+Built with Next.js, TypeScript, Tailwind CSS, Zustand, TanStack Query, and Supabase.
 
 ---
 
 ## Features
 
-### Pokédex View
-- Full grid of all 1025 Pokémon — base forms and regional variants
-- Filter by generation, ownership status (owned, missing, planned, shiny, pending transfer), and type
-- Sort by Pokédex order, name A–Z, or missing-first
-- Search by name or Pokédex number
-- Per-generation progress bars and overall completion percentage
+### Pokedex View
+
+- Full grid of all Pokemon species, base forms, and regional variants
+- Filter by generation, ownership status, shiny status, pending transfer, planned status, and type
+- Sort by Pokedex order, name A-Z, or missing-first
+- Search by name or Pokedex number
+- Per-generation progress and overall completion percentage
 
 ### HOME Box View
-- 30-slot box layout matching the Pokémon HOME grid
-- Color-coded slots: in HOME (green), pending transfer (blue), shiny (gold), planned (violet)
-- Search to highlight specific Pokémon across all boxes
-- Summary bar with in HOME, owned, and pending transfer counts
+
+- 30-slot box layout inspired by Pokemon HOME
+- Color-coded slots: in HOME, pending transfer, shiny, planned, and missing
+- Search across HOME boxes
+- Header summary for stored in HOME, owned, and pending transfer counts
 
 ### Game Dex Tracker
-- Per-game Pokédex completion across all 20 mainline titles (Gen I–IX)
-- Shiny Charm eligibility — highlighted games award the Shiny Charm on completion
-- Catch location data sourced from PokéAPI per game
-- Ready banner when a game's Pokédex is complete
 
-### Pokémon Detail Modal
-- Sprite, types, and ownership status panel
-- Status toggles: Owned, Shiny Owned, In HOME, Planned, and per-game registrations
-- Catch locations per game with area and encounter method
-- Context-aware empty state for Mythicals, trade evolutions, and event-only Pokémon
+- Per-game Pokedex completion across mainline titles
+- Shiny Charm progress surfaced prominently
+- Missing / registered segmented view
+- Catch-location guidance from seeded PokeAPI encounter data
+
+### Pokemon Detail Modal
+
+- Sprite, types, stats, and ownership status
+- Status toggles for owned, shiny, in HOME, planned, and game registrations
+- Catch locations per game where seeded encounter data exists
+- Data-quality note for incomplete PokeAPI encounter coverage
 
 ### Stats Dashboard
-- Totals for owned, shiny, in HOME, planned, and pending transfer
-- Breakdown by generation and how you caught them
-- Shiny Living Dex progress tracker
 
-### Milestone Toasts
-- Celebratory notifications at key milestones: first catch, 50, 100, 250, 500, 750, and a complete Living Dex
+- Living Dex and Shiny Living Dex progress
+- Per-generation breakdowns
+- Acquisition and shiny hunt method summaries
+- JSON export/import for backup and restore
 
 ---
 
@@ -47,16 +50,17 @@ Built with Next.js, Tailwind CSS, and PokéAPI. Progress is saved locally in you
 
 | Layer | Tool |
 |---|---|
-| Framework | Next.js 14+ (App Router) |
-| Language | TypeScript (strict) |
+| Framework | Next.js 14+ App Router |
+| Language | TypeScript strict |
 | Styling | Tailwind CSS |
 | State | Zustand + localStorage |
-| Server state | TanStack Query (React Query) |
-| Pokémon data | [PokéAPI v2](https://pokeapi.co) |
+| Server state | TanStack Query |
+| Auth and database | Supabase |
+| External source | PokeAPI v2 |
 
 ---
 
-## Getting Started
+## Local Development
 
 ```bash
 npm install
@@ -65,7 +69,28 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000).
 
-No environment variables needed — all Pokémon data is fetched from the public PokéAPI at runtime and cached in the browser.
+Required environment variables:
+
+```txt
+NEXT_PUBLIC_SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_ANON_KEY=
+```
+
+During the transition away from the local FastAPI backend, older code paths may also use:
+
+```txt
+NEXT_PUBLIC_API_URL=http://localhost:8000/api
+```
+
+The target production architecture is Vercel + Supabase only. The Python backend should be treated as a local seeding/data maintenance tool.
+
+---
+
+## Data Seeding
+
+Reference Pokemon data is stored in Supabase and refreshed with the Python seeder in `backend/seeder`.
+
+See [docs/seed-data.md](docs/seed-data.md).
 
 ---
 
@@ -73,11 +98,11 @@ No environment variables needed — all Pokémon data is fetched from the public
 
 | Color | State | Meaning |
 |---|---|---|
-| 🟢 Green | In HOME | Transferred to Pokémon HOME |
-| 🔵 Blue | Pending | Owned but not yet in HOME |
-| 🟡 Gold | Shiny | Shiny variant owned |
-| 🟣 Violet | Planned | Marked as a target to catch |
-| ⬜ Gray | Missing | Not yet obtained |
+| Green | In HOME | Transferred to Pokemon HOME |
+| Blue | Pending | Owned but not yet in HOME |
+| Gold | Shiny | Shiny variant owned |
+| Violet | Planned | Marked as a target to catch |
+| Gray | Missing | Not yet obtained |
 
 ---
 
@@ -91,10 +116,10 @@ All mainline titles from Generation I through IX:
 | II | Gold / Silver, Crystal |
 | III | Ruby / Sapphire, Emerald, FireRed / LeafGreen |
 | IV | Diamond / Pearl, Platinum, HeartGold / SoulSilver |
-| V | Black / White, Black 2 / White 2 ✦ |
-| VI | X / Y ✦, Omega Ruby / Alpha Sapphire ✦ |
-| VII | Sun / Moon ✦, Ultra Sun / Ultra Moon ✦ |
-| VIII | Sword / Shield ✦, Brilliant Diamond / Shining Pearl ✦, Legends: Arceus ✦ |
-| IX | Scarlet / Violet ✦, Legends: Z-A ✦ |
+| V | Black / White, Black 2 / White 2* |
+| VI | X / Y*, Omega Ruby / Alpha Sapphire* |
+| VII | Sun / Moon*, Ultra Sun / Ultra Moon* |
+| VIII | Sword / Shield*, Brilliant Diamond / Shining Pearl*, Legends: Arceus* |
+| IX | Scarlet / Violet*, Legends: Z-A* |
 
-✦ Completing the Pokédex in these games unlocks the **Shiny Charm**.
+`*` Completing the Pokedex in these games unlocks the Shiny Charm.
