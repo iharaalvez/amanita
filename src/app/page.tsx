@@ -99,7 +99,7 @@ export default function Home() {
 
   return (
     <main className="min-h-screen bg-white dark:bg-gray-900">
-      <header className="mx-auto max-w-7xl px-4 pb-0 pt-6">
+      <header className="mx-auto max-w-7xl px-4 pb-0 pt-4 sm:pt-6">
         <div className="mb-4 flex items-baseline justify-between">
           <h1 className="text-xl font-bold tracking-tight dark:text-white">Living Pokedex</h1>
           {SHOW_PROGRESS_TABS.has(activeTab) && (
@@ -153,7 +153,7 @@ export default function Home() {
               <button
                 key={id}
                 onClick={() => setActiveTab(id)}
-                className={`-mb-px shrink-0 border-b-2 px-5 py-2.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${
+                className={`-mb-px shrink-0 border-b-2 px-3 py-2.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 sm:px-5 ${
                   activeTab === id
                     ? 'border-blue-500 text-blue-500 dark:text-blue-400'
                     : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-800 dark:text-gray-400 dark:hover:border-gray-600 dark:hover:text-gray-200'

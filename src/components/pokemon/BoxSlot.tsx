@@ -19,7 +19,7 @@ export function BoxSlot({ entry, onSelect }: Props) {
 
   if (!entry) {
     return (
-      <div className="aspect-square min-h-[68px] rounded-lg border border-dashed border-gray-200 bg-white/50 dark:border-gray-700/50 dark:bg-gray-900/20 sm:min-h-[82px]" />
+      <div className="aspect-square rounded-lg border border-dashed border-gray-200 bg-white/50 dark:border-gray-700/50 dark:bg-gray-900/20" />
     );
   }
 
@@ -45,7 +45,7 @@ export function BoxSlot({ entry, onSelect }: Props) {
         onClick={() => onSelect?.(entry.speciesId, entry.formName)}
         aria-label={`${entry.displayName}, ${inHome ? 'in HOME' : owned ? 'owned, pending transfer' : planned ? 'planned' : 'not owned'}${shinyOwned ? ', shiny owned' : ''}`}
         aria-pressed={owned || shinyOwned || planned}
-        className={`group relative flex aspect-square min-h-[68px] w-full cursor-pointer flex-col items-center justify-center gap-1 rounded-lg p-1.5 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 sm:min-h-[82px] ${ringClass}`}
+        className={`group relative flex aspect-square w-full cursor-pointer flex-col items-center justify-center gap-1 rounded-lg p-1 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 sm:p-1.5 ${ringClass}`}
       >
         <span className="absolute right-1.5 top-1.5 flex gap-1" aria-hidden>
           {shinyOwned && <SparkleIcon className="h-3.5 w-3.5 text-yellow-400" />}
@@ -59,7 +59,7 @@ export function BoxSlot({ entry, onSelect }: Props) {
           width={40}
           height={40}
           style={{ imageRendering: 'pixelated' }}
-          className={`h-10 w-10 object-contain transition-all duration-200 group-hover:scale-110 sm:h-12 sm:w-12 ${
+          className={`h-8 w-8 object-contain transition-all duration-200 group-hover:scale-110 sm:h-10 sm:w-10 ${
             owned || inHome || shinyOwned ? '' : 'grayscale opacity-50'
           }`}
         />

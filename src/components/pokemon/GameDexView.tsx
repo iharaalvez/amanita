@@ -228,8 +228,31 @@ export function GameDexView({ onSelect }: Props) {
 
   return (
     <div className="mx-auto flex max-w-7xl flex-col gap-4 px-4 pb-8 lg:flex-row">
-      <div className="w-full flex-shrink-0 lg:w-56">
-        <div className="max-h-[50vh] overflow-y-auto rounded-lg border border-gray-100 bg-gray-50 p-3 dark:border-gray-700 dark:bg-gray-800 lg:sticky lg:top-4 lg:max-h-[80vh]">
+
+      {/* Mobile game selector */}
+      <div className="flex items-center gap-2 lg:hidden">
+        <select
+          value={selectedGameId}
+          onChange={(e) => setSelectedGameId(e.target.value)}
+          className="flex-1 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200"
+          aria-label="Select game"
+        >
+          {GAME_LIST.map((game) => (
+            <option key={game.id} value={game.id}>{game.name}</option>
+          ))}
+        </select>
+        <button
+          type="button"
+          onClick={() => setShowGamesModal(true)}
+          className="rounded-lg bg-blue-500 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-600"
+        >
+          Manage
+        </button>
+      </div>
+
+      {/* Desktop sidebar */}
+      <div className="hidden w-56 flex-shrink-0 lg:block">
+        <div className="max-h-[80vh] overflow-y-auto rounded-lg border border-gray-100 bg-gray-50 p-3 dark:border-gray-700 dark:bg-gray-800 lg:sticky lg:top-4">
           <div className="mb-3 flex items-center justify-between gap-2 px-1">
             <div>
               <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Games</p>
@@ -418,13 +441,13 @@ export function GameDexView({ onSelect }: Props) {
         ) : dexError ? (
           <div className="py-4 text-sm text-red-500">Failed to load Pokedex for this game. Try refreshing.</div>
         ) : dexLoading ? (
-          <div className="grid grid-cols-[repeat(auto-fill,120px)] gap-2">
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(100px,120px))] gap-2">
             {Array.from({ length: 48 }).map((_, index) => (
               <div key={index} className="h-[132px] w-[120px] animate-pulse rounded-lg bg-gray-200 dark:bg-gray-700" />
             ))}
           </div>
         ) : (
-          <div className="grid grid-cols-[repeat(auto-fill,120px)] gap-2">
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(100px,120px))] gap-2">
             {filteredGamePokemon.map((entry) => (
               <GameSlot
                 key={`${entry.speciesId}-${entry.formName ?? 'base'}`}

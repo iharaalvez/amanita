@@ -110,7 +110,7 @@ function StatusToggle({ active, disabled, label, helper, activeClass, icon, onCl
       onClick={onClick}
       disabled={disabled}
       aria-pressed={active}
-      className={`flex min-h-[80px] items-center gap-3 rounded-xl border-2 px-4 py-3 text-left transition-all active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${
+      className={`flex min-h-[64px] items-center gap-2 rounded-xl border-2 px-3 py-2.5 text-left transition-all active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 sm:gap-3 sm:px-4 sm:py-3 ${
         active
           ? `${activeClass} text-white shadow-sm`
           : disabled
@@ -118,7 +118,7 @@ function StatusToggle({ active, disabled, label, helper, activeClass, icon, onCl
             : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:border-gray-600 dark:hover:bg-gray-700'
       }`}
     >
-      <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-black/10 dark:bg-white/10 ${justActivated ? 'animate-sprite-pop' : ''}`}>
+      <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-black/10 dark:bg-white/10 sm:h-10 sm:w-10 ${justActivated ? 'animate-sprite-pop' : ''}`}>
         {icon}
       </span>
       <span className="min-w-0">
@@ -224,7 +224,7 @@ export function PokemonDetailModal({ pokemonId, speciesId, formName, onClose, on
         role="dialog"
         aria-modal="true"
         aria-label={selectedEntry ? `${displayName} details` : 'Pokemon details'}
-        className="relative max-h-[92vh] w-full overflow-y-auto rounded-t-2xl border-gray-100 bg-white shadow-2xl dark:border-gray-700 dark:bg-gray-800 sm:h-full sm:max-h-none sm:max-w-[460px] sm:rounded-none sm:border-l"
+        className="relative max-h-[92vh] w-full overflow-y-auto rounded-t-2xl border-gray-100 bg-white pb-[env(safe-area-inset-bottom)] shadow-2xl dark:border-gray-700 dark:bg-gray-800 sm:h-full sm:max-h-none sm:max-w-[460px] sm:rounded-none sm:border-l sm:pb-0"
         onClick={(event) => event.stopPropagation()}
       >
         {selectedEntry?.types?.[0] && (
@@ -234,6 +234,7 @@ export function PokemonDetailModal({ pokemonId, speciesId, formName, onClose, on
             style={{ background: `linear-gradient(160deg, ${TYPE_COLORS[selectedEntry.types[0]]}30 0%, transparent 100%)` }}
           />
         )}
+        <div aria-hidden className="mx-auto mb-1 mt-3 h-1 w-10 rounded-full bg-gray-300 dark:bg-gray-600 sm:hidden" />
         <button
           type="button"
           onClick={onClose}
@@ -301,7 +302,7 @@ export function PokemonDetailModal({ pokemonId, speciesId, formName, onClose, on
               </div>
 
               <div>
-                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                <div className="grid grid-cols-2 gap-2">
                   <StatusToggle
                     active={owned}
                     label={owned ? 'Owned' : 'Missing'}

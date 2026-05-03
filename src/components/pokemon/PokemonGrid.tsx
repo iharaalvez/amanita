@@ -194,7 +194,7 @@ export function PokemonGrid({ onSelect, search, filtersOpen }: Props) {
       )}
 
       {isLoading ? (
-        <div className="grid grid-cols-4 gap-2 sm:grid-cols-6 lg:grid-cols-8">
+        <div className="grid grid-cols-3 gap-2 sm:grid-cols-5 lg:grid-cols-8">
           {Array.from({ length: 32 }).map((_, index) => (
             <div key={index} className="h-28 animate-pulse rounded-xl bg-gray-200 dark:bg-gray-700" />
           ))}
@@ -204,7 +204,7 @@ export function PokemonGrid({ onSelect, search, filtersOpen }: Props) {
           No Pokemon match your filters.
         </div>
       ) : (
-        <div className="grid grid-cols-4 gap-2 sm:grid-cols-6 lg:grid-cols-8">
+        <div className="grid grid-cols-3 gap-2 sm:grid-cols-5 lg:grid-cols-8">
           {visibleEntries.map((entry) => (
             <PokemonCard
               key={`${entry.speciesId}-${entry.formName ?? 'base'}`}
