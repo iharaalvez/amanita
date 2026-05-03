@@ -152,7 +152,7 @@ export default function Home() {
     return (
       <main className="flex min-h-screen items-center justify-center bg-[#08111f] px-4 text-white">
         <div className="text-center">
-          <p className="text-lg font-bold">Living Pokedex</p>
+          <p className="text-lg font-bold">Gotta Catch &apos;Em All!</p>
           <p className="mt-2 text-sm text-slate-400">
             Checking your session...
           </p>
@@ -175,7 +175,7 @@ export default function Home() {
       <header className="mx-auto max-w-7xl px-4 pb-0 pt-4 sm:pt-6">
         <div className="mb-4 flex items-baseline justify-between">
           <h1 className="text-xl font-bold tracking-tight dark:text-white">
-            Living Pokédex
+            Gotta Catch &apos;Em All!
           </h1>
           <div className="flex items-center gap-3">
             {user ? (

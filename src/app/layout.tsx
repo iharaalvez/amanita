@@ -25,8 +25,13 @@ const geistMono = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "Living Pokédex Tracker",
+  title: "Gotta Catch 'Em All!",
   description: "Track your Living Dex and National Dex progress",
+  icons: {
+    icon: "/icon.svg",
+    shortcut: "/icon.svg",
+    apple: "/icon.svg",
+  },
 };
 
 export default function RootLayout({

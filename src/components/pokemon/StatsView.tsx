@@ -141,14 +141,24 @@ export function StatsView() {
   const [importMessage, setImportMessage] = useState<string | null>(null);
 
   const stats = useMemo(() => {
-    const records = Object.values(ownedRecords);
-    const total = entries?.length ?? 0;
+    const livingDexEntries = (entries ?? []).filter((e) => e.formName === null);
+    const livingDexKeys = new Set(
+      livingDexEntries.map((e) => ownedKey(e.speciesId, e.formName)),
+    );
+    const records = Object.entries(ownedRecords)
+      .filter(([key]) => livingDexKeys.has(key))
+      .map(([, record]) => record);
+    const total = livingDexEntries.length;
 
-    const ownedCount = records.filter((r) => r.owned).length;
-    const shinyCount = records.filter((r) => r.shiny_owned).length;
+    const ownedCount = livingDexEntries.filter(
+      (e) => ownedRecords[ownedKey(e.speciesId, e.formName)]?.owned,
+    ).length;
+    const shinyCount = livingDexEntries.filter(
+      (e) => ownedRecords[ownedKey(e.speciesId, e.formName)]?.shiny_owned,
+    ).length;
 
     const genData = GENERATIONS.map((gen) => {
-      const genEntries = (entries ?? []).filter((e) => e.generation === gen);
+      const genEntries = livingDexEntries.filter((e) => e.generation === gen);
       const genTotal = genEntries.length;
       const genOwned = genEntries.filter(
         (e) => ownedRecords[ownedKey(e.speciesId, e.formName)]?.owned,

@@ -146,16 +146,16 @@ export function HomeBoxView({ onSelect, search }: Props) {
       </div>
 
       {/* Box grid */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
         {boxes.map((box, boxIndex) => (
           <section
             key={boxIndex}
-            className="scroll-mt-14 rounded-xl border border-gray-100 bg-gray-50 p-4 dark:border-gray-700/50 dark:bg-gray-800/60"
+            className="scroll-mt-14 rounded-xl border border-gray-100 bg-gray-50 p-3 dark:border-gray-700/50 dark:bg-gray-800/60"
           >
-            <p className="mb-3 text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500">
+            <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500">
               Box {boxIndex + 1}
             </p>
-            <div className="grid grid-cols-6 gap-1.5">
+            <div className="grid grid-cols-6 gap-1">
               {box.map((entry, slotIndex) => {
                 const slotKey = entry
                   ? `${entry.speciesId}-${entry.formName ?? "base"}`
