@@ -1,0 +1,25 @@
+"""GAME_LIST ported from src/config/games.ts with PokeAPI pokedex ids."""
+
+GAME_LIST: list[dict[str, object]] = [
+    {"id": "red-blue", "name": "Red / Blue", "version_group": "red-blue", "generation": 1, "pokedex_id": "kanto", "has_shiny_charm": False, "pokeapi_ready": True},
+    {"id": "yellow", "name": "Yellow", "version_group": "yellow", "generation": 1, "pokedex_id": "kanto", "has_shiny_charm": False, "pokeapi_ready": True},
+    {"id": "gold-silver", "name": "Gold / Silver", "version_group": "gold-silver", "generation": 2, "pokedex_id": "original-johto", "has_shiny_charm": False, "pokeapi_ready": True},
+    {"id": "crystal", "name": "Crystal", "version_group": "crystal", "generation": 2, "pokedex_id": "original-johto", "has_shiny_charm": False, "pokeapi_ready": True},
+    {"id": "ruby-sapphire", "name": "Ruby / Sapphire", "version_group": "ruby-sapphire", "generation": 3, "pokedex_id": "hoenn", "has_shiny_charm": False, "pokeapi_ready": True},
+    {"id": "emerald", "name": "Emerald", "version_group": "emerald", "generation": 3, "pokedex_id": "hoenn", "has_shiny_charm": False, "pokeapi_ready": True},
+    {"id": "firered-leafgreen", "name": "FireRed / LeafGreen", "version_group": "firered-leafgreen", "generation": 3, "pokedex_id": "kanto", "has_shiny_charm": False, "pokeapi_ready": True},
+    {"id": "diamond-pearl", "name": "Diamond / Pearl", "version_group": "diamond-pearl", "generation": 4, "pokedex_id": "original-sinnoh", "has_shiny_charm": False, "pokeapi_ready": True},
+    {"id": "platinum", "name": "Platinum", "version_group": "platinum", "generation": 4, "pokedex_id": "extended-sinnoh", "has_shiny_charm": False, "pokeapi_ready": True},
+    {"id": "heartgold-soulsilver", "name": "HeartGold / SoulSilver", "version_group": "heartgold-soulsilver", "generation": 4, "pokedex_id": "updated-johto", "has_shiny_charm": False, "pokeapi_ready": True},
+    {"id": "black-white", "name": "Black / White", "version_group": "black-white", "generation": 5, "pokedex_id": "original-unova", "has_shiny_charm": False, "pokeapi_ready": True},
+    {"id": "black2-white2", "name": "Black 2 / White 2", "version_group": "black-2-white-2", "generation": 5, "pokedex_id": "updated-unova", "has_shiny_charm": True, "pokeapi_ready": True},
+    {"id": "x-y", "name": "X / Y", "version_group": "x-y", "generation": 6, "pokedex_id": "kalos-central", "has_shiny_charm": True, "pokeapi_ready": True},
+    {"id": "oras", "name": "Omega Ruby / Alpha Sapphire", "version_group": "omega-ruby-alpha-sapphire", "generation": 6, "pokedex_id": "updated-hoenn", "has_shiny_charm": True, "pokeapi_ready": True},
+    {"id": "sun-moon", "name": "Sun / Moon", "version_group": "sun-moon", "generation": 7, "pokedex_id": "original-alola", "has_shiny_charm": True, "pokeapi_ready": True},
+    {"id": "usum", "name": "Ultra Sun / Ultra Moon", "version_group": "ultra-sun-ultra-moon", "generation": 7, "pokedex_id": "updated-alola", "has_shiny_charm": True, "pokeapi_ready": True},
+    {"id": "swsh", "name": "Sword / Shield", "version_group": "sword-shield", "generation": 8, "pokedex_id": "galar", "has_shiny_charm": True, "pokeapi_ready": True},
+    {"id": "bdsp", "name": "Brilliant Diamond / Shining Pearl", "version_group": "brilliant-diamond-shining-pearl", "generation": 8, "pokedex_id": "original-sinnoh", "has_shiny_charm": True, "pokeapi_ready": True},
+    {"id": "pla", "name": "Legends: Arceus", "version_group": "legends-arceus", "generation": 8, "pokedex_id": "hisui", "has_shiny_charm": True, "pokeapi_ready": True},
+    {"id": "scarlet-violet", "name": "Scarlet / Violet", "version_group": "scarlet-violet", "generation": 9, "pokedex_id": "paldea", "has_shiny_charm": True, "pokeapi_ready": True},
+    {"id": "legends-za", "name": "Legends: Z-A", "generation": 9, "pokedex_id": None, "has_shiny_charm": True, "pokeapi_ready": False},
+]

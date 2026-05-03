@@ -1,0 +1,103 @@
+export type OwnershipMethod = 'caught' | 'bred' | 'hatched' | 'transferred' | 'event';
+
+export type OwnedRecord = {
+  pokedex_number: number;   // species ID (1–1025)
+  form_name: string | null; // null = base form, e.g. 'vulpix-alola' for regional
+  owned: boolean;
+  shiny_owned: boolean;
+  planned?: boolean;
+  method?: OwnershipMethod;
+  game?: string;
+  game_caught?: string;
+  game_dex: Record<string, boolean>;
+  notes?: string;
+  date_obtained?: string;
+};
+
+export type PokemonVariety = {
+  is_default: boolean;
+  pokemon: { name: string; url: string };
+};
+
+export type PokemonSpecies = {
+  id: number;
+  name: string;
+  varieties: PokemonVariety[];
+  evolution_chain: { url: string };
+};
+
+export type LivingDexEntry = {
+  id: number;               // Local living_dex_entries ID
+  speciesId: number;        // National Dex species ID (1–1025)
+  name: string;             // API name, e.g. 'vulpix-alola'
+  formName: string | null;  // null = base form
+  displayName: string;      // 'Alolan Vulpix'
+  generation: number;       // 1–9, based on base species
+  spriteUrl: string;
+  shinySpriteUrl?: string;
+  isRegionalForm?: boolean;
+  regionLabel?: string | null;
+  sortOrder?: number;
+};
+
+export type EncounterLocation = {
+  location: string;
+  games: string[];
+};
+
+export type GameDexEntry = {
+  speciesId: number;
+  entryNumber: number;
+  formName: string | null;
+  displayName: string;
+  spriteUrl: string;
+};
+
+export type ApiHealth = {
+  status: string;
+  seeded: boolean;
+};
+
+export type ProgressSnapshot = {
+  owned: Record<string, OwnedRecord>;
+  gameDexProgress: Record<string, number[]>;
+  availableGames: Record<string, boolean>;
+};
+
+export type EvolutionStage = { name: string; id: number };
+
+export type GameDex = {
+  gameId: string;
+  gameName: string;
+  generation: number;
+  totalPokemon: number;
+  owned: number[];
+};
+
+export type PokemonListItem = {
+  name: string;
+  url: string;
+};
+
+export type PokemonType =
+  | 'normal' | 'fire' | 'water' | 'electric' | 'grass' | 'ice'
+  | 'fighting' | 'poison' | 'ground' | 'flying' | 'psychic' | 'bug'
+  | 'rock' | 'ghost' | 'dragon' | 'dark' | 'steel' | 'fairy';
+
+export type PokemonSprites = {
+  front_default: string | null;
+  front_shiny: string | null;
+};
+
+export type Pokemon = {
+  id: number;
+  name: string;
+  sprites: PokemonSprites;
+  types: Array<{
+    slot: number;
+    type: { name: PokemonType; url: string };
+  }>;
+};
+
+export const GEN_FILTER_VALUES = ['all', 1, 2, 3, 4, 5, 6, 7, 8, 9] as const;
+export type GenerationFilter = (typeof GEN_FILTER_VALUES)[number];
