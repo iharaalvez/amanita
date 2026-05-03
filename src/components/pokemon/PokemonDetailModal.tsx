@@ -230,8 +230,8 @@ export function PokemonDetailModal({ pokemonId, speciesId, formName, onClose, on
         {selectedEntry?.types?.[0] && (
           <div
             aria-hidden
-            className="pointer-events-none absolute inset-x-0 top-0 h-72"
-            style={{ background: `linear-gradient(160deg, ${TYPE_COLORS[selectedEntry.types[0]]}30 0%, transparent 100%)` }}
+            className="pointer-events-none absolute inset-x-0 top-0 h-96"
+            style={{ background: `radial-gradient(ellipse 100% 55% at 50% 0%, ${TYPE_COLORS[selectedEntry.types[0]]}45, transparent)` }}
           />
         )}
         <div aria-hidden className="mx-auto mb-1 mt-3 h-1 w-10 rounded-full bg-gray-300 dark:bg-gray-600 sm:hidden" />

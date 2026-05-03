@@ -1,11 +1,12 @@
 type TooltipProps = {
   content: string;
   children: React.ReactNode;
+  className?: string;
 };
 
-export function Tooltip({ content, children }: TooltipProps) {
+export function Tooltip({ content, children, className }: TooltipProps) {
   return (
-    <div className="group/tt relative inline-flex">
+    <div className={`group/tt relative inline-flex ${className ?? ''}`}>
       {children}
       <div
         role="tooltip"
