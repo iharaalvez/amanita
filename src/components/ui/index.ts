@@ -1,4 +1,4 @@
-export { Tooltip } from './Tooltip';
+export { Tooltip } from "./Tooltip";
 export {
   ArrowLeftIcon,
   ArrowRightIcon,
@@ -10,4 +10,4 @@ export {
   HomeIcon,
   SparkleIcon,
   XIcon,
-} from './Icons';
+} from "./Icons";

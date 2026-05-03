@@ -1,36 +1,35 @@
-import type { ApiHealth, GameDexEntry, LivingDexEntry } from '@/types/pokemon';
-import { GAME_LIST } from '@/config/games';
-import type { GameEntry } from '@/config/games';
-import { supabase } from './supabase';
+import type { ApiHealth, GameDexEntry, LivingDexEntry } from "@/types/pokemon";
+import { GAME_LIST } from "@/config/games";
+import type { GameEntry } from "@/config/games";
+import { supabase } from "./supabase";
 
 const LIVING_DEX_PAGE_SIZE = 1000;
 
 const MYTHICAL_IDS = new Set([
-  151, 251, 385, 386, 489, 490, 491, 492, 493, 494,
-  647, 648, 649, 719, 720, 721, 801, 802, 807, 808,
-  809, 893, 1025,
+  151, 251, 385, 386, 489, 490, 491, 492, 493, 494, 647, 648, 649, 719, 720,
+  721, 801, 802, 807, 808, 809, 893, 1025,
 ]);
 
 const NATIONAL_DEX_MAX_BY_GAME: Record<string, number> = {
-  'red-blue': 151,
+  "red-blue": 151,
   yellow: 151,
-  'gold-silver': 251,
+  "gold-silver": 251,
   crystal: 251,
-  'ruby-sapphire': 386,
+  "ruby-sapphire": 386,
   emerald: 386,
-  'firered-leafgreen': 386,
-  'diamond-pearl': 493,
+  "firered-leafgreen": 386,
+  "diamond-pearl": 493,
   platinum: 493,
-  'heartgold-soulsilver': 493,
-  'black-white': 649,
-  'black2-white2': 649,
-  'x-y': 721,
+  "heartgold-soulsilver": 493,
+  "black-white": 649,
+  "black2-white2": 649,
+  "x-y": 721,
   oras: 721,
   bdsp: 493,
 };
 
 const SHINY_CHARM_GAME_IDS = new Set(
-  GAME_LIST.filter((game) => game.hasShinyCharm).map((game) => game.id)
+  GAME_LIST.filter((game) => game.hasShinyCharm).map((game) => game.id),
 );
 
 type RawLivingDexEntry = {
@@ -77,40 +76,47 @@ function getGenerationFromSpeciesId(speciesId: number): number {
 
 // Regional forms were introduced in the generation of their region, not their base species.
 const REGION_GENERATION: Record<string, number> = {
-  Alolan:   7,
+  Alolan: 7,
   Galarian: 8,
-  Hisuian:  8,
-  Paldean:  9,
+  Hisuian: 8,
+  Paldean: 9,
 };
 
 function titleCase(name: string): string {
-  return name.split('-').map((word) => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+  return name
+    .split("-")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
 }
 
 function mapLivingDexEntry(entry: RawLivingDexEntry): LivingDexEntry {
   return {
     id: entry.id,
     speciesId: entry.species_id,
-    name: entry.form_name ?? entry.display_name.toLowerCase().replaceAll(' ', '-'),
+    name:
+      entry.form_name ?? entry.display_name.toLowerCase().replaceAll(" ", "-"),
     formName: entry.form_name,
     displayName: entry.display_name,
-    generation: (entry.is_regional_form && entry.region_label && REGION_GENERATION[entry.region_label])
-      ? REGION_GENERATION[entry.region_label]
-      : getGenerationFromSpeciesId(entry.species_id),
+    generation:
+      entry.is_regional_form &&
+      entry.region_label &&
+      REGION_GENERATION[entry.region_label]
+        ? REGION_GENERATION[entry.region_label]
+        : getGenerationFromSpeciesId(entry.species_id),
     spriteUrl: entry.sprite_url,
     shinySpriteUrl: entry.shiny_sprite_url,
     isRegionalForm: entry.is_regional_form,
     regionLabel: entry.region_label,
     sortOrder: entry.sort_order,
-    types: entry.types as LivingDexEntry['types'],
-    stats: entry.stats as LivingDexEntry['stats'],
+    types: entry.types as LivingDexEntry["types"],
+    stats: entry.stats as LivingDexEntry["stats"],
     height: entry.height,
     weight: entry.weight,
   };
 }
 
 function livingEntryKey(speciesId: number, formName: string | null): string {
-  return `${speciesId}:${formName ?? ''}`;
+  return `${speciesId}:${formName ?? ""}`;
 }
 
 async function getRawLivingDexEntries(): Promise<RawLivingDexEntry[]> {
@@ -120,9 +126,11 @@ async function getRawLivingDexEntries(): Promise<RawLivingDexEntry[]> {
   while (true) {
     const to = from + LIVING_DEX_PAGE_SIZE - 1;
     const { data, error } = await supabase
-      .from('living_dex_entries')
-      .select('id,species_id,form_name,display_name,sprite_url,shiny_sprite_url,is_regional_form,region_label,sort_order,types,stats,height,weight')
-      .order('sort_order', { ascending: true })
+      .from("living_dex_entries")
+      .select(
+        "id,species_id,form_name,display_name,sprite_url,shiny_sprite_url,is_regional_form,region_label,sort_order,types,stats,height,weight",
+      )
+      .order("sort_order", { ascending: true })
       .range(from, to);
 
     if (error) throw error;
@@ -136,14 +144,16 @@ async function getRawLivingDexEntries(): Promise<RawLivingDexEntry[]> {
   return rows;
 }
 
-async function getRawGameDexEntries(gameId: string): Promise<RawGameDexEntry[]> {
+async function getRawGameDexEntries(
+  gameId: string,
+): Promise<RawGameDexEntry[]> {
   const { data, error } = await supabase
-    .from('game_dex_entries')
-    .select('game_id,species_id,form_name,entry_number')
-    .eq('game_id', gameId)
-    .order('entry_number', { ascending: true })
-    .order('species_id', { ascending: true })
-    .order('form_name', { ascending: false });
+    .from("game_dex_entries")
+    .select("game_id,species_id,form_name,entry_number")
+    .eq("game_id", gameId)
+    .order("entry_number", { ascending: true })
+    .order("species_id", { ascending: true })
+    .order("form_name", { ascending: false });
 
   if (error) throw error;
   return (data ?? []) as RawGameDexEntry[];
@@ -153,7 +163,10 @@ function isExcludedFromGameDex(gameId: string, speciesId: number): boolean {
   return SHINY_CHARM_GAME_IDS.has(gameId) && MYTHICAL_IDS.has(speciesId);
 }
 
-function mapGameDexEntry(entry: LivingDexEntry, entryNumber: number): GameDexEntry {
+function mapGameDexEntry(
+  entry: LivingDexEntry,
+  entryNumber: number,
+): GameDexEntry {
   return {
     speciesId: entry.speciesId,
     entryNumber,
@@ -170,7 +183,9 @@ export const api = {
   },
 
   async getGameDex(gameId: string): Promise<GameDexEntry[]> {
-    const livingEntries = (await getRawLivingDexEntries()).map(mapLivingDexEntry);
+    const livingEntries = (await getRawLivingDexEntries()).map(
+      mapLivingDexEntry,
+    );
     const maxSpeciesId = NATIONAL_DEX_MAX_BY_GAME[gameId];
 
     if (maxSpeciesId) {
@@ -183,35 +198,45 @@ export const api = {
 
     const gameRows = await getRawGameDexEntries(gameId);
     const livingEntryByKey = new Map(
-      livingEntries.map((entry) => [livingEntryKey(entry.speciesId, entry.formName), entry])
+      livingEntries.map((entry) => [
+        livingEntryKey(entry.speciesId, entry.formName),
+        entry,
+      ]),
     );
     const bySpecies = new Map<number, GameDexEntry>();
 
     for (const row of gameRows) {
       if (isExcludedFromGameDex(gameId, row.species_id)) continue;
 
-      const formName = row.form_name === '' ? null : row.form_name;
-      const livingEntry = livingEntryByKey.get(livingEntryKey(row.species_id, formName));
+      const formName = row.form_name === "" ? null : row.form_name;
+      const livingEntry = livingEntryByKey.get(
+        livingEntryKey(row.species_id, formName),
+      );
       if (!livingEntry) continue;
 
       const current = bySpecies.get(row.species_id);
       if (!current || formName) {
-        bySpecies.set(row.species_id, mapGameDexEntry(livingEntry, row.entry_number ?? row.species_id));
+        bySpecies.set(
+          row.species_id,
+          mapGameDexEntry(livingEntry, row.entry_number ?? row.species_id),
+        );
       }
     }
 
     return Array.from(bySpecies.values()).sort((a, b) =>
-      a.entryNumber === b.entryNumber ? a.speciesId - b.speciesId : a.entryNumber - b.entryNumber
+      a.entryNumber === b.entryNumber
+        ? a.speciesId - b.speciesId
+        : a.entryNumber - b.entryNumber,
     );
   },
 
   async getEncounters(speciesId: number): Promise<Record<string, string[]>> {
     const { data, error } = await supabase
-      .from('encounters')
-      .select('species_id,form_name,game_id,location_name')
-      .eq('species_id', speciesId)
-      .order('game_id', { ascending: true })
-      .order('location_name', { ascending: true });
+      .from("encounters")
+      .select("species_id,form_name,game_id,location_name")
+      .eq("species_id", speciesId)
+      .order("game_id", { ascending: true })
+      .order("location_name", { ascending: true });
 
     if (error) throw error;
 
@@ -232,10 +257,12 @@ export const api = {
 
   async getSpeciesForms(speciesId: number): Promise<LivingDexEntry[]> {
     const { data, error } = await supabase
-      .from('living_dex_entries')
-      .select('id,species_id,form_name,display_name,sprite_url,shiny_sprite_url,is_regional_form,region_label,sort_order,types,stats,height,weight')
-      .eq('species_id', speciesId)
-      .order('sort_order', { ascending: true });
+      .from("living_dex_entries")
+      .select(
+        "id,species_id,form_name,display_name,sprite_url,shiny_sprite_url,is_regional_form,region_label,sort_order,types,stats,height,weight",
+      )
+      .eq("species_id", speciesId)
+      .order("sort_order", { ascending: true });
 
     if (error) throw error;
     return ((data ?? []) as RawLivingDexEntry[]).map(mapLivingDexEntry);
@@ -243,13 +270,12 @@ export const api = {
 
   async health(): Promise<ApiHealth> {
     const { count, error } = await supabase
-      .from('living_dex_entries')
-      .select('id', { count: 'exact', head: true });
+      .from("living_dex_entries")
+      .select("id", { count: "exact", head: true });
 
     if (error) throw error;
-    return { status: 'ok', seeded: (count ?? 0) > 0 };
+    return { status: "ok", seeded: (count ?? 0) > 0 };
   },
-
 };
 
 export function toPokemonListItem(entry: LivingDexEntry) {

@@ -2,7 +2,7 @@ type IconProps = {
   className?: string;
 };
 
-export function CheckIcon({ className = 'w-4 h-4' }: IconProps) {
+export function CheckIcon({ className = "w-4 h-4" }: IconProps) {
   return (
     <svg
       className={className}
@@ -19,7 +19,7 @@ export function CheckIcon({ className = 'w-4 h-4' }: IconProps) {
   );
 }
 
-export function XIcon({ className = 'w-4 h-4' }: IconProps) {
+export function XIcon({ className = "w-4 h-4" }: IconProps) {
   return (
     <svg
       className={className}
@@ -37,7 +37,7 @@ export function XIcon({ className = 'w-4 h-4' }: IconProps) {
   );
 }
 
-export function ArrowRightIcon({ className = 'w-4 h-4' }: IconProps) {
+export function ArrowRightIcon({ className = "w-4 h-4" }: IconProps) {
   return (
     <svg
       className={className}
@@ -55,7 +55,7 @@ export function ArrowRightIcon({ className = 'w-4 h-4' }: IconProps) {
   );
 }
 
-export function ArrowLeftIcon({ className = 'w-4 h-4' }: IconProps) {
+export function ArrowLeftIcon({ className = "w-4 h-4" }: IconProps) {
   return (
     <svg
       className={className}
@@ -73,7 +73,7 @@ export function ArrowLeftIcon({ className = 'w-4 h-4' }: IconProps) {
   );
 }
 
-export function SparkleIcon({ className = 'w-4 h-4' }: IconProps) {
+export function SparkleIcon({ className = "w-4 h-4" }: IconProps) {
   return (
     <svg
       className={className}
@@ -91,7 +91,7 @@ export function SparkleIcon({ className = 'w-4 h-4' }: IconProps) {
   );
 }
 
-export function BookmarkIcon({ className = 'w-4 h-4' }: IconProps) {
+export function BookmarkIcon({ className = "w-4 h-4" }: IconProps) {
   return (
     <svg
       className={className}
@@ -108,7 +108,7 @@ export function BookmarkIcon({ className = 'w-4 h-4' }: IconProps) {
   );
 }
 
-export function HomeIcon({ className = 'w-4 h-4' }: IconProps) {
+export function HomeIcon({ className = "w-4 h-4" }: IconProps) {
   return (
     <svg
       className={className}
@@ -127,7 +127,7 @@ export function HomeIcon({ className = 'w-4 h-4' }: IconProps) {
   );
 }
 
-export function ArrowUpRightIcon({ className = 'w-4 h-4' }: IconProps) {
+export function ArrowUpRightIcon({ className = "w-4 h-4" }: IconProps) {
   return (
     <svg
       className={className}
@@ -145,7 +145,7 @@ export function ArrowUpRightIcon({ className = 'w-4 h-4' }: IconProps) {
   );
 }
 
-export function FilterIcon({ className = 'w-4 h-4' }: IconProps) {
+export function FilterIcon({ className = "w-4 h-4" }: IconProps) {
   return (
     <svg
       className={className}
@@ -164,7 +164,7 @@ export function FilterIcon({ className = 'w-4 h-4' }: IconProps) {
   );
 }
 
-export function ChevronDownIcon({ className = 'w-4 h-4' }: IconProps) {
+export function ChevronDownIcon({ className = "w-4 h-4" }: IconProps) {
   return (
     <svg
       className={className}

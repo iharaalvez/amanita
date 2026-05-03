@@ -1,21 +1,21 @@
-'use client';
+"use client";
 
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { ownedKey, usePokedexStore } from '@/store/pokedexStore';
-import { useLivingDexEntries } from '@/hooks/usePokemon';
-import { useAuth } from '@/hooks/useAuth';
-import { supabase } from '@/lib/supabase';
-import type { KeyboardEvent } from 'react';
-import { PokemonGrid } from '@/components/pokemon/PokemonGrid';
-import { HomeBoxView } from '@/components/pokemon/HomeBoxView';
-import { GameDexView } from '@/components/pokemon/GameDexView';
-import { StatsView } from '@/components/pokemon/StatsView';
-import { PokemonDetailModal } from '@/components/pokemon/PokemonDetailModal';
-import { AuthModal } from '@/components/auth/AuthModal';
-import { LandingPage } from '@/components/LandingPage';
-import { FilterIcon, XIcon } from '@/components/ui';
+import { useEffect, useMemo, useRef, useState } from "react";
+import { ownedKey, usePokedexStore } from "@/store/pokedexStore";
+import { useLivingDexEntries } from "@/hooks/usePokemon";
+import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/lib/supabase";
+import type { KeyboardEvent } from "react";
+import { PokemonGrid } from "@/components/pokemon/PokemonGrid";
+import { HomeBoxView } from "@/components/pokemon/HomeBoxView";
+import { GameDexView } from "@/components/pokemon/GameDexView";
+import { StatsView } from "@/components/pokemon/StatsView";
+import { PokemonDetailModal } from "@/components/pokemon/PokemonDetailModal";
+import { AuthModal } from "@/components/auth/AuthModal";
+import { LandingPage } from "@/components/LandingPage";
+import { FilterIcon, XIcon } from "@/components/ui";
 
-type Tab = 'pokedex' | 'home' | 'gamedex' | 'stats';
+type Tab = "pokedex" | "home" | "gamedex" | "stats";
 
 type SelectedPokemon = {
   pokemonId: number;
@@ -24,74 +24,92 @@ type SelectedPokemon = {
 };
 
 const GENERATIONS = [
-  { id: 1, label: 'I' },
-  { id: 2, label: 'II' },
-  { id: 3, label: 'III' },
-  { id: 4, label: 'IV' },
-  { id: 5, label: 'V' },
-  { id: 6, label: 'VI' },
-  { id: 7, label: 'VII' },
-  { id: 8, label: 'VIII' },
-  { id: 9, label: 'IX' },
+  { id: 1, label: "I" },
+  { id: 2, label: "II" },
+  { id: 3, label: "III" },
+  { id: 4, label: "IV" },
+  { id: 5, label: "V" },
+  { id: 6, label: "VI" },
+  { id: 7, label: "VII" },
+  { id: 8, label: "VIII" },
+  { id: 9, label: "IX" },
 ] as const;
 
 const TABS: { id: Tab; label: string }[] = [
-  { id: 'pokedex', label: 'Pokedex' },
-  { id: 'home', label: 'HOME' },
-  { id: 'gamedex', label: 'Game Dex' },
-  { id: 'stats', label: 'Stats' },
+  { id: "pokedex", label: "Pokedex" },
+  { id: "home", label: "HOME" },
+  { id: "gamedex", label: "Game Dex" },
+  { id: "stats", label: "Stats" },
 ];
 
-const SHOW_PROGRESS_TABS = new Set<Tab>(['pokedex', 'home']);
+const SHOW_PROGRESS_TABS = new Set<Tab>(["pokedex", "home"]);
 
 export default function Home() {
-  const [activeTab, setActiveTab] = useState<Tab>('pokedex');
+  const [activeTab, setActiveTab] = useState<Tab>("pokedex");
   const [selected, setSelected] = useState<SelectedPokemon | null>(null);
-  const [pokedexSearch, setPokedexSearch] = useState('');
+  const [pokedexSearch, setPokedexSearch] = useState("");
   const [pokedexFiltersOpen, setPokedexFiltersOpen] = useState(false);
-  const [homeSearch, setHomeSearch] = useState('');
+  const [homeSearch, setHomeSearch] = useState("");
   const [authOpen, setAuthOpen] = useState(false);
   const [editingName, setEditingName] = useState(false);
-  const [nameInput, setNameInput] = useState('');
+  const [nameInput, setNameInput] = useState("");
   const { user, loading } = useAuth();
 
   const displayName = user?.user_metadata?.display_name as string | undefined;
 
   function startEditName() {
-    setNameInput(displayName ?? '');
+    setNameInput(displayName ?? "");
     setEditingName(true);
   }
 
   async function saveName() {
     setEditingName(false);
     const trimmed = nameInput.trim();
-    if (trimmed === (displayName ?? '')) return;
+    if (trimmed === (displayName ?? "")) return;
     await supabase.auth.updateUser({ data: { display_name: trimmed || null } });
   }
 
   function handleNameKey(e: KeyboardEvent<HTMLInputElement>) {
-    if (e.key === 'Enter') e.currentTarget.blur();
-    if (e.key === 'Escape') { setEditingName(false); }
+    if (e.key === "Enter") e.currentTarget.blur();
+    if (e.key === "Escape") {
+      setEditingName(false);
+    }
   }
   const ownedRecords = usePokedexStore((s) => s.owned);
+  const showCosmeticForms = usePokedexStore((s) => s.showCosmeticForms);
 
-  const ownedCount = Object.values(ownedRecords).filter((r) => r.owned).length;
   const { data: livingDexEntries } = useLivingDexEntries();
   const [milestoneMessage, setMilestoneMessage] = useState<string | null>(null);
   const prevOwnedRef = useRef<number | null>(null);
+
+  const filteredEntries = useMemo(
+    () =>
+      (livingDexEntries ?? []).filter(
+        (e) => e.formName === null || e.isRegionalForm || showCosmeticForms,
+      ),
+    [livingDexEntries, showCosmeticForms],
+  );
+
+  const ownedCount = useMemo(
+    () =>
+      filteredEntries.filter(
+        (e) => ownedRecords[ownedKey(e.speciesId, e.formName)]?.owned,
+      ).length,
+    [filteredEntries, ownedRecords],
+  );
 
   useEffect(() => {
     const prev = prevOwnedRef.current;
     prevOwnedRef.current = ownedCount;
     if (prev === null || ownedCount <= prev) return;
     const milestones: [number, string][] = [
-      [1,    'First Pokémon caught!'],
-      [50,   '50 caught — just getting started.'],
-      [100,  '100 Pokémon owned!'],
-      [250,  '250 owned — a quarter of the way there.'],
-      [500,  'Halfway to a complete Living Dex!'],
-      [750,  '750 owned — almost there.'],
-      [1025, 'Living Dex complete!'],
+      [1, "First Pokémon caught!"],
+      [50, "50 caught — just getting started."],
+      [100, "100 Pokémon owned!"],
+      [250, "250 owned — a quarter of the way there."],
+      [500, "Halfway to a complete Living Dex!"],
+      [750, "750 owned — almost there."],
+      [1025, "Living Dex complete!"],
     ];
     for (const [threshold, message] of milestones) {
       if (prev < threshold && ownedCount >= threshold) {
@@ -101,7 +119,7 @@ export default function Home() {
       }
     }
   }, [ownedCount]);
-  const total = livingDexEntries?.length ?? 1025;
+  const total = filteredEntries.length || 1025;
   const progressPct = total > 0 ? (ownedCount / total) * 100 : 0;
 
   const generationProgress = useMemo(() => {
@@ -109,7 +127,7 @@ export default function Home() {
     for (const generation of GENERATIONS) {
       totals.set(generation.id, { owned: 0, total: 0 });
     }
-    for (const entry of livingDexEntries ?? []) {
+    for (const entry of filteredEntries) {
       const progress = totals.get(entry.generation);
       if (!progress) continue;
       progress.total += 1;
@@ -117,11 +135,16 @@ export default function Home() {
         progress.owned += 1;
       }
     }
-    return GENERATIONS.map((g) => ({ ...g, ...(totals.get(g.id) ?? { owned: 0, total: 0 }) }));
-  }, [livingDexEntries, ownedRecords]);
+    return GENERATIONS.map((g) => ({
+      ...g,
+      ...(totals.get(g.id) ?? { owned: 0, total: 0 }),
+    }));
+  }, [filteredEntries, ownedRecords]);
 
   function handleSelect(speciesId: number, formName: string | null) {
-    const entry = livingDexEntries?.find((e) => e.speciesId === speciesId && e.formName === formName);
+    const entry = livingDexEntries?.find(
+      (e) => e.speciesId === speciesId && e.formName === formName,
+    );
     setSelected({ pokemonId: entry?.id ?? speciesId, speciesId, formName });
   }
 
@@ -130,7 +153,9 @@ export default function Home() {
       <main className="flex min-h-screen items-center justify-center bg-[#08111f] px-4 text-white">
         <div className="text-center">
           <p className="text-lg font-bold">Living Pokedex</p>
-          <p className="mt-2 text-sm text-slate-400">Checking your session...</p>
+          <p className="mt-2 text-sm text-slate-400">
+            Checking your session...
+          </p>
         </div>
       </main>
     );
@@ -149,7 +174,9 @@ export default function Home() {
     <main className="min-h-screen bg-white dark:bg-gray-900">
       <header className="mx-auto max-w-7xl px-4 pb-0 pt-4 sm:pt-6">
         <div className="mb-4 flex items-baseline justify-between">
-          <h1 className="text-xl font-bold tracking-tight dark:text-white">Living Pokédex</h1>
+          <h1 className="text-xl font-bold tracking-tight dark:text-white">
+            Living Pokédex
+          </h1>
           <div className="flex items-center gap-3">
             {user ? (
               <div className="flex items-center gap-2">
@@ -191,21 +218,24 @@ export default function Home() {
                 Sign in
               </button>
             )}
-            {SHOW_PROGRESS_TABS.has(activeTab) && (
-              <div className="text-right">
-                <p className="text-lg font-bold tabular-nums text-green-400">{progressPct.toFixed(1)}%</p>
-                <p className="text-xs font-semibold tabular-nums text-gray-400">
-                  <span className="text-green-400">{ownedCount}</span>
-                  <span className="mx-1 text-gray-600">/</span>
-                  {total}
-                </p>
-              </div>
-            )}
           </div>
         </div>
 
         {SHOW_PROGRESS_TABS.has(activeTab) && (
           <div className="mb-4">
+            <div className="mb-1.5 flex items-baseline justify-between">
+              <span className="text-xs font-semibold text-gray-400">
+                Living Pokédex
+              </span>
+              <span className="text-xs tabular-nums text-gray-400">
+                <span className="font-bold text-green-400">{ownedCount}</span>
+                <span className="mx-1 text-gray-500">/</span>
+                {total}
+                <span className="ml-2 font-bold text-green-400">
+                  {progressPct.toFixed(1)}%
+                </span>
+              </span>
+            </div>
             <div className="mb-3 h-2 overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800">
               <div
                 className="h-full rounded-full bg-green-400 transition-all duration-700"
@@ -245,8 +275,8 @@ export default function Home() {
                 onClick={() => setActiveTab(id)}
                 className={`-mb-px shrink-0 border-b-2 px-3 py-2.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 sm:px-5 ${
                   activeTab === id
-                    ? 'border-blue-500 text-blue-500 dark:text-blue-400'
-                    : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-800 dark:text-gray-400 dark:hover:border-gray-600 dark:hover:text-gray-200'
+                    ? "border-blue-500 text-blue-500 dark:text-blue-400"
+                    : "border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-800 dark:text-gray-400 dark:hover:border-gray-600 dark:hover:text-gray-200"
                 }`}
               >
                 {label}
@@ -254,10 +284,12 @@ export default function Home() {
             ))}
           </div>
 
-          {activeTab === 'home' && (
+          {activeTab === "home" && (
             <div className="pb-2 sm:pb-2">
               <div className="relative w-full sm:w-72">
-                <label htmlFor="home-search" className="sr-only">Search Pokémon in HOME</label>
+                <label htmlFor="home-search" className="sr-only">
+                  Search Pokémon in HOME
+                </label>
                 <input
                   id="home-search"
                   type="search"
@@ -269,7 +301,7 @@ export default function Home() {
                 {homeSearch && (
                   <button
                     type="button"
-                    onClick={() => setHomeSearch('')}
+                    onClick={() => setHomeSearch("")}
                     className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-gray-400 hover:text-gray-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 dark:hover:text-gray-200"
                     aria-label="Clear search"
                   >
@@ -279,10 +311,12 @@ export default function Home() {
               </div>
             </div>
           )}
-          {activeTab === 'pokedex' && (
+          {activeTab === "pokedex" && (
             <div className="flex items-center gap-2 pb-2 sm:pb-2">
               <div className="relative w-full sm:w-72">
-                <label htmlFor="pokedex-search" className="sr-only">Search Pokemon</label>
+                <label htmlFor="pokedex-search" className="sr-only">
+                  Search Pokemon
+                </label>
                 <input
                   id="pokedex-search"
                   type="search"
@@ -294,7 +328,7 @@ export default function Home() {
                 {pokedexSearch && (
                   <button
                     type="button"
-                    onClick={() => setPokedexSearch('')}
+                    onClick={() => setPokedexSearch("")}
                     className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-gray-400 hover:text-gray-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 dark:hover:text-gray-200"
                     aria-label="Clear search"
                   >
@@ -309,8 +343,8 @@ export default function Home() {
                 aria-expanded={pokedexFiltersOpen}
                 className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${
                   pokedexFiltersOpen
-                    ? 'border-blue-500 bg-blue-500 text-white'
-                    : 'border-gray-200 bg-white text-gray-500 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700'
+                    ? "border-blue-500 bg-blue-500 text-white"
+                    : "border-gray-200 bg-white text-gray-500 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
                 }`}
               >
                 <FilterIcon className="h-4 w-4" />
@@ -321,16 +355,18 @@ export default function Home() {
       </header>
 
       <div className="mt-4">
-        {activeTab === 'pokedex' && (
+        {activeTab === "pokedex" && (
           <PokemonGrid
             onSelect={handleSelect}
             search={pokedexSearch}
             filtersOpen={pokedexFiltersOpen}
           />
         )}
-        {activeTab === 'home' && <HomeBoxView onSelect={handleSelect} search={homeSearch} />}
-        {activeTab === 'gamedex' && <GameDexView onSelect={handleSelect} />}
-        {activeTab === 'stats' && <StatsView />}
+        {activeTab === "home" && (
+          <HomeBoxView onSelect={handleSelect} search={homeSearch} />
+        )}
+        {activeTab === "gamedex" && <GameDexView onSelect={handleSelect} />}
+        {activeTab === "stats" && <StatsView />}
       </div>
 
       {selected !== null && (
@@ -339,7 +375,9 @@ export default function Home() {
           speciesId={selected.speciesId}
           formName={selected.formName}
           onClose={() => setSelected(null)}
-          onNavigate={(pokemonId, speciesId, formName) => setSelected({ pokemonId, speciesId, formName })}
+          onNavigate={(pokemonId, speciesId, formName) =>
+            setSelected({ pokemonId, speciesId, formName })
+          }
         />
       )}
 

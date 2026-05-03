@@ -1,6 +1,6 @@
-'use client';
+"use client";
 
-import Image from 'next/image';
+import Image from "next/image";
 import {
   ArrowRightIcon,
   ArrowUpRightIcon,
@@ -8,7 +8,7 @@ import {
   CheckIcon,
   HomeIcon,
   SparkleIcon,
-} from '@/components/ui';
+} from "@/components/ui";
 
 type LandingPageProps = {
   onSignIn: () => void;
@@ -17,8 +17,8 @@ type LandingPageProps = {
 const previewPokemon = [
   {
     id: 1,
-    name: 'Bulbasaur',
-    color: 'border-blue-400 bg-blue-950/60 text-blue-200',
+    name: "Bulbasaur",
+    color: "border-blue-400 bg-blue-950/60 text-blue-200",
     owned: true,
     inHome: false,
     planned: false,
@@ -26,8 +26,8 @@ const previewPokemon = [
   },
   {
     id: 2,
-    name: 'Ivysaur',
-    color: 'border-green-400 bg-green-950/60 text-green-200',
+    name: "Ivysaur",
+    color: "border-green-400 bg-green-950/60 text-green-200",
     owned: true,
     inHome: true,
     planned: false,
@@ -35,8 +35,8 @@ const previewPokemon = [
   },
   {
     id: 3,
-    name: 'Venusaur',
-    color: 'border-violet-400 bg-violet-950/60 text-violet-200',
+    name: "Venusaur",
+    color: "border-violet-400 bg-violet-950/60 text-violet-200",
     owned: false,
     inHome: false,
     planned: true,
@@ -44,8 +44,8 @@ const previewPokemon = [
   },
   {
     id: 4,
-    name: 'Charmander',
-    color: 'border-blue-400 bg-blue-950/60 text-blue-200',
+    name: "Charmander",
+    color: "border-blue-400 bg-blue-950/60 text-blue-200",
     owned: true,
     inHome: false,
     planned: false,
@@ -53,8 +53,8 @@ const previewPokemon = [
   },
   {
     id: 5,
-    name: 'Charmeleon',
-    color: 'border-green-400 bg-green-950/60 text-green-200',
+    name: "Charmeleon",
+    color: "border-green-400 bg-green-950/60 text-green-200",
     owned: true,
     inHome: true,
     planned: false,
@@ -62,8 +62,8 @@ const previewPokemon = [
   },
   {
     id: 6,
-    name: 'Charizard',
-    color: 'border-slate-600 bg-slate-900/80 text-slate-400',
+    name: "Charizard",
+    color: "border-slate-600 bg-slate-900/80 text-slate-400",
     owned: false,
     inHome: false,
     planned: false,
@@ -73,22 +73,22 @@ const previewPokemon = [
 
 const features = [
   {
-    title: 'Living Dex tracking',
-    body: 'Mark what you personally caught or bred, including forms, planned hunts, and shiny progress.',
+    title: "Living Dex tracking",
+    body: "Mark what you personally caught or bred, including forms, planned hunts, and shiny progress.",
     icon: CheckIcon,
-    color: 'bg-emerald-100 text-emerald-700',
+    color: "bg-emerald-100 text-emerald-700",
   },
   {
-    title: 'HOME-style boxes',
-    body: 'Organize progress in familiar 30-slot boxes that are easy to check while playing.',
+    title: "HOME-style boxes",
+    body: "Organize progress in familiar 30-slot boxes that are easy to check while playing.",
     icon: HomeIcon,
-    color: 'bg-sky-100 text-sky-700',
+    color: "bg-sky-100 text-sky-700",
   },
   {
-    title: 'Game Dex goals',
-    body: 'Follow per-game National Dex completion so the Shiny Charm target stays visible.',
+    title: "Game Dex goals",
+    body: "Follow per-game National Dex completion so the Shiny Charm target stays visible.",
     icon: SparkleIcon,
-    color: 'bg-amber-100 text-amber-700',
+    color: "bg-amber-100 text-amber-700",
   },
 ];
 
@@ -98,7 +98,9 @@ export function LandingPage({ onSignIn }: LandingPageProps) {
       <section className="border-b border-white/10 bg-[#0d1828]">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-5 sm:px-6">
           <div>
-            <p className="text-lg font-bold tracking-tight">Gotta Catch `Em All!</p>
+            <p className="text-lg font-bold tracking-tight">
+              Gotta Catch `Em All!
+            </p>
           </div>
           <button
             type="button"
@@ -120,7 +122,8 @@ export function LandingPage({ onSignIn }: LandingPageProps) {
             Know exactly what is missing from your Pokedex.
           </h1>
           <p className="mt-5 max-w-2xl text-base leading-7 text-slate-300 sm:text-lg">
-            Track your Pokemon, organize them like Pokemon HOME, and keep your game-specific dex goals in one calm, readable place.
+            Track your Pokemon, organize them like Pokemon HOME, and keep your
+            game-specific dex goals in one calm, readable place.
           </p>
           <div className="mt-7 flex flex-col gap-3 sm:flex-row">
             <button
@@ -138,9 +141,13 @@ export function LandingPage({ onSignIn }: LandingPageProps) {
           <div className="mb-4 flex items-center justify-between border-b border-white/10 pb-4">
             <div>
               <p className="text-sm font-black">HOME Box 1</p>
-              <p className="text-xs text-slate-400">4 owned / 2 pending transfer</p>
+              <p className="text-xs text-slate-400">
+                4 owned / 2 pending transfer
+              </p>
             </div>
-            <div className="rounded-md bg-emerald-400 px-2 py-1 text-xs font-black text-slate-950">0.4%</div>
+            <div className="rounded-md bg-emerald-400 px-2 py-1 text-xs font-black text-slate-950">
+              0.4%
+            </div>
           </div>
           <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
             {previewPokemon.map((pokemon) => (
@@ -150,12 +157,22 @@ export function LandingPage({ onSignIn }: LandingPageProps) {
               >
                 <div className="flex h-full flex-col items-center justify-between">
                   <div className="flex w-full justify-between">
-                    <span className="text-[10px] font-bold tabular-nums">#{String(pokemon.id).padStart(4, '0')}</span>
+                    <span className="text-[10px] font-bold tabular-nums">
+                      #{String(pokemon.id).padStart(4, "0")}
+                    </span>
                     <span className="flex items-center gap-1">
-                      {pokemon.shiny && <SparkleIcon className="h-3.5 w-3.5 text-yellow-400" />}
-                      {pokemon.inHome && <HomeIcon className="h-3.5 w-3.5 text-green-400" />}
-                      {pokemon.owned && !pokemon.inHome && <ArrowUpRightIcon className="h-3.5 w-3.5 text-blue-400" />}
-                      {!pokemon.owned && pokemon.planned && <BookmarkIcon className="h-3.5 w-3.5 text-violet-400" />}
+                      {pokemon.shiny && (
+                        <SparkleIcon className="h-3.5 w-3.5 text-yellow-400" />
+                      )}
+                      {pokemon.inHome && (
+                        <HomeIcon className="h-3.5 w-3.5 text-green-400" />
+                      )}
+                      {pokemon.owned && !pokemon.inHome && (
+                        <ArrowUpRightIcon className="h-3.5 w-3.5 text-blue-400" />
+                      )}
+                      {!pokemon.owned && pokemon.planned && (
+                        <BookmarkIcon className="h-3.5 w-3.5 text-violet-400" />
+                      )}
                     </span>
                   </div>
                   <Image
@@ -164,12 +181,16 @@ export function LandingPage({ onSignIn }: LandingPageProps) {
                     width={56}
                     height={56}
                     unoptimized
-                    style={{ imageRendering: 'pixelated' }}
+                    style={{ imageRendering: "pixelated" }}
                     className={`h-14 w-14 object-contain [image-rendering:pixelated] ${
-                      pokemon.owned || pokemon.inHome || pokemon.shiny ? '' : 'grayscale opacity-50'
+                      pokemon.owned || pokemon.inHome || pokemon.shiny
+                        ? ""
+                        : "grayscale opacity-50"
                     }`}
                   />
-                  <span className="max-w-full truncate text-center text-[10px] font-bold">{pokemon.name}</span>
+                  <span className="max-w-full truncate text-center text-[10px] font-bold">
+                    {pokemon.name}
+                  </span>
                 </div>
               </div>
             ))}
@@ -196,14 +217,21 @@ export function LandingPage({ onSignIn }: LandingPageProps) {
           {features.map((feature) => {
             const FeatureIcon = feature.icon;
             return (
-            <article key={feature.title} className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-              <div className={`mb-4 flex h-10 w-10 items-center justify-center rounded-lg ${feature.color}`}>
-                <FeatureIcon className="h-5 w-5" />
-              </div>
-              <h2 className="text-base font-black">{feature.title}</h2>
-              <p className="mt-2 text-sm leading-6 text-slate-600">{feature.body}</p>
-            </article>
-          );
+              <article
+                key={feature.title}
+                className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm"
+              >
+                <div
+                  className={`mb-4 flex h-10 w-10 items-center justify-center rounded-lg ${feature.color}`}
+                >
+                  <FeatureIcon className="h-5 w-5" />
+                </div>
+                <h2 className="text-base font-black">{feature.title}</h2>
+                <p className="mt-2 text-sm leading-6 text-slate-600">
+                  {feature.body}
+                </p>
+              </article>
+            );
           })}
         </div>
       </section>

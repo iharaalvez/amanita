@@ -6,7 +6,7 @@ type TooltipProps = {
 
 export function Tooltip({ content, children, className }: TooltipProps) {
   return (
-    <div className={`group/tt relative inline-flex ${className ?? ''}`}>
+    <div className={`group/tt relative inline-flex ${className ?? ""}`}>
       {children}
       <div
         role="tooltip"

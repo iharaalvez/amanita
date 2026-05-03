@@ -1,15 +1,15 @@
-import { useQuery } from '@tanstack/react-query';
-import { getGamePokedexOverride } from '@/config/game-pokedex-overrides';
-import { getGameById } from '@/config/games';
-import { api } from '@/lib/api';
-import type { GameDexEntry, LivingDexEntry } from '@/types/pokemon';
+import { useQuery } from "@tanstack/react-query";
+import { getGamePokedexOverride } from "@/config/game-pokedex-overrides";
+import { getGameById } from "@/config/games";
+import { api } from "@/lib/api";
+import type { GameDexEntry, LivingDexEntry } from "@/types/pokemon";
 
 export function useGamePokedex(gameId: string) {
   const entry = getGameById(gameId);
   const override = getGamePokedexOverride(gameId);
 
   return useQuery<GameDexEntry[]>({
-    queryKey: ['game-pokedex', gameId],
+    queryKey: ["game-pokedex", gameId],
     queryFn: async () => {
       if (!override) return api.getGameDex(gameId);
 
@@ -17,7 +17,7 @@ export function useGamePokedex(gameId: string) {
       const baseEntries = new Map(
         entries
           .filter((livingEntry) => livingEntry.formName === null)
-          .map((livingEntry) => [livingEntry.speciesId, livingEntry])
+          .map((livingEntry) => [livingEntry.speciesId, livingEntry]),
       );
 
       return override

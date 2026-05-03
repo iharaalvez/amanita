@@ -20,13 +20,15 @@ function AuthSync() {
       }
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'SIGNED_IN' && session?.user) {
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === "SIGNED_IN" && session?.user) {
         loadFromSupabase().then((snapshot) => {
           if (snapshot) setProgressSnapshot(snapshot);
         });
       }
-      if (event === 'SIGNED_OUT') {
+      if (event === "SIGNED_OUT") {
         clearAll();
       }
     });
@@ -39,7 +41,10 @@ function AuthSync() {
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(
-    () => new QueryClient({ defaultOptions: { queries: { staleTime: 60 * 1000 } } })
+    () =>
+      new QueryClient({
+        defaultOptions: { queries: { staleTime: 60 * 1000 } },
+      }),
   );
 
   return (

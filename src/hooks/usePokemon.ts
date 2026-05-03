@@ -1,6 +1,11 @@
-import { useQuery } from '@tanstack/react-query';
-import { api, toPokemonListItem } from '@/lib/api';
-import type { EvolutionStage, LivingDexEntry, Pokemon, PokemonListItem } from '@/types/pokemon';
+import { useQuery } from "@tanstack/react-query";
+import { api, toPokemonListItem } from "@/lib/api";
+import type {
+  EvolutionStage,
+  LivingDexEntry,
+  Pokemon,
+  PokemonListItem,
+} from "@/types/pokemon";
 
 export type PokemonSpecies = {
   id: number;
@@ -13,7 +18,7 @@ export type PokemonSpecies = {
 
 export function useAllPokemon() {
   return useQuery<PokemonListItem[]>({
-    queryKey: ['pokemon-list'],
+    queryKey: ["pokemon-list"],
     queryFn: async () => {
       const entries = await api.getLivingDexEntries();
       return entries
@@ -26,7 +31,7 @@ export function useAllPokemon() {
 
 export function useLivingDexEntries() {
   return useQuery<LivingDexEntry[]>({
-    queryKey: ['living-dex-entries'],
+    queryKey: ["living-dex-entries"],
     queryFn: () => api.getLivingDexEntries(),
     staleTime: Infinity,
   });
@@ -34,7 +39,7 @@ export function useLivingDexEntries() {
 
 export function usePokemonDetail(idOrName: number | string) {
   return useQuery<Pokemon>({
-    queryKey: ['pokemon', idOrName],
+    queryKey: ["pokemon", idOrName],
     queryFn: () =>
       Promise.resolve({
         id: Number(idOrName),
@@ -48,7 +53,7 @@ export function usePokemonDetail(idOrName: number | string) {
 
 export function usePokemonSpecies(speciesId: number) {
   return useQuery<LivingDexEntry[]>({
-    queryKey: ['species-forms', speciesId],
+    queryKey: ["species-forms", speciesId],
     queryFn: () => api.getSpeciesForms(speciesId),
     staleTime: Infinity,
   });
@@ -56,7 +61,7 @@ export function usePokemonSpecies(speciesId: number) {
 
 export function usePokemonEvolution(speciesId: number) {
   return useQuery<EvolutionStage[][]>({
-    queryKey: ['evolution-unavailable', speciesId],
+    queryKey: ["evolution-unavailable", speciesId],
     queryFn: () => Promise.resolve([]),
     staleTime: Infinity,
   });

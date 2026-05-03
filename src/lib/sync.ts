@@ -1,8 +1,13 @@
-import { supabase } from './supabase';
-import type { OwnedRecord, OwnershipMethod, ProgressSnapshot, ShinyHuntMethod } from '@/types/pokemon';
+import { supabase } from "./supabase";
+import type {
+  OwnedRecord,
+  OwnershipMethod,
+  ProgressSnapshot,
+  ShinyHuntMethod,
+} from "@/types/pokemon";
 
 function ownedKey(speciesId: number, formName: string | null): string {
-  return `${speciesId}-${formName ?? 'base'}`;
+  return `${speciesId}-${formName ?? "base"}`;
 }
 
 type SupabaseRow = {
@@ -20,12 +25,18 @@ type SupabaseRow = {
 };
 
 export async function loadFromSupabase(): Promise<ProgressSnapshot | null> {
-  const { data: { user } } = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
   if (!user) return null;
 
   const [pokemonResult, settingsResult] = await Promise.all([
-    supabase.from('pokedex').select('*').eq('user_id', user.id),
-    supabase.from('user_settings').select('available_games').eq('user_id', user.id).maybeSingle(),
+    supabase.from("pokedex").select("*").eq("user_id", user.id),
+    supabase
+      .from("user_settings")
+      .select("available_games")
+      .eq("user_id", user.id)
+      .maybeSingle(),
   ]);
 
   if (pokemonResult.error) throw pokemonResult.error;
@@ -60,55 +71,82 @@ export async function loadFromSupabase(): Promise<ProgressSnapshot | null> {
   return {
     owned,
     gameDexProgress,
-    availableGames: (settingsResult.data?.available_games ?? {}) as Record<string, boolean>,
+    availableGames: (settingsResult.data?.available_games ?? {}) as Record<
+      string,
+      boolean
+    >,
   };
 }
 
 export async function syncRecord(record: OwnedRecord): Promise<void> {
-  const { data: { user } } = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
   if (!user) return;
 
-  await supabase.from('pokedex').upsert({
-    user_id: user.id,
-    species_id: record.pokedex_number,
-    form_name: record.form_name,
-    owned: record.owned,
-    shiny_owned: record.shiny_owned,
-    in_home: record.in_home ?? false,
-    planned: record.planned ?? false,
-    method: record.method ?? null,
-    game_caught: record.game_caught ?? null,
-    shiny_method: record.shiny_method ?? null,
-    shiny_game: record.shiny_game ?? null,
-    game_dex: record.game_dex,
-    updated_at: new Date().toISOString(),
-  }, { onConflict: 'user_id,species_id,form_name' });
-}
-
-export async function deleteRecord(speciesId: number, formName: string | null): Promise<void> {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return;
-
-  const query = supabase.from('pokedex').delete().eq('user_id', user.id).eq('species_id', speciesId);
-  if (formName === null) {
-    await query.is('form_name', null);
-  } else {
-    await query.eq('form_name', formName);
-  }
-}
-
-export async function syncAvailableGames(games: Record<string, boolean>): Promise<void> {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return;
-
-  await supabase.from('user_settings').upsert(
-    { user_id: user.id, available_games: games },
-    { onConflict: 'user_id' }
+  await supabase.from("pokedex").upsert(
+    {
+      user_id: user.id,
+      species_id: record.pokedex_number,
+      form_name: record.form_name,
+      owned: record.owned,
+      shiny_owned: record.shiny_owned,
+      in_home: record.in_home ?? false,
+      planned: record.planned ?? false,
+      method: record.method ?? null,
+      game_caught: record.game_caught ?? null,
+      shiny_method: record.shiny_method ?? null,
+      shiny_game: record.shiny_game ?? null,
+      game_dex: record.game_dex,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "user_id,species_id,form_name" },
   );
 }
 
-export async function syncAllRecords(snapshot: ProgressSnapshot): Promise<void> {
-  const { data: { user } } = await supabase.auth.getUser();
+export async function deleteRecord(
+  speciesId: number,
+  formName: string | null,
+): Promise<void> {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return;
+
+  const query = supabase
+    .from("pokedex")
+    .delete()
+    .eq("user_id", user.id)
+    .eq("species_id", speciesId);
+  if (formName === null) {
+    await query.is("form_name", null);
+  } else {
+    await query.eq("form_name", formName);
+  }
+}
+
+export async function syncAvailableGames(
+  games: Record<string, boolean>,
+): Promise<void> {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return;
+
+  await supabase
+    .from("user_settings")
+    .upsert(
+      { user_id: user.id, available_games: games },
+      { onConflict: "user_id" },
+    );
+}
+
+export async function syncAllRecords(
+  snapshot: ProgressSnapshot,
+): Promise<void> {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
   if (!user) return;
 
   const rows = Object.values(snapshot.owned).map((record) => ({
@@ -128,7 +166,9 @@ export async function syncAllRecords(snapshot: ProgressSnapshot): Promise<void> 
   }));
 
   if (rows.length > 0) {
-    await supabase.from('pokedex').upsert(rows, { onConflict: 'user_id,species_id,form_name' });
+    await supabase
+      .from("pokedex")
+      .upsert(rows, { onConflict: "user_id,species_id,form_name" });
   }
   await syncAvailableGames(snapshot.availableGames);
 }
