@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional, Any
 
 
@@ -20,6 +20,10 @@ class LivingDexEntrySchema(BaseModel):
     is_regional_form: bool
     region_label: Optional[str]
     sort_order: int
+    types: list[str] = Field(default_factory=list)
+    stats: dict[str, int] = Field(default_factory=dict)
+    height: Optional[int] = None
+    weight: Optional[int] = None
 
     model_config = {"from_attributes": True}
 

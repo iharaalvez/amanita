@@ -31,12 +31,17 @@ function GameSlot({ entry, gameId, onSelect }: GameSlotProps) {
       onClick={() => onSelect(entry.speciesId, entry.formName)}
       aria-label={`${entry.displayName}, ${owned ? 'registered' : 'not registered'} in this game`}
       title={`${paddedGameNumber} - ${entry.displayName} (${paddedNationalNumber})`}
-      className={`w-[120px] h-[132px] rounded-lg flex flex-col items-center justify-center gap-1 transition-all cursor-pointer p-2 ${
+      className={`relative flex h-[132px] w-[120px] cursor-pointer flex-col items-center justify-center gap-1 rounded-lg p-2 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${
         owned
-          ? 'ring-1 ring-green-400 bg-white dark:bg-gray-700'
-          : 'hover:bg-gray-200 dark:hover:bg-gray-600'
+          ? 'bg-green-50 ring-1 ring-green-400 dark:bg-green-950/30'
+          : 'bg-white/50 hover:bg-gray-200 dark:bg-gray-900/20 dark:hover:bg-gray-600'
       }`}
     >
+      {owned && (
+        <span className="absolute right-2 top-2 flex h-4 w-4 items-center justify-center rounded-full bg-green-400 text-white" aria-hidden>
+          <CheckIcon className="h-2.5 w-2.5" />
+        </span>
+      )}
       <Image
         src={entry.spriteUrl}
         alt={entry.displayName}
@@ -44,7 +49,7 @@ function GameSlot({ entry, gameId, onSelect }: GameSlotProps) {
         height={88}
         style={{ imageRendering: 'pixelated' }}
         className={`h-20 w-20 object-contain transition-all duration-200 ${
-          owned ? '' : 'grayscale opacity-35'
+          owned ? '' : 'grayscale opacity-55'
         }`}
       />
       <span className="text-[10px] text-gray-400 tabular-nums">{paddedGameNumber}</span>
@@ -136,12 +141,15 @@ type Props = {
   onSelect: (speciesId: number, formName: string | null) => void;
 };
 
+type CompletionFilter = 'all' | 'missing' | 'registered';
+
 export function GameDexView({ onSelect }: Props) {
   const availableGames = usePokedexStore((state) => state.availableGames);
   const gameDexProgress = usePokedexStore((state) => state.gameDexProgress);
   const ownedRecords = usePokedexStore((state) => state.owned);
   const [selectedGameId, setSelectedGameId] = useState('scarlet-violet');
   const [showAvailableOnly, setShowAvailableOnly] = useState(true);
+  const [completionFilter, setCompletionFilter] = useState<CompletionFilter>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [showGamesModal, setShowGamesModal] = useState(false);
 
@@ -181,10 +189,12 @@ export function GameDexView({ onSelect }: Props) {
   const filteredGamePokemon = useMemo(() => {
     const normalizedQuery = searchQuery.trim().toLowerCase();
     const entries = gameDex ?? [];
-    if (!normalizedQuery) return entries;
-
     const numericQuery = normalizedQuery.replace(/^#/, '').replace(/^0+/, '');
     return entries.filter((entry) => {
+      const registered = registeredByGame.get(selectedGameId)?.has(entry.speciesId) ?? false;
+      if (completionFilter === 'missing' && registered) return false;
+      if (completionFilter === 'registered' && !registered) return false;
+      if (!normalizedQuery) return true;
       const displayName = entry.displayName.toLowerCase();
       const formName = entry.formName?.toLowerCase() ?? '';
       return (
@@ -194,7 +204,7 @@ export function GameDexView({ onSelect }: Props) {
         String(entry.speciesId).padStart(4, '0').includes(numericQuery)
       );
     });
-  }, [gameDex, searchQuery]);
+  }, [completionFilter, gameDex, registeredByGame, searchQuery, selectedGameId]);
 
   const gamesByGen = useMemo(() => {
     const hasAvailableGames = availableGameIds.length > 0;
@@ -209,11 +219,17 @@ export function GameDexView({ onSelect }: Props) {
   const progressPct = totalInGame > 0 ? (ownedInGame / totalInGame) * 100 : 0;
   const shinyCharmReady = selectedGame.hasShinyCharm && ownedInGame >= totalInGame && totalInGame > 0;
   const hasGameDexData = selectedGame.pokeapiReady || hasGamePokedexOverride(selectedGame.id);
+  const missingInGame = Math.max(0, totalInGame - ownedInGame);
+  const completionFilters: { value: CompletionFilter; label: string; count: number }[] = [
+    { value: 'all', label: 'All', count: totalInGame },
+    { value: 'missing', label: 'Missing', count: missingInGame },
+    { value: 'registered', label: 'Registered', count: ownedInGame },
+  ];
 
   return (
-    <div className="max-w-7xl mx-auto px-4 pb-8 flex gap-4">
-      <div className="w-56 flex-shrink-0">
-        <div className="sticky top-4 max-h-[80vh] overflow-y-auto rounded-lg border border-gray-100 bg-gray-50 p-3 dark:border-gray-700 dark:bg-gray-800">
+    <div className="mx-auto flex max-w-7xl flex-col gap-4 px-4 pb-8 lg:flex-row">
+      <div className="w-full flex-shrink-0 lg:w-56">
+        <div className="max-h-[50vh] overflow-y-auto rounded-lg border border-gray-100 bg-gray-50 p-3 dark:border-gray-700 dark:bg-gray-800 lg:sticky lg:top-4 lg:max-h-[80vh]">
           <div className="mb-3 flex items-center justify-between gap-2 px-1">
             <div>
               <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Games</p>
@@ -261,7 +277,12 @@ export function GameDexView({ onSelect }: Props) {
                         : 'text-gray-700 hover:bg-gray-200 dark:text-gray-300 dark:hover:bg-gray-700'
                     } ${isAvailable ? '' : 'opacity-70'}`}
                   >
-                    <span className="block truncate text-xs font-medium leading-tight">{game.name}</span>
+                    <span className="flex items-center gap-1 truncate text-xs font-medium leading-tight">
+                      {game.name}
+                      {game.hasShinyCharm && (
+                        <SparkleIcon className={`h-3 w-3 shrink-0 ${isSelected ? 'text-yellow-300' : 'text-yellow-400'}`} />
+                      )}
+                    </span>
                     {!game.pokeapiReady && !hasGamePokedexOverride(game.id) ? (
                       <span className={`text-[10px] ${isSelected ? 'text-blue-100' : 'text-amber-600 dark:text-amber-400'}`}>
                         Data pending
@@ -284,44 +305,106 @@ export function GameDexView({ onSelect }: Props) {
       </div>
 
       <div className="min-w-0 flex-1">
-        <div className="mb-4">
-          <div className="mb-1 flex items-center gap-2">
+        <div className="mb-4 rounded-xl border border-gray-100 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-800">
+          <div className="mb-3 flex items-center justify-between gap-2">
             <h2 className="text-lg font-bold dark:text-white">{selectedGame.name}</h2>
-            {shinyCharmReady && <SparkleIcon className="h-5 w-5 text-yellow-500" />}
+            {selectedGame.hasShinyCharm && (
+              <span className={`flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-bold ${
+                shinyCharmReady
+                  ? 'bg-yellow-400 text-white'
+                  : 'bg-yellow-50 text-yellow-600 dark:bg-yellow-950/40 dark:text-yellow-400'
+              }`}>
+                <SparkleIcon className="h-3.5 w-3.5" />
+                {shinyCharmReady ? 'Charm unlocked' : 'Charm available'}
+              </span>
+            )}
           </div>
           {totalInGame > 0 && (
             <>
-              <div className="mb-1 flex justify-between text-sm text-gray-500 dark:text-gray-400">
-                <span>{selectedGame.hasShinyCharm ? 'Shiny Charm progress' : 'Pokedex'}</span>
-                <span className="tabular-nums font-medium">{ownedInGame} / {totalInGame}</span>
+              <div className="mb-3 grid grid-cols-3 gap-2 text-center">
+                <div className="rounded-lg bg-green-50 px-3 py-2 dark:bg-green-950/40">
+                  <p className="text-xl font-bold tabular-nums text-green-500">{ownedInGame}</p>
+                  <p className="text-[10px] font-medium text-green-600 dark:text-green-400">registered</p>
+                </div>
+                <div className="rounded-lg bg-gray-100 px-3 py-2 dark:bg-gray-700">
+                  <p className="text-xl font-bold tabular-nums text-gray-700 dark:text-gray-100">{totalInGame}</p>
+                  <p className="text-[10px] font-medium text-gray-500 dark:text-gray-400">required</p>
+                </div>
+                <div className="rounded-lg bg-yellow-50 px-3 py-2 dark:bg-yellow-950/30">
+                  <p className="text-xl font-bold tabular-nums text-yellow-500">{missingInGame}</p>
+                  <p className="text-[10px] font-medium text-yellow-600 dark:text-yellow-400">
+                    {selectedGame.hasShinyCharm ? 'to charm' : 'missing'}
+                  </p>
+                </div>
               </div>
-              <div className="h-2 overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700">
-                <div className="h-full rounded-full bg-green-400 transition-all duration-500" style={{ width: `${progressPct}%` }} />
+              <div className="mb-1 flex justify-between text-xs text-gray-400">
+                <span>{selectedGame.hasShinyCharm ? 'Shiny Charm progress' : 'Pokédex progress'}</span>
+                <span className="tabular-nums font-semibold">{progressPct.toFixed(1)}%</span>
               </div>
+              <div className="h-2.5 overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700">
+                <div
+                  className={`h-full rounded-full transition-all duration-500 ${
+                    selectedGame.hasShinyCharm ? 'bg-yellow-400' : 'bg-green-400'
+                  }`}
+                  style={{ width: `${progressPct}%` }}
+                />
+              </div>
+              {selectedGame.hasShinyCharm && shinyCharmReady && (
+                <div className="mt-3 flex items-center gap-2 rounded-lg border border-yellow-300 bg-yellow-50 px-3 py-2.5 dark:border-yellow-700 dark:bg-yellow-950/30">
+                  <SparkleIcon className="h-4 w-4 shrink-0 text-yellow-500" />
+                  <span className="text-sm font-bold text-yellow-700 dark:text-yellow-400">
+                    Shiny Charm unlocked — all {totalInGame} registered!
+                  </span>
+                </div>
+              )}
+              {!selectedGame.pokeapiReady && !hasGamePokedexOverride(selectedGame.id) && (
+                <p className="mt-3 text-xs text-amber-600 dark:text-amber-400">
+                  Dex and encounter data for this game may be incomplete until curated locally.
+                </p>
+              )}
             </>
           )}
         </div>
 
         <div className="mb-4">
           <label htmlFor="game-dex-search" className="sr-only">Search selected game Pokedex</label>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-col gap-2 lg:flex-row lg:items-center">
             <input
               id="game-dex-search"
               type="search"
               value={searchQuery}
               onChange={(event) => setSearchQuery(event.target.value)}
               placeholder={`Search ${selectedGame.name}`}
-              className="w-full max-w-sm rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 outline-none transition-colors placeholder:text-gray-400 focus:border-blue-400 focus:ring-2 focus:ring-blue-100 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 dark:focus:border-blue-400 dark:focus:ring-blue-950"
+              className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 outline-none transition-colors placeholder:text-gray-400 focus:border-blue-400 focus:ring-2 focus:ring-blue-100 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 dark:focus:border-blue-400 dark:focus:ring-blue-950 lg:max-w-sm"
             />
-            {searchQuery && (
-              <button
-                type="button"
-                onClick={() => setSearchQuery('')}
-                className="rounded-lg px-3 py-2 text-sm font-medium text-gray-500 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"
-              >
-                Clear
-              </button>
-            )}
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="flex rounded-lg bg-gray-100 p-1 dark:bg-gray-800" aria-label="Completion filter">
+                {completionFilters.map(({ value, label, count }) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => setCompletionFilter(value)}
+                    aria-pressed={completionFilter === value}
+                    className={`rounded-md px-3 py-1.5 text-xs font-semibold transition-colors ${
+                      completionFilter === value
+                        ? 'bg-blue-500 text-white'
+                        : 'text-gray-500 hover:text-gray-800 dark:text-gray-300 dark:hover:text-white'
+                    }`}
+                  >
+                    {label} <span className="tabular-nums opacity-75">({count})</span>
+                  </button>
+                ))}
+              </div>
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  className="rounded-lg px-3 py-2 text-sm font-medium text-gray-500 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"
+                >
+                  Clear
+                </button>
+              )}
+            </div>
           </div>
         </div>
 
@@ -351,7 +434,7 @@ export function GameDexView({ onSelect }: Props) {
               />
             ))}
             {filteredGamePokemon.length === 0 && (
-              <div className="col-span-full py-8 text-sm text-gray-400">No Pokemon match this search.</div>
+              <div className="col-span-full py-8 text-sm text-gray-400">No Pokemon match this view.</div>
             )}
           </div>
         )}

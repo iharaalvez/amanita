@@ -13,6 +13,10 @@ type RawLivingDexEntry = {
   is_regional_form: boolean;
   region_label: string | null;
   sort_order: number;
+  types?: string[];
+  stats?: Record<string, number>;
+  height?: number | null;
+  weight?: number | null;
 };
 
 type LivingDexEntriesResponse = {
@@ -49,6 +53,14 @@ function getGenerationFromSpeciesId(speciesId: number): number {
   return 9;
 }
 
+// Regional forms were introduced in the generation of their region, not their base species.
+const REGION_GENERATION: Record<string, number> = {
+  Alolan:   7,
+  Galarian: 8,
+  Hisuian:  8,
+  Paldean:  9,
+};
+
 function titleCase(name: string): string {
   return name.split('-').map((word) => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
 }
@@ -60,12 +72,18 @@ function mapLivingDexEntry(entry: RawLivingDexEntry): LivingDexEntry {
     name: entry.form_name ?? entry.display_name.toLowerCase().replaceAll(' ', '-'),
     formName: entry.form_name,
     displayName: entry.display_name,
-    generation: getGenerationFromSpeciesId(entry.species_id),
+    generation: (entry.is_regional_form && entry.region_label && REGION_GENERATION[entry.region_label])
+      ? REGION_GENERATION[entry.region_label]
+      : getGenerationFromSpeciesId(entry.species_id),
     spriteUrl: entry.sprite_url,
     shinySpriteUrl: entry.shiny_sprite_url,
     isRegionalForm: entry.is_regional_form,
     regionLabel: entry.region_label,
     sortOrder: entry.sort_order,
+    types: entry.types as LivingDexEntry['types'],
+    stats: entry.stats as LivingDexEntry['stats'],
+    height: entry.height,
+    weight: entry.weight,
   };
 }
 

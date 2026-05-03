@@ -1,6 +1,8 @@
 'use client';
 
+import { useMemo } from 'react';
 import { useLivingDexEntries } from '@/hooks/usePokemon';
+import { usePokedexStore, ownedKey } from '@/store/pokedexStore';
 import { BoxSlot } from './BoxSlot';
 import type { LivingDexEntry } from '@/types/pokemon';
 
@@ -17,25 +19,34 @@ function buildBoxes(entries: LivingDexEntry[]): (LivingDexEntry | null)[][] {
 
 type Props = {
   onSelect: (speciesId: number, formName: string | null) => void;
+  search: string;
 };
 
-export function HomeBoxView({ onSelect }: Props) {
+export function HomeBoxView({ onSelect, search }: Props) {
   const { data, isLoading, error } = useLivingDexEntries();
+  const ownedRecords = usePokedexStore((s) => s.owned);
+  const summary = useMemo(() => {
+    const entries = data ?? [];
+    const owned = entries.filter((e) => ownedRecords[ownedKey(e.speciesId, e.formName)]?.owned).length;
+    const inHome = entries.filter((e) => ownedRecords[ownedKey(e.speciesId, e.formName)]?.in_home).length;
+    const pending = owned - inHome;
+    return { owned, inHome, pending, total: entries.length };
+  }, [data, ownedRecords]);
 
   if (error) {
     return (
-      <div className="text-center py-20 text-red-500">
-        Failed to load Pokemon data. Check your connection and try again.
+      <div className="py-20 text-center text-red-500">
+        Failed to load Pokémon data. Check your connection and try again.
       </div>
     );
   }
 
   if (isLoading) {
     return (
-      <div className="max-w-7xl mx-auto px-4 pb-8">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div className="mx-auto max-w-7xl px-4 pb-8">
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           {Array.from({ length: 4 }).map((_, index) => (
-            <div key={index} className="h-96 bg-gray-200 dark:bg-gray-700 rounded-xl animate-pulse" />
+            <div key={index} className="h-96 animate-pulse rounded-xl bg-gray-200 dark:bg-gray-700" />
           ))}
         </div>
       </div>
@@ -50,21 +61,78 @@ export function HomeBoxView({ onSelect }: Props) {
   });
   const boxes = buildBoxes(orderedEntries);
 
+  const q = search.trim().toLowerCase();
+  const matchingKeys = q
+    ? new Set(
+        orderedEntries
+          .filter((e) => {
+            const nameMatch = e.displayName.toLowerCase().includes(q);
+            const numMatch = String(e.speciesId).startsWith(q.replace(/^#0*/, ''));
+            return nameMatch || numMatch;
+          })
+          .map((e) => `${e.speciesId}-${e.formName ?? 'base'}`)
+      )
+    : null;
+
   return (
-    <div className="max-w-7xl mx-auto px-4 pb-8">
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+    <div className="mx-auto max-w-7xl px-4 pb-8">
+      {/* Summary bar */}
+      <div className="mb-4 flex flex-wrap items-baseline gap-x-5 gap-y-2 border-b border-gray-100 pb-4 dark:border-gray-800">
+        <div className="flex items-baseline gap-1.5">
+          <span className="text-2xl font-bold tabular-nums text-green-400">{summary.inHome}</span>
+          <span className="text-xs text-gray-400">in HOME</span>
+          <span className="mx-1 text-gray-600 dark:text-gray-600">/</span>
+          <span className="text-sm font-semibold tabular-nums text-gray-300">{summary.owned}</span>
+          <span className="text-xs text-gray-400">owned</span>
+        </div>
+        {summary.pending > 0 && (
+          <span className="text-xs font-semibold tabular-nums text-blue-400">
+            {summary.pending} pending transfer
+          </span>
+        )}
+        <div className="ml-auto flex items-center gap-3 text-[10px] text-gray-500">
+          <span className="flex items-center gap-1.5">
+            <span className="inline-block h-3 w-3 rounded-sm bg-green-950/30 ring-1 ring-green-400" />
+            In HOME
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="inline-block h-3 w-3 rounded-sm bg-blue-950/20 ring-1 ring-blue-400" />
+            Pending
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="inline-block h-3 w-3 rounded-sm bg-yellow-950/40 ring-1 ring-yellow-400" />
+            Shiny
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="inline-block h-3 w-3 rounded-sm bg-violet-950/30 ring-1 ring-violet-400" />
+            Planned
+          </span>
+        </div>
+      </div>
+
+      {/* Box grid */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         {boxes.map((box, boxIndex) => (
           <section
             key={boxIndex}
-            className="bg-gray-50 dark:bg-gray-800 rounded-xl p-4 border border-gray-100 dark:border-gray-700"
+className="scroll-mt-14 rounded-xl border border-gray-100 bg-gray-50 p-4 dark:border-gray-700/50 dark:bg-gray-800/60"
           >
-            <p className="text-xs text-gray-400 dark:text-gray-500 font-semibold tracking-wide uppercase mb-3">
+            <p className="mb-3 text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500">
               Box {boxIndex + 1}
             </p>
-            <div className="grid grid-cols-6 gap-2">
-              {box.map((entry, slotIndex) => (
-                <BoxSlot key={`${boxIndex}-${slotIndex}`} entry={entry} slotIndex={slotIndex} onSelect={onSelect} />
-              ))}
+            <div className="grid grid-cols-6 gap-1.5">
+              {box.map((entry, slotIndex) => {
+                const slotKey = entry ? `${entry.speciesId}-${entry.formName ?? 'base'}` : null;
+                const dimmed = matchingKeys !== null && slotKey !== null && !matchingKeys.has(slotKey);
+                return (
+                  <div
+                    key={`${boxIndex}-${slotIndex}`}
+                    className={`transition-opacity duration-150 ${dimmed ? 'opacity-20' : ''}`}
+                  >
+                    <BoxSlot entry={entry} onSelect={onSelect} />
+                  </div>
+                );
+              })}
             </div>
           </section>
         ))}

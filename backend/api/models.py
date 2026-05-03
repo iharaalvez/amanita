@@ -22,6 +22,10 @@ class LivingDexEntry(Base):
     is_regional_form = Column(Boolean, default=False, nullable=False)
     region_label = Column(Text, nullable=True)
     sort_order = Column(Integer, nullable=False)
+    types = Column(JSON, nullable=False, default=list)
+    stats = Column(JSON, nullable=False, default=dict)
+    height = Column(Integer, nullable=True)
+    weight = Column(Integer, nullable=True)
 
     __table_args__ = (
         Index("ix_living_dex_entries_species_id", "species_id"),

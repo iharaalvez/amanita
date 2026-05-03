@@ -1,10 +1,20 @@
 export type OwnershipMethod = 'caught' | 'bred' | 'hatched' | 'transferred' | 'event';
 
+export type ShinyHuntMethod =
+  | 'masuda'
+  | 'sos-chain'
+  | 'poke-radar'
+  | 'dex-nav'
+  | 'soft-reset'
+  | 'outbreak'
+  | 'random';
+
 export type OwnedRecord = {
-  pokedex_number: number;   // species ID (1–1025)
+  pokedex_number: number;   // species ID (1-1025)
   form_name: string | null; // null = base form, e.g. 'vulpix-alola' for regional
   owned: boolean;
   shiny_owned: boolean;
+  in_home?: boolean;
   planned?: boolean;
   method?: OwnershipMethod;
   game?: string;
@@ -12,7 +22,17 @@ export type OwnedRecord = {
   game_dex: Record<string, boolean>;
   notes?: string;
   date_obtained?: string;
+  shiny_method?: ShinyHuntMethod;
+  shiny_game?: string;
 };
+
+export type PokemonStatName =
+  | 'hp'
+  | 'attack'
+  | 'defense'
+  | 'special-attack'
+  | 'special-defense'
+  | 'speed';
 
 export type PokemonVariety = {
   is_default: boolean;
@@ -28,16 +48,20 @@ export type PokemonSpecies = {
 
 export type LivingDexEntry = {
   id: number;               // Local living_dex_entries ID
-  speciesId: number;        // National Dex species ID (1–1025)
+  speciesId: number;        // National Dex species ID (1-1025)
   name: string;             // API name, e.g. 'vulpix-alola'
   formName: string | null;  // null = base form
   displayName: string;      // 'Alolan Vulpix'
-  generation: number;       // 1–9, based on base species
+  generation: number;       // 1-9, based on base species
   spriteUrl: string;
   shinySpriteUrl?: string;
   isRegionalForm?: boolean;
   regionLabel?: string | null;
   sortOrder?: number;
+  types?: PokemonType[];
+  stats?: Partial<Record<PokemonStatName, number>>;
+  height?: number | null;
+  weight?: number | null;
 };
 
 export type EncounterLocation = {

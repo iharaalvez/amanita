@@ -10,7 +10,7 @@ from collections import defaultdict
 from typing import Any
 
 import httpx
-from sqlalchemy import Boolean, Column, ForeignKey, Index, Integer, Text, create_engine, func, text
+from sqlalchemy import Boolean, Column, ForeignKey, Index, Integer, JSON, Text, create_engine, func, text
 from sqlalchemy.orm import declarative_base, sessionmaker
 from tqdm import tqdm
 
@@ -47,6 +47,10 @@ class LivingDexEntry(Base):
     is_regional_form = Column(Boolean, default=False, nullable=False)
     region_label = Column(Text, nullable=True)
     sort_order = Column(Integer, nullable=False)
+    types = Column(JSON, nullable=False, default=list)
+    stats = Column(JSON, nullable=False, default=dict)
+    height = Column(Integer, nullable=True)
+    weight = Column(Integer, nullable=True)
 
     __table_args__ = (Index("ix_living_dex_entries_species_id", "species_id"),)
 
@@ -159,6 +163,20 @@ def display_name_for_form(species_name: str, variety_name: str) -> str:
     return f"{label} {title_case(species_name)}" if label else title_case(species_name)
 
 
+def pokemon_types(pokemon_data: dict[str, Any]) -> list[str]:
+    return [
+        slot["type"]["name"]
+        for slot in sorted(pokemon_data.get("types", []), key=lambda item: item["slot"])
+    ]
+
+
+def pokemon_stats(pokemon_data: dict[str, Any]) -> dict[str, int]:
+    return {
+        stat["stat"]["name"]: int(stat["base_stat"])
+        for stat in pokemon_data.get("stats", [])
+    }
+
+
 async def fetch_json(
     client: httpx.AsyncClient,
     semaphore: asyncio.Semaphore,
@@ -194,8 +212,19 @@ def truncate_tables() -> None:
         db.commit()
 
 
-def safety_check(force: bool) -> None:
+def ensure_schema() -> None:
     Base.metadata.create_all(engine)
+    with Session() as db:
+        db.execute(text("ALTER TABLE living_dex_entries ADD COLUMN IF NOT EXISTS types JSONB NOT NULL DEFAULT '[]'::jsonb"))
+        db.execute(text("ALTER TABLE living_dex_entries ADD COLUMN IF NOT EXISTS stats JSONB NOT NULL DEFAULT '{}'::jsonb"))
+        db.execute(text("ALTER TABLE living_dex_entries ADD COLUMN IF NOT EXISTS height INTEGER"))
+        db.execute(text("ALTER TABLE living_dex_entries ADD COLUMN IF NOT EXISTS weight INTEGER"))
+        db.execute(text("ALTER TABLE game_dex_entries ADD COLUMN IF NOT EXISTS entry_number INTEGER"))
+        db.commit()
+
+
+def safety_check(force: bool) -> None:
+    ensure_schema()
     with Session() as db:
         existing_entries = db.query(LivingDexEntry).count()
     if existing_entries and not force:
@@ -290,6 +319,10 @@ async def seed_living_dex_entries(
                     is_regional_form=False,
                     region_label=None,
                     sort_order=sort_order,
+                    types=pokemon_types(pokemon_by_name[variety_name]),
+                    stats=pokemon_stats(pokemon_by_name[variety_name]),
+                    height=pokemon_by_name[variety_name].get("height"),
+                    weight=pokemon_by_name[variety_name].get("weight"),
                 )
             )
             sort_order += 1
@@ -307,6 +340,10 @@ async def seed_living_dex_entries(
                     is_regional_form=True,
                     region_label=label,
                     sort_order=sort_order,
+                    types=pokemon_types(pokemon_by_name[variety_name]),
+                    stats=pokemon_stats(pokemon_by_name[variety_name]),
+                    height=pokemon_by_name[variety_name].get("height"),
+                    weight=pokemon_by_name[variety_name].get("weight"),
                 )
             )
             sort_order += 1
