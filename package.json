@@ -9,10 +9,9 @@
     "lint": "next lint",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "seed": "docker compose -f backend/docker-compose.yml --profile seed run --rm seeder",
-    "seed:forms": "tsx scripts/seed-cosmetic-forms.ts",
-    "backend": "docker compose -f backend/docker-compose.yml up -d",
-    "backend:down": "docker compose -f backend/docker-compose.yml down"
+    "seed": "python seeder/seed.py",
+    "seed:force": "python seeder/seed.py --force",
+    "seed:forms": "tsx scripts/seed-cosmetic-forms.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.105.1",

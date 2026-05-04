@@ -1,6 +1,6 @@
 # Seed Data
 
-Reference Pokemon data is stored in Supabase and refreshed with the Python seeder in `backend/seeder`.
+Reference Pokemon data is stored in Supabase and refreshed with the Python seeder in `seeder`. This project no longer has a Dockerized backend service; the web app reads Supabase directly.
 
 The seeder populates these reference tables:
 
@@ -38,13 +38,12 @@ Do not commit this URL. It contains the database password.
 
 ## Install Seeder Dependencies
 
-From `backend/seeder`:
+From the repository root:
 
 ```bash
-rm -rf .venv
-py -3.13 -m venv .venv
-./.venv/Scripts/python.exe -m pip install --upgrade pip setuptools wheel
-./.venv/Scripts/python.exe -m pip install -r requirements.txt
+py -3.13 -m venv seeder/.venv
+./seeder/.venv/Scripts/python.exe -m pip install --upgrade pip setuptools wheel
+./seeder/.venv/Scripts/python.exe -m pip install -r seeder/requirements.txt
 ```
 
 If Python 3.13 is not installed, check available versions:
@@ -60,13 +59,13 @@ Use the newest available Python version.
 ```bash
 export DATABASE_URL='postgresql://postgres.PROJECT_REF:PASSWORD@aws-REGION.pooler.supabase.com:5432/postgres?sslmode=require'
 export POKEAPI_BASE='https://pokeapi.co/api/v2'
-./.venv/Scripts/python.exe seed.py
+./seeder/.venv/Scripts/python.exe seeder/seed.py
 ```
 
 If the database is already seeded and you intentionally want to refresh all reference data:
 
 ```bash
-./.venv/Scripts/python.exe seed.py --force
+./seeder/.venv/Scripts/python.exe seeder/seed.py --force
 ```
 
 `--force` truncates and reseeds:

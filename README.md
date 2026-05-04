@@ -48,15 +48,15 @@ Built with Next.js, TypeScript, Tailwind CSS, Zustand, TanStack Query, and Supab
 
 ## Tech Stack
 
-| Layer | Tool |
-|---|---|
-| Framework | Next.js 14+ App Router |
-| Language | TypeScript strict |
-| Styling | Tailwind CSS |
-| State | Zustand + localStorage |
-| Server state | TanStack Query |
-| Auth and database | Supabase |
-| External source | PokeAPI v2 |
+| Layer             | Tool                   |
+| ----------------- | ---------------------- |
+| Framework         | Next.js 14+ App Router |
+| Language          | TypeScript strict      |
+| Styling           | Tailwind CSS           |
+| State             | Zustand + localStorage |
+| Server state      | TanStack Query         |
+| Auth and database | Supabase               |
+| External source   | PokeAPI v2             |
 
 ---
 
@@ -76,13 +76,13 @@ NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_ANON_KEY=
 ```
 
-The production app runs on Vercel + Supabase. The Python backend folder is now only a local seeding/data maintenance tool.
+The production app runs on Vercel + Supabase. There is no app backend service in this repo; the Python seeder is only for local reference-data maintenance.
 
 ---
 
 ## Data Seeding
 
-Reference Pokemon data is stored in Supabase and refreshed with the Python seeder in `backend/seeder`.
+Reference Pokemon data is stored in Supabase and refreshed with the Python seeder in `seeder`.
 
 See [docs/seed-data.md](docs/seed-data.md).
 
@@ -90,13 +90,13 @@ See [docs/seed-data.md](docs/seed-data.md).
 
 ## Ownership States
 
-| Color | State | Meaning |
-|---|---|---|
-| Green | In HOME | Transferred to Pokemon HOME |
-| Blue | Pending | Owned but not yet in HOME |
-| Gold | Shiny | Shiny variant owned |
+| Color  | State   | Meaning                     |
+| ------ | ------- | --------------------------- |
+| Green  | In HOME | Transferred to Pokemon HOME |
+| Blue   | Pending | Owned but not yet in HOME   |
+| Gold   | Shiny   | Shiny variant owned         |
 | Violet | Planned | Marked as a target to catch |
-| Gray | Missing | Not yet obtained |
+| Gray   | Missing | Not yet obtained            |
 
 ---
 
@@ -104,16 +104,16 @@ See [docs/seed-data.md](docs/seed-data.md).
 
 All mainline titles from Generation I through IX:
 
-| Gen | Games |
-|---|---|
-| I | Red / Blue, Yellow |
-| II | Gold / Silver, Crystal |
-| III | Ruby / Sapphire, Emerald, FireRed / LeafGreen |
-| IV | Diamond / Pearl, Platinum, HeartGold / SoulSilver |
-| V | Black / White, Black 2 / White 2* |
-| VI | X / Y*, Omega Ruby / Alpha Sapphire* |
-| VII | Sun / Moon*, Ultra Sun / Ultra Moon* |
-| VIII | Sword / Shield*, Brilliant Diamond / Shining Pearl*, Legends: Arceus* |
-| IX | Scarlet / Violet*, Legends: Z-A* |
+| Gen  | Games                                                                  |
+| ---- | ---------------------------------------------------------------------- |
+| I    | Red / Blue, Yellow                                                     |
+| II   | Gold / Silver, Crystal                                                 |
+| III  | Ruby / Sapphire, Emerald, FireRed / LeafGreen                          |
+| IV   | Diamond / Pearl, Platinum, HeartGold / SoulSilver                      |
+| V    | Black / White, Black 2 / White 2\*                                     |
+| VI   | X / Y*, Omega Ruby / Alpha Sapphire*                                   |
+| VII  | Sun / Moon*, Ultra Sun / Ultra Moon*                                   |
+| VIII | Sword / Shield*, Brilliant Diamond / Shining Pearl*, Legends: Arceus\* |
+| IX   | Scarlet / Violet*, Legends: Z-A*                                       |
 
 `*` Completing the Pokedex in these games unlocks the Shiny Charm.
