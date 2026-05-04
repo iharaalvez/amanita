@@ -4,7 +4,6 @@ import Image from "next/image";
 import {
   ArrowRightIcon,
   ArrowUpRightIcon,
-  BookmarkIcon,
   CheckIcon,
   HomeIcon,
   SparkleIcon,
@@ -21,7 +20,6 @@ const previewPokemon = [
     color: "border-blue-400 bg-blue-950/60 text-blue-200",
     owned: true,
     inHome: false,
-    planned: false,
     shiny: true,
   },
   {
@@ -30,16 +28,14 @@ const previewPokemon = [
     color: "border-green-400 bg-green-950/60 text-green-200",
     owned: true,
     inHome: true,
-    planned: false,
     shiny: false,
   },
   {
     id: 3,
     name: "Venusaur",
-    color: "border-violet-400 bg-violet-950/60 text-violet-200",
+    color: "border-slate-600 bg-slate-900/80 text-slate-400",
     owned: false,
     inHome: false,
-    planned: true,
     shiny: false,
   },
   {
@@ -48,7 +44,6 @@ const previewPokemon = [
     color: "border-blue-400 bg-blue-950/60 text-blue-200",
     owned: true,
     inHome: false,
-    planned: false,
     shiny: true,
   },
   {
@@ -57,7 +52,6 @@ const previewPokemon = [
     color: "border-green-400 bg-green-950/60 text-green-200",
     owned: true,
     inHome: true,
-    planned: false,
     shiny: false,
   },
   {
@@ -66,7 +60,6 @@ const previewPokemon = [
     color: "border-slate-600 bg-slate-900/80 text-slate-400",
     owned: false,
     inHome: false,
-    planned: false,
     shiny: false,
   },
 ];
@@ -74,7 +67,7 @@ const previewPokemon = [
 const features = [
   {
     title: "Living Dex tracking",
-    body: "Mark what you personally caught or bred, including forms, planned hunts, and shiny progress.",
+    body: "Mark what you personally caught or bred, including alternate forms and shiny progress.",
     icon: CheckIcon,
     color: "bg-emerald-100 text-emerald-700",
   },
@@ -170,9 +163,6 @@ export function LandingPage({ onSignIn }: LandingPageProps) {
                       {pokemon.owned && !pokemon.inHome && (
                         <ArrowUpRightIcon className="h-3.5 w-3.5 text-blue-400" />
                       )}
-                      {!pokemon.owned && pokemon.planned && (
-                        <BookmarkIcon className="h-3.5 w-3.5 text-violet-400" />
-                      )}
                     </span>
                   </div>
                   <Image
@@ -205,8 +195,8 @@ export function LandingPage({ onSignIn }: LandingPageProps) {
               <p className="text-[10px] font-bold text-slate-400">in HOME</p>
             </div>
             <div className="rounded-lg bg-[#17263a] p-3">
-              <p className="text-lg font-black text-amber-300">1</p>
-              <p className="text-[10px] font-bold text-slate-400">planned</p>
+              <p className="text-lg font-black text-yellow-300">2</p>
+              <p className="text-[10px] font-bold text-slate-400">shiny</p>
             </div>
           </div>
         </div>

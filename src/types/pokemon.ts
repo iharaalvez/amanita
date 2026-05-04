@@ -20,7 +20,6 @@ export type OwnedRecord = {
   owned: boolean;
   shiny_owned: boolean;
   in_home?: boolean;
-  planned?: boolean;
   method?: OwnershipMethod;
   game?: string;
   game_caught?: string;

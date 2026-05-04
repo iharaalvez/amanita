@@ -16,7 +16,6 @@ type SupabaseRow = {
   owned: boolean;
   shiny_owned: boolean;
   in_home: boolean;
-  planned: boolean;
   method: string | null;
   game_caught: string | null;
   shiny_method: string | null;
@@ -59,7 +58,6 @@ export async function loadFromSupabase(
       owned: row.owned,
       shiny_owned: row.shiny_owned,
       in_home: row.in_home,
-      planned: row.planned,
       method: (row.method as OwnershipMethod) ?? undefined,
       game_caught: row.game_caught ?? undefined,
       shiny_method: (row.shiny_method as ShinyHuntMethod) ?? undefined,
@@ -98,7 +96,6 @@ export async function syncRecord(record: OwnedRecord): Promise<void> {
       owned: record.owned,
       shiny_owned: record.shiny_owned,
       in_home: record.in_home ?? false,
-      planned: record.planned ?? false,
       method: record.method ?? null,
       game_caught: record.game_caught ?? null,
       shiny_method: record.shiny_method ?? null,
@@ -162,7 +159,6 @@ export async function syncAllRecords(
     owned: record.owned,
     shiny_owned: record.shiny_owned,
     in_home: record.in_home ?? false,
-    planned: record.planned ?? false,
     method: record.method ?? null,
     game_caught: record.game_caught ?? null,
     shiny_method: record.shiny_method ?? null,

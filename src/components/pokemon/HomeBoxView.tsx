@@ -12,7 +12,6 @@ type HomeStatusFilter =
   | "in-home"
   | "pending"
   | "shiny"
-  | "planned"
   | "missing";
 
 const HOME_STATUS_OPTIONS: { value: HomeStatusFilter; label: string }[] = [
@@ -21,7 +20,6 @@ const HOME_STATUS_OPTIONS: { value: HomeStatusFilter; label: string }[] = [
   { value: "in-home", label: "In HOME" },
   { value: "missing", label: "Missing" },
   { value: "shiny", label: "Shiny" },
-  { value: "planned", label: "Planned" },
 ];
 
 function buildBoxes(entries: LivingDexEntry[]): (LivingDexEntry | null)[][] {
@@ -106,9 +104,6 @@ export function HomeBoxView({ onSelect, search }: Props) {
           return false;
         }
         if (statusFilter === "shiny" && !record?.shiny_owned) return false;
-        if (statusFilter === "planned" && (record?.owned || !record?.planned)) {
-          return false;
-        }
         if (statusFilter === "missing" && record?.owned) return false;
         if (!q) return true;
 

@@ -4,7 +4,6 @@ import Image from "next/image";
 import { usePokedexStore, ownedKey } from "@/store/pokedexStore";
 import {
   ArrowUpRightIcon,
-  BookmarkIcon,
   HomeIcon,
   SparkleIcon,
   Tooltip,
@@ -25,9 +24,6 @@ export function BoxSlot({ entry, onSelect }: Props) {
   );
   const inHome = usePokedexStore((s) =>
     entry ? !!s.owned[key]?.in_home : false,
-  );
-  const planned = usePokedexStore((s) =>
-    entry ? !!s.owned[key]?.planned : false,
   );
 
   if (!entry) {
@@ -55,20 +51,18 @@ export function BoxSlot({ entry, onSelect }: Props) {
       ? "border-green-400 bg-green-50/50 dark:bg-green-950/30"
       : owned
         ? "border-blue-400 bg-blue-50/50 dark:bg-blue-950/20"
-        : planned
-          ? "border-violet-400 bg-violet-50 dark:bg-violet-950/30"
-          : "border-transparent bg-white/50 hover:bg-gray-100 dark:bg-gray-900/20 dark:hover:bg-gray-700/50";
+        : "border-transparent bg-white/50 hover:bg-gray-100 dark:bg-gray-900/20 dark:hover:bg-gray-700/50";
 
   const label = shinyOwned
     ? `${paddedNumber} - ${entry.displayName} - shiny owned`
-    : `${paddedNumber} - ${entry.displayName}${inHome ? " - In HOME" : owned ? " - Owned, not in HOME" : planned ? " - Planned" : ""}`;
+    : `${paddedNumber} - ${entry.displayName}${inHome ? " - In HOME" : owned ? " - Owned, not in HOME" : ""}`;
 
   return (
     <Tooltip content={label} className="w-full">
       <button
         onClick={() => onSelect?.(entry.speciesId, entry.formName)}
-        aria-label={`${entry.displayName}, ${inHome ? "in HOME" : owned ? "owned, not in HOME" : planned ? "planned" : "not owned"}${shinyOwned ? ", shiny owned" : ""}`}
-        aria-pressed={owned || shinyOwned || planned}
+        aria-label={`${entry.displayName}, ${inHome ? "in HOME" : owned ? "owned, not in HOME" : "not owned"}${shinyOwned ? ", shiny owned" : ""}`}
+        aria-pressed={owned || shinyOwned}
         className={`group relative flex aspect-square w-full cursor-pointer flex-col items-center justify-center gap-0.5 rounded-lg border-2 p-1 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${statusClass}`}
       >
         <span className="absolute right-1 top-1 flex gap-1" aria-hidden>
@@ -78,9 +72,6 @@ export function BoxSlot({ entry, onSelect }: Props) {
           {inHome && <HomeIcon className="h-3.5 w-3.5 text-green-400" />}
           {owned && !inHome && (
             <ArrowUpRightIcon className="h-3.5 w-3.5 text-blue-400" />
-          )}
-          {!owned && planned && (
-            <BookmarkIcon className="h-3.5 w-3.5 text-violet-400" />
           )}
         </span>
         <Image

@@ -32,7 +32,7 @@ function downloadCSV(
     entries.map((e) => [ownedKey(e.speciesId, e.formName), e.displayName]),
   );
   const header =
-    "speciesId,formName,name,owned,shiny_owned,method,game_caught,shiny_method,shiny_game,planned";
+    "speciesId,formName,name,owned,shiny_owned,method,game_caught,shiny_method,shiny_game";
   const rows = Object.entries(owned).map(([key, r]) => {
     const name = (nameMap.get(key) ?? "").replace(/"/g, '""');
     return [
@@ -45,7 +45,6 @@ function downloadCSV(
       r.game_caught ?? "",
       r.shiny_method ?? "",
       r.shiny_game ?? "",
-      r.planned ? "TRUE" : "FALSE",
     ].join(",");
   });
   const blob = new Blob([[header, ...rows].join("\n")], { type: "text/csv" });

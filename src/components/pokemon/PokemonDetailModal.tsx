@@ -13,7 +13,6 @@ import {
 } from "@/config/game-pokemon-location-overrides";
 import { GAME_LIST } from "@/config/games";
 import {
-  BookmarkIcon,
   CheckIcon,
   ChevronDownIcon,
   HomeIcon,
@@ -44,6 +43,54 @@ const SHINY_HUNT_METHODS: { value: ShinyHuntMethod; label: string }[] = [
   { value: "dex-nav", label: "DexNav" },
   { value: "outbreak", label: "Outbreak" },
 ];
+
+const GAME_COLORS: Record<string, string> = {
+  "red-blue": "#dc2626",
+  "yellow": "#ca8a04",
+  "gold-silver": "#d97706",
+  "crystal": "#0284c7",
+  "ruby-sapphire": "#be123c",
+  "emerald": "#16a34a",
+  "firered-leafgreen": "#ea580c",
+  "diamond-pearl": "#7c3aed",
+  "platinum": "#6b7280",
+  "heartgold-soulsilver": "#b45309",
+  "black-white": "#374151",
+  "black2-white2": "#1f2937",
+  "x-y": "#2563eb",
+  "oras": "#b91c1c",
+  "sun-moon": "#f97316",
+  "usum": "#c2410c",
+  "swsh": "#4f46e5",
+  "bdsp": "#7c3aed",
+  "pla": "#15803d",
+  "scarlet-violet": "#9f1239",
+  "legends-za": "#4b5563",
+};
+
+const GAME_GRADIENT: Record<string, [string, string]> = {
+  "red-blue":            ["#dc2626", "#2563eb"],
+  "yellow":              ["#ca8a04", "#f59e0b"],
+  "gold-silver":         ["#d97706", "#9ca3af"],
+  "crystal":             ["#0284c7", "#a78bfa"],
+  "ruby-sapphire":       ["#be123c", "#1d4ed8"],
+  "emerald":             ["#15803d", "#34d399"],
+  "firered-leafgreen":   ["#dc2626", "#16a34a"],
+  "diamond-pearl":       ["#818cf8", "#ec4899"],
+  "platinum":            ["#6b7280", "#d1d5db"],
+  "heartgold-soulsilver":["#d97706", "#9ca3af"],
+  "black-white":         ["#1f2937", "#9ca3af"],
+  "black2-white2":       ["#1f2937", "#9ca3af"],
+  "x-y":                 ["#2563eb", "#7c3aed"],
+  "oras":                ["#dc2626", "#1d4ed8"],
+  "sun-moon":            ["#f97316", "#6366f1"],
+  "usum":                ["#c2410c", "#4f46e5"],
+  "swsh":                ["#1d4ed8", "#dc2626"],
+  "bdsp":                ["#818cf8", "#f472b6"],
+  "pla":                 ["#15803d", "#1e3a5f"],
+  "scarlet-violet":      ["#be123c", "#7c3aed"],
+  "legends-za":          ["#4b5563", "#1e293b"],
+};
 
 const TYPE_COLORS: Record<string, string> = {
   normal: "#A8A878",
@@ -113,7 +160,8 @@ type StatusToggleProps = {
   disabled?: boolean;
   label: string;
   helper: string;
-  activeClass: string;
+  gradient: [string, string];
+  inactiveColor?: string;
   icon: ReactNode;
   onClick?: () => void;
 };
@@ -123,7 +171,8 @@ function StatusToggle({
   disabled,
   label,
   helper,
-  activeClass,
+  gradient,
+  inactiveColor,
   icon,
   onClick,
 }: StatusToggleProps) {
@@ -139,29 +188,39 @@ function StatusToggle({
     prevActiveRef.current = active;
   }, [active]);
 
+  const gradBg = `linear-gradient(135deg, ${gradient[0]}, ${gradient[1]})`;
+
   return (
     <button
       type="button"
       onClick={onClick}
       disabled={disabled}
       aria-pressed={active}
-      className={`flex min-h-[64px] items-center gap-2 rounded-xl border-2 px-3 py-2.5 text-left transition-all active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 sm:gap-3 sm:px-4 sm:py-3 ${
+      style={active ? { background: gradBg } : undefined}
+      className={`flex min-h-[88px] flex-col items-center justify-center gap-2 rounded-2xl px-2 py-3 text-center transition-all active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${
         active
-          ? `${activeClass} text-white shadow-sm`
+          ? "text-white shadow-md"
           : disabled
-            ? "cursor-not-allowed border-gray-200 bg-gray-100 text-gray-400 dark:border-gray-700 dark:bg-gray-700 dark:text-gray-500"
-            : "border-gray-200 bg-white text-gray-700 hover:border-gray-300 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:border-gray-600 dark:hover:bg-gray-700"
+            ? "cursor-not-allowed bg-gray-100 text-gray-400 dark:bg-gray-700/50 dark:text-gray-500"
+            : "bg-gray-50 text-gray-700 hover:bg-gray-100 dark:bg-gray-700/40 dark:text-gray-200 dark:hover:bg-gray-700/70"
       }`}
     >
       <span
-        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-black/10 dark:bg-white/10 sm:h-10 sm:w-10 ${justActivated ? "animate-sprite-pop" : ""}`}
+        style={!active && !disabled ? { color: inactiveColor ?? gradient[0] } : undefined}
+        className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${
+          active
+            ? "bg-white/20"
+            : disabled
+              ? "bg-gray-200 text-gray-400 dark:bg-gray-600"
+              : "bg-white shadow-sm dark:bg-gray-600"
+        } ${justActivated ? "animate-sprite-pop" : ""}`}
       >
         {icon}
       </span>
-      <span className="min-w-0">
-        <span className="block text-sm font-bold leading-tight">{label}</span>
+      <span>
+        <span className="block text-xs font-bold leading-tight">{label}</span>
         <span
-          className={`block text-[11px] leading-snug mt-0.5 ${active ? "text-white/75" : "text-gray-400"}`}
+          className={`mt-0.5 block text-[10px] leading-snug ${active ? "text-white/70" : "text-gray-400 dark:text-gray-500"}`}
         >
           {helper}
         </span>
@@ -174,6 +233,7 @@ type Props = {
   pokemonId: number;
   speciesId: number;
   formName: string | null;
+  contextGameId?: string;
   onClose: () => void;
   onNavigate: (
     pokemonId: number,
@@ -186,6 +246,7 @@ export function PokemonDetailModal({
   pokemonId,
   speciesId,
   formName,
+  contextGameId,
   onClose,
   onNavigate,
 }: Props) {
@@ -210,8 +271,6 @@ export function PokemonDetailModal({
   const clearShinyOwned = usePokedexStore((s) => s.clearShinyOwned);
   const markInHome = usePokedexStore((s) => s.markInHome);
   const clearInHome = usePokedexStore((s) => s.clearInHome);
-  const markPlanned = usePokedexStore((s) => s.markPlanned);
-  const clearPlanned = usePokedexStore((s) => s.clearPlanned);
   const clearOwnership = usePokedexStore((s) => s.clearOwnership);
   const markOwnedInGame = usePokedexStore((s) => s.markOwnedInGame);
   const clearOwnedInGame = usePokedexStore((s) => s.clearOwnedInGame);
@@ -236,7 +295,6 @@ export function PokemonDetailModal({
   const livingDexForms = (speciesForms ?? []).filter(
     (entry) => entry.formName !== null,
   );
-  const planned = !!ownedRecord?.planned;
   const shinyLocked = isShinyLocked(speciesId, formName);
   const stats = selectedEntry?.stats ?? {};
   const totalStats = Object.values(stats).reduce(
@@ -392,15 +450,14 @@ export function PokemonDetailModal({
               </div>
 
               <div>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-3 gap-2">
                   <StatusToggle
                     active={owned}
                     label={owned ? "Owned" : "Missing"}
-                    helper={
-                      owned ? "Caught or bred by you" : "Not in your Living Dex"
-                    }
-                    activeClass="border-green-400 bg-green-500"
-                    icon={<CheckIcon className="h-5 w-5" />}
+                    helper={owned ? "Caught or bred" : "Not in your dex"}
+                    gradient={["#16a34a", "#4ade80"]}
+                    inactiveColor={owned ? undefined : "#ef4444"}
+                    icon={owned ? <CheckIcon className="h-5 w-5" /> : <XIcon className="h-5 w-5" />}
                     onClick={() =>
                       owned
                         ? clearOwnership(speciesId, formName)
@@ -411,8 +468,8 @@ export function PokemonDetailModal({
                     active={inHome}
                     disabled={!owned}
                     label={inHome ? "In HOME" : "HOME"}
-                    helper={owned ? "Transferred to HOME" : "Mark owned first"}
-                    activeClass="border-blue-400 bg-blue-500"
+                    helper={owned ? "In HOME" : "Own it first"}
+                    gradient={["#2563eb", "#60a5fa"]}
                     icon={<HomeIcon className="h-5 w-5" />}
                     onClick={() =>
                       inHome
@@ -423,37 +480,14 @@ export function PokemonDetailModal({
                   <StatusToggle
                     active={shinyOwned}
                     disabled={shinyLocked}
-                    label={
-                      shinyLocked
-                        ? "Shiny locked"
-                        : shinyOwned
-                          ? "Shiny owned"
-                          : "Shiny"
-                    }
-                    helper={
-                      shinyLocked
-                        ? "Not currently available"
-                        : "Track shiny variant"
-                    }
-                    activeClass="border-yellow-400 bg-yellow-500"
+                    label={shinyLocked ? "Locked" : shinyOwned ? "Shiny" : "Shiny"}
+                    helper={shinyLocked ? "Unavailable" : shinyOwned ? "You own it!" : "Track shiny"}
+                    gradient={["#d97706", "#fbbf24"]}
                     icon={<SparkleIcon className="h-5 w-5" />}
                     onClick={() =>
                       shinyOwned
                         ? clearShinyOwned(speciesId, formName)
                         : markShinyOwned(speciesId, formName)
-                    }
-                  />
-                  <StatusToggle
-                    active={!owned && planned}
-                    disabled={owned}
-                    label={planned ? "Planned" : "Plan catch"}
-                    helper={owned ? "Already owned" : "Add to catching queue"}
-                    activeClass="border-violet-400 bg-violet-500"
-                    icon={<BookmarkIcon className="h-5 w-5" />}
-                    onClick={() =>
-                      planned
-                        ? clearPlanned(speciesId, formName)
-                        : markPlanned(speciesId, formName)
                     }
                   />
                 </div>
@@ -623,54 +657,81 @@ export function PokemonDetailModal({
             )}
 
             <section className="flex flex-col gap-2 px-6 pb-4">
-              <label
-                htmlFor="registered-game"
-                className="mb-0.5 block text-xs font-medium uppercase tracking-wide text-gray-400"
-              >
-                National Dex registration
-              </label>
-              <select
-                id="registered-game"
-                value=""
-                onChange={(event) => {
-                  if (event.target.value)
-                    markOwnedInGame(speciesId, event.target.value);
-                }}
-                disabled={availableGameOptions.length === 0}
-                className="w-full rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200"
-              >
-                <option value="">
-                  {availableGameOptions.length > 0
-                    ? "Add game..."
-                    : "Mark games available first"}
-                </option>
-                {availableGameOptions.map((game) => (
-                  <option
-                    key={game.id}
-                    value={game.id}
-                    disabled={!!ownedRecord?.game_dex[game.id]}
-                  >
-                    {game.name}
-                  </option>
-                ))}
-              </select>
-
-              {registeredGames.length > 0 && (
-                <div className="flex flex-wrap gap-1.5">
-                  {registeredGames.map((game) => (
+              <p className="mb-0.5 text-xs font-medium uppercase tracking-wide text-gray-400">
+                National Dex
+              </p>
+              {availableGameOptions.length === 0 ? (
+                <p className="text-xs text-gray-400">
+                  Mark games available first
+                </p>
+              ) : contextGameId ? (
+                (() => {
+                  const game = availableGameOptions.find((g) => g.id === contextGameId);
+                  if (!game) return <p className="text-xs text-gray-400">Game not in your available list</p>;
+                  const isRegistered = !!ownedRecord?.game_dex[game.id];
+                  const grad = GAME_GRADIENT[game.id];
+                  const color = GAME_COLORS[game.id] ?? "#6b7280";
+                  const gradBg = grad
+                    ? `linear-gradient(135deg, ${grad[0]}, ${grad[1]})`
+                    : color;
+                  return isRegistered ? (
                     <button
-                      key={game.id}
                       type="button"
                       onClick={() => clearOwnedInGame(speciesId, game.id)}
-                      className="rounded-full bg-green-100 px-2.5 py-1 text-xs font-medium text-green-700 hover:bg-green-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 dark:bg-green-950 dark:text-green-300 dark:hover:bg-green-900"
-                      title={`Remove from ${game.name}`}
+                      style={{ background: gradBg }}
+                      className="flex w-full items-center justify-between rounded-xl px-4 py-2.5 text-sm font-bold text-white shadow-sm transition-opacity hover:opacity-85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
                     >
-                      <span className="inline-flex items-center gap-1">
+                      <span>Registered in {game.name}</span>
+                      <XIcon className="h-4 w-4 shrink-0" />
+                    </button>
+                  ) : (
+                    <div style={{ background: gradBg }} className="rounded-xl p-[2px]">
+                      <button
+                        type="button"
+                        onClick={() => markOwnedInGame(speciesId, game.id)}
+                        style={{ color: grad ? grad[0] : color }}
+                        className="flex w-full items-center justify-center rounded-[10px] bg-white px-4 py-2.5 text-sm font-bold transition-opacity hover:opacity-85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 dark:bg-gray-800"
+                      >
+                        + Register in {game.name}
+                      </button>
+                    </div>
+                  );
+                })()
+              ) : (
+                <div className="flex flex-wrap gap-1.5">
+                  {availableGameOptions.map((game) => {
+                    const isRegistered = !!ownedRecord?.game_dex[game.id];
+                    const grad = GAME_GRADIENT[game.id];
+                    const color = GAME_COLORS[game.id] ?? "#6b7280";
+                    const gradBg = grad
+                      ? `linear-gradient(135deg, ${grad[0]}, ${grad[1]})`
+                      : color;
+                    return isRegistered ? (
+                      <button
+                        key={game.id}
+                        type="button"
+                        onClick={() => clearOwnedInGame(speciesId, game.id)}
+                        title={`Remove from ${game.name}`}
+                        style={{ background: gradBg }}
+                        className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold text-white transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                      >
                         {game.name}
                         <XIcon className="h-3 w-3" />
-                      </span>
-                    </button>
-                  ))}
+                      </button>
+                    ) : (
+                      <div key={game.id} style={{ background: gradBg }} className="rounded-full p-[2px]">
+                        <button
+                          type="button"
+                          onClick={() => markOwnedInGame(speciesId, game.id)}
+                          title={`Add to ${game.name}`}
+                          style={{ color: grad ? grad[0] : color }}
+                          className="rounded-full bg-white px-2.5 py-[3px] text-xs font-semibold transition-opacity hover:opacity-70 focus-visible:outline-none dark:bg-gray-800"
+                        >
+                          {game.name}
+                        </button>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </section>

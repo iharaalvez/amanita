@@ -21,6 +21,7 @@ type SelectedPokemon = {
   pokemonId: number;
   speciesId: number;
   formName: string | null;
+  contextGameId?: string;
 };
 
 const GENERATIONS = [
@@ -176,11 +177,11 @@ export default function Home() {
     }));
   }, [filteredEntries, ownedRecords]);
 
-  function handleSelect(speciesId: number, formName: string | null) {
+  function handleSelect(speciesId: number, formName: string | null, contextGameId?: string) {
     const entry = livingDexEntries?.find(
       (e) => e.speciesId === speciesId && e.formName === formName,
     );
-    setSelected({ pokemonId: entry?.id ?? speciesId, speciesId, formName });
+    setSelected({ pokemonId: entry?.id ?? speciesId, speciesId, formName, contextGameId });
   }
 
   if (loading) {
@@ -400,7 +401,7 @@ export default function Home() {
         {activeTab === "home" && (
           <HomeBoxView onSelect={handleSelect} search={homeSearch} />
         )}
-        {activeTab === "gamedex" && <GameDexView onSelect={handleSelect} />}
+        {activeTab === "gamedex" && <GameDexView onSelect={(speciesId, formName, gameId) => handleSelect(speciesId, formName, gameId)} />}
         {activeTab === "stats" && <StatsView />}
       </div>
 
@@ -409,9 +410,10 @@ export default function Home() {
           pokemonId={selected.pokemonId}
           speciesId={selected.speciesId}
           formName={selected.formName}
+          contextGameId={selected.contextGameId}
           onClose={() => setSelected(null)}
           onNavigate={(pokemonId, speciesId, formName) =>
-            setSelected({ pokemonId, speciesId, formName })
+            setSelected({ pokemonId, speciesId, formName, contextGameId: selected.contextGameId })
           }
         />
       )}

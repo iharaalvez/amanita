@@ -39,8 +39,6 @@ type PokedexState = {
   clearShinyOwned: (speciesId: number, formName?: string | null) => void;
   markInHome: (speciesId: number, formName?: string | null) => void;
   clearInHome: (speciesId: number, formName?: string | null) => void;
-  markPlanned: (speciesId: number, formName?: string | null) => void;
-  clearPlanned: (speciesId: number, formName?: string | null) => void;
   clearOwnership: (speciesId: number, formName?: string | null) => void;
   setGameAvailable: (gameId: string, available: boolean) => void;
   isGameAvailable: (gameId: string) => boolean;
@@ -49,7 +47,6 @@ type PokedexState = {
   clearOwnedInGame: (speciesId: number, gameId: string) => void;
   isOwnedInGame: (speciesId: number, gameId: string) => boolean;
   isOwned: (speciesId: number, formName?: string | null) => boolean;
-  isPlanned: (speciesId: number, formName?: string | null) => boolean;
   getOwnedCount: () => number;
   getTotalOwned: () => number;
   getGameProgress: (gameId: string) => { owned: number };
@@ -105,7 +102,6 @@ export const usePokedexStore = create<PokedexState>()(
               owned: true,
               shiny_owned: state.owned[key]?.shiny_owned ?? false,
               game_dex: state.owned[key]?.game_dex ?? {},
-              planned: state.owned[key]?.planned,
               notes: state.owned[key]?.notes,
               game_caught: state.owned[key]?.game_caught,
               method,
@@ -126,7 +122,6 @@ export const usePokedexStore = create<PokedexState>()(
               owned: state.owned[key]?.owned ?? false,
               shiny_owned: true,
               game_dex: state.owned[key]?.game_dex ?? {},
-              planned: state.owned[key]?.planned,
               notes: state.owned[key]?.notes,
               method: state.owned[key]?.method,
               game_caught: state.owned[key]?.game_caught,
@@ -152,7 +147,6 @@ export const usePokedexStore = create<PokedexState>()(
           };
           if (
             updated.owned ||
-            updated.planned ||
             updated.notes ||
             Object.values(updated.game_dex).some(Boolean)
           ) {
@@ -199,49 +193,6 @@ export const usePokedexStore = create<PokedexState>()(
         if (record) void syncRecord(record);
       },
 
-      markPlanned: (speciesId, formName) => {
-        const key = ownedKey(speciesId, formName);
-        set((state) => ({
-          owned: {
-            ...state.owned,
-            [key]: {
-              pokedex_number: speciesId,
-              form_name: formName ?? null,
-              owned: state.owned[key]?.owned ?? false,
-              shiny_owned: state.owned[key]?.shiny_owned ?? false,
-              game_dex: state.owned[key]?.game_dex ?? {},
-              planned: true,
-              notes: state.owned[key]?.notes,
-            },
-          },
-        }));
-        void syncRecord(get().owned[key]!);
-      },
-
-      clearPlanned: (speciesId, formName) => {
-        const key = ownedKey(speciesId, formName);
-        set((state) => {
-          const existing = state.owned[key];
-          if (!existing) return {};
-          const next = { ...state.owned };
-          const updated: OwnedRecord = { ...existing, planned: false };
-          if (
-            updated.owned ||
-            updated.shiny_owned ||
-            updated.notes ||
-            Object.values(updated.game_dex).some(Boolean)
-          ) {
-            next[key] = updated;
-          } else {
-            delete next[key];
-          }
-          return { owned: next };
-        });
-        const record = get().owned[key];
-        if (record) void syncRecord(record);
-        else void deleteRecord(speciesId, formName ?? null);
-      },
-
       clearOwnership: (speciesId, formName) => {
         const key = ownedKey(speciesId, formName);
         set((state) => {
@@ -256,7 +207,6 @@ export const usePokedexStore = create<PokedexState>()(
           };
           if (
             updated.shiny_owned ||
-            updated.planned ||
             updated.notes ||
             Object.values(updated.game_dex).some(Boolean)
           ) {
@@ -295,7 +245,6 @@ export const usePokedexStore = create<PokedexState>()(
             owned: existing?.owned ?? false,
             shiny_owned: existing?.shiny_owned ?? false,
             game_dex: gameDex,
-            planned: existing?.planned,
             notes: existing?.notes,
             method: existing?.method,
             game_caught: existing?.owned ? gameId : existing?.game_caught,
@@ -340,7 +289,6 @@ export const usePokedexStore = create<PokedexState>()(
           if (
             updated.owned ||
             updated.shiny_owned ||
-            updated.planned ||
             updated.notes ||
             Object.values(gameDex).some(Boolean)
           ) {
@@ -356,8 +304,6 @@ export const usePokedexStore = create<PokedexState>()(
 
       isOwned: (speciesId, formName) =>
         !!get().owned[ownedKey(speciesId, formName)]?.owned,
-      isPlanned: (speciesId, formName) =>
-        !!get().owned[ownedKey(speciesId, formName)]?.planned,
 
       isOwnedInGame: (speciesId, gameId) => {
         const key = baseKey(speciesId);

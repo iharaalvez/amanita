@@ -39,7 +39,7 @@ function GameSlot({ entry, gameId, onSelect }: GameSlotProps) {
       onClick={() => onSelect(entry.speciesId, entry.formName)}
       aria-label={`${entry.displayName}, ${owned ? "registered" : "not registered"} in this game`}
       title={`${paddedGameNumber} - ${entry.displayName} (${paddedNationalNumber})`}
-      className={`relative flex h-[132px] w-[120px] cursor-pointer flex-col items-center justify-center gap-1 rounded-lg p-2 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${
+      className={`relative flex h-[132px] w-full cursor-pointer flex-col items-center justify-center gap-1 rounded-lg p-2 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 sm:w-[120px] ${
         owned
           ? "bg-green-50 ring-1 ring-green-400 dark:bg-green-950/30"
           : "bg-white/50 hover:bg-gray-200 dark:bg-gray-900/20 dark:hover:bg-gray-600"
@@ -168,7 +168,7 @@ function AvailableGamesModal({ onClose }: AvailableGamesModalProps) {
 }
 
 type Props = {
-  onSelect: (speciesId: number, formName: string | null) => void;
+  onSelect: (speciesId: number, formName: string | null, contextGameId: string) => void;
 };
 
 type CompletionFilter = "all" | "missing" | "registered";
@@ -540,22 +540,22 @@ export function GameDexView({ onSelect }: Props) {
             Failed to load Pokedex for this game. Try refreshing.
           </div>
         ) : dexLoading ? (
-          <div className="grid grid-cols-[repeat(auto-fill,minmax(100px,120px))] gap-2">
+          <div className="grid grid-cols-3 gap-2 sm:grid-cols-[repeat(auto-fill,minmax(100px,120px))]">
             {Array.from({ length: 48 }).map((_, index) => (
               <div
                 key={index}
-                className="h-[132px] w-[120px] animate-pulse rounded-lg bg-gray-200 dark:bg-gray-700"
+                className="h-[132px] w-full animate-pulse rounded-lg bg-gray-200 sm:w-[120px] dark:bg-gray-700"
               />
             ))}
           </div>
         ) : (
-          <div className="grid grid-cols-[repeat(auto-fill,minmax(100px,120px))] gap-2">
+          <div className="grid grid-cols-3 gap-2 sm:grid-cols-[repeat(auto-fill,minmax(100px,120px))]">
             {filteredGamePokemon.map((entry) => (
               <GameSlot
                 key={`${entry.speciesId}-${entry.formName ?? "base"}`}
                 entry={entry}
                 gameId={selectedGameId}
-                onSelect={onSelect}
+                onSelect={(speciesId, formName) => onSelect(speciesId, formName, selectedGameId)}
               />
             ))}
             {filteredGamePokemon.length === 0 && (
