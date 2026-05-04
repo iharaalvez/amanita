@@ -32,7 +32,7 @@ export function BoxSlot({ entry, onSelect }: Props) {
 
   if (!entry) {
     return (
-      <div className="aspect-square rounded-lg border border-dashed border-gray-200 bg-white/50 dark:border-gray-700/50 dark:bg-gray-900/20" />
+      <div className="aspect-square rounded-lg border-2 border-dashed border-gray-200 bg-white/50 dark:border-gray-700/50 dark:bg-gray-900/20" />
     );
   }
 
@@ -49,27 +49,27 @@ export function BoxSlot({ entry, onSelect }: Props) {
       : entry.displayName.split(" ").slice(1).join(" ") || entry.displayName
     : entry.displayName;
 
-  const ringClass = shinyOwned
-    ? "ring-2 ring-yellow-400 bg-yellow-50 dark:bg-yellow-950/40"
+  const statusClass = shinyOwned
+    ? "border-yellow-400 bg-yellow-50 dark:bg-yellow-950/40"
     : inHome
-      ? "ring-2 ring-green-400 bg-green-50/50 dark:bg-green-950/30"
+      ? "border-green-400 bg-green-50/50 dark:bg-green-950/30"
       : owned
-        ? "ring-2 ring-blue-400 bg-blue-50/50 dark:bg-blue-950/20"
+        ? "border-blue-400 bg-blue-50/50 dark:bg-blue-950/20"
         : planned
-          ? "ring-2 ring-violet-400 bg-violet-50 dark:bg-violet-950/30"
-          : "bg-white/50 hover:bg-gray-100 dark:bg-gray-900/20 dark:hover:bg-gray-700/50";
+          ? "border-violet-400 bg-violet-50 dark:bg-violet-950/30"
+          : "border-transparent bg-white/50 hover:bg-gray-100 dark:bg-gray-900/20 dark:hover:bg-gray-700/50";
 
   const label = shinyOwned
     ? `${paddedNumber} - ${entry.displayName} - shiny owned`
-    : `${paddedNumber} - ${entry.displayName}${inHome ? " - In HOME" : owned ? " - Pending transfer" : planned ? " - Planned" : ""}`;
+    : `${paddedNumber} - ${entry.displayName}${inHome ? " - In HOME" : owned ? " - Owned, not in HOME" : planned ? " - Planned" : ""}`;
 
   return (
     <Tooltip content={label} className="w-full">
       <button
         onClick={() => onSelect?.(entry.speciesId, entry.formName)}
-        aria-label={`${entry.displayName}, ${inHome ? "in HOME" : owned ? "owned, pending transfer" : planned ? "planned" : "not owned"}${shinyOwned ? ", shiny owned" : ""}`}
+        aria-label={`${entry.displayName}, ${inHome ? "in HOME" : owned ? "owned, not in HOME" : planned ? "planned" : "not owned"}${shinyOwned ? ", shiny owned" : ""}`}
         aria-pressed={owned || shinyOwned || planned}
-        className={`group relative flex aspect-square w-full cursor-pointer flex-col items-center justify-center gap-0.5 rounded-lg p-1 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${ringClass}`}
+        className={`group relative flex aspect-square w-full cursor-pointer flex-col items-center justify-center gap-0.5 rounded-lg border-2 p-1 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${statusClass}`}
       >
         <span className="absolute right-1 top-1 flex gap-1" aria-hidden>
           {shinyOwned && (

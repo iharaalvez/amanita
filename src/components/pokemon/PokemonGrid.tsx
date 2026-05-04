@@ -9,7 +9,7 @@ import {
   type LivingDexEntry,
   type PokemonType,
 } from "@/types/pokemon";
-import { ownedKey, usePokedexStore } from "@/store/pokedexStore";
+import { usePokedexStore } from "@/store/pokedexStore";
 import { PokemonCard } from "./PokemonCard";
 
 const GEN_LABELS: Record<(typeof GEN_FILTER_VALUES)[number], string> = {
@@ -46,14 +46,7 @@ const TYPE_FILTER_VALUES: PokemonType[] = [
   "fairy",
 ];
 
-type OwnershipFilter =
-  | "all"
-  | "owned"
-  | "missing"
-  | "planned"
-  | "shiny"
-  | "pending";
-type SortMode = "dex" | "name" | "missing";
+type SortMode = "dex" | "name";
 
 type Props = {
   onSelect: (speciesId: number, formName: string | null) => void;
@@ -71,11 +64,8 @@ function dexCompare(a: LivingDexEntry, b: LivingDexEntry) {
 export function PokemonGrid({ onSelect, search, filtersOpen }: Props) {
   const { data, isLoading, error } = useLivingDexEntries();
   const { generation, setGeneration } = useGenerationFilter();
-  const [ownershipFilter, setOwnershipFilter] =
-    useState<OwnershipFilter>("all");
   const [typeFilter, setTypeFilter] = useState<PokemonType | "all">("all");
   const [sortMode, setSortMode] = useState<SortMode>("dex");
-  const ownedRecords = usePokedexStore((s) => s.owned);
   const showCosmeticForms = usePokedexStore((s) => s.showCosmeticForms);
   const setShowCosmeticForms = usePokedexStore((s) => s.setShowCosmeticForms);
 
@@ -88,41 +78,12 @@ export function PokemonGrid({ onSelect, search, filtersOpen }: Props) {
   const sorted = byGen.toSorted((a, b) => {
     if (sortMode === "name")
       return a.displayName.localeCompare(b.displayName) || dexCompare(a, b);
-    if (sortMode === "missing") {
-      const aOwned = !!ownedRecords[ownedKey(a.speciesId, a.formName)]?.owned;
-      const bOwned = !!ownedRecords[ownedKey(b.speciesId, b.formName)]?.owned;
-      if (aOwned !== bOwned) return aOwned ? 1 : -1;
-    }
     return dexCompare(a, b);
   });
-
-  const ownedCount = sorted.filter(
-    (e) => ownedRecords[ownedKey(e.speciesId, e.formName)]?.owned,
-  ).length;
-  const missingCount = sorted.length - ownedCount;
-  const plannedCount = sorted.filter((e) => {
-    const record = ownedRecords[ownedKey(e.speciesId, e.formName)];
-    return !record?.owned && record?.planned;
-  }).length;
-  const shinyCount = sorted.filter(
-    (e) => ownedRecords[ownedKey(e.speciesId, e.formName)]?.shiny_owned,
-  ).length;
-  const pendingCount = sorted.filter((e) => {
-    const record = ownedRecords[ownedKey(e.speciesId, e.formName)];
-    return record?.owned && !record.in_home;
-  }).length;
 
   const q = search.trim().toLowerCase();
 
   const visibleEntries = sorted.filter((e) => {
-    const record = ownedRecords[ownedKey(e.speciesId, e.formName)];
-    if (ownershipFilter === "owned" && record?.owned !== true) return false;
-    if (ownershipFilter === "missing" && record?.owned) return false;
-    if (ownershipFilter === "planned" && (record?.owned || !record?.planned))
-      return false;
-    if (ownershipFilter === "shiny" && !record?.shiny_owned) return false;
-    if (ownershipFilter === "pending" && (!record?.owned || record?.in_home))
-      return false;
     if (typeFilter !== "all" && !e.types?.includes(typeFilter)) return false;
     if (q) {
       const nameMatch = e.displayName.toLowerCase().includes(q);
@@ -132,23 +93,9 @@ export function PokemonGrid({ onSelect, search, filtersOpen }: Props) {
     return true;
   });
 
-  const ownershipOptions: {
-    value: OwnershipFilter;
-    label: string;
-    count: number;
-  }[] = [
-    { value: "all", label: "All", count: sorted.length },
-    { value: "owned", label: "Owned", count: ownedCount },
-    { value: "missing", label: "Missing", count: missingCount },
-    { value: "planned", label: "Planned", count: plannedCount },
-    { value: "shiny", label: "Shiny", count: shinyCount },
-    { value: "pending", label: "Pending", count: pendingCount },
-  ];
-
   const sortOptions: { value: SortMode; label: string }[] = [
     { value: "dex", label: "Dex order" },
     { value: "name", label: "Name A-Z" },
-    { value: "missing", label: "Missing first" },
   ];
 
   if (error) {
@@ -235,35 +182,10 @@ export function PokemonGrid({ onSelect, search, filtersOpen }: Props) {
               ))}
             </div>
 
-            <div
-              className="flex flex-wrap gap-2"
-              aria-label="Ownership filters"
-            >
-              {ownershipOptions.map(({ value, label, count }) => (
-                <button
-                  key={value}
-                  onClick={() => setOwnershipFilter(value)}
-                  className={`rounded-full px-3 py-1 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${
-                    ownershipFilter === value
-                      ? value === "owned"
-                        ? "bg-green-500 text-white"
-                        : value === "missing"
-                          ? "bg-red-400 text-white"
-                          : value === "planned"
-                            ? "bg-violet-500 text-white"
-                            : value === "shiny"
-                              ? "bg-yellow-500 text-white"
-                              : value === "pending"
-                                ? "bg-blue-500 text-white"
-                                : "bg-blue-500 text-white"
-                      : "bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
-                  }`}
-                >
-                  {label}{" "}
-                  <span className="tabular-nums opacity-75">({count})</span>
-                </button>
-              ))}
-            </div>
+            <p className="text-xs text-gray-400">
+              Showing {visibleEntries.length} of {sorted.length} Pokedex
+              entries.
+            </p>
           </div>
         </div>
       )}

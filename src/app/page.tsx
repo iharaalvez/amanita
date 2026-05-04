@@ -43,6 +43,24 @@ const TABS: { id: Tab; label: string }[] = [
 ];
 
 const SHOW_PROGRESS_TABS = new Set<Tab>(["pokedex", "home"]);
+const SHOWN_MILESTONES_KEY = "living-pokedex-shown-milestones-v1";
+
+function getShownMilestones(): Set<number> {
+  try {
+    const value = JSON.parse(
+      localStorage.getItem(SHOWN_MILESTONES_KEY) ?? "[]",
+    ) as unknown;
+    return new Set(
+      Array.isArray(value)
+        ? value.filter((threshold): threshold is number =>
+            Number.isInteger(threshold),
+          )
+        : [],
+    );
+  } catch {
+    return new Set();
+  }
+}
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState<Tab>("pokedex");
@@ -78,9 +96,11 @@ export default function Home() {
   const ownedRecords = usePokedexStore((s) => s.owned);
   const showCosmeticForms = usePokedexStore((s) => s.showCosmeticForms);
 
-  const { data: livingDexEntries } = useLivingDexEntries();
+  const { data: livingDexEntries, isSuccess: livingDexLoaded } =
+    useLivingDexEntries();
   const [milestoneMessage, setMilestoneMessage] = useState<string | null>(null);
   const prevOwnedRef = useRef<number | null>(null);
+  const milestoneReadyRef = useRef(false);
 
   const filteredEntries = useMemo(
     () =>
@@ -99,8 +119,13 @@ export default function Home() {
   );
 
   useEffect(() => {
+    if (!livingDexLoaded) return;
     const prev = prevOwnedRef.current;
     prevOwnedRef.current = ownedCount;
+    if (!milestoneReadyRef.current) {
+      milestoneReadyRef.current = true;
+      return;
+    }
     if (prev === null || ownedCount <= prev) return;
     const milestones: [number, string][] = [
       [1, "First Pokémon caught!"],
@@ -111,14 +136,24 @@ export default function Home() {
       [750, "750 owned — almost there."],
       [1025, "Living Dex complete!"],
     ];
+    const shownMilestones = getShownMilestones();
     for (const [threshold, message] of milestones) {
-      if (prev < threshold && ownedCount >= threshold) {
+      if (
+        prev < threshold &&
+        ownedCount >= threshold &&
+        !shownMilestones.has(threshold)
+      ) {
+        shownMilestones.add(threshold);
+        localStorage.setItem(
+          SHOWN_MILESTONES_KEY,
+          JSON.stringify(Array.from(shownMilestones)),
+        );
         setMilestoneMessage(message);
         const timer = setTimeout(() => setMilestoneMessage(null), 4500);
         return () => clearTimeout(timer);
       }
     }
-  }, [ownedCount]);
+  }, [livingDexLoaded, ownedCount]);
   const total = filteredEntries.length || 1025;
   const progressPct = total > 0 ? (ownedCount / total) * 100 : 0;
 

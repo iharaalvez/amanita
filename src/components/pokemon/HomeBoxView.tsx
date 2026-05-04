@@ -1,12 +1,28 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useLivingDexEntries } from "@/hooks/usePokemon";
 import { usePokedexStore, ownedKey } from "@/store/pokedexStore";
 import { BoxSlot } from "./BoxSlot";
 import type { LivingDexEntry } from "@/types/pokemon";
 
 const BOX_SIZE = 30;
+type HomeStatusFilter =
+  | "all"
+  | "in-home"
+  | "pending"
+  | "shiny"
+  | "planned"
+  | "missing";
+
+const HOME_STATUS_OPTIONS: { value: HomeStatusFilter; label: string }[] = [
+  { value: "all", label: "All" },
+  { value: "pending", label: "Pending" },
+  { value: "in-home", label: "In HOME" },
+  { value: "missing", label: "Missing" },
+  { value: "shiny", label: "Shiny" },
+  { value: "planned", label: "Planned" },
+];
 
 function buildBoxes(entries: LivingDexEntry[]): (LivingDexEntry | null)[][] {
   const totalBoxes = Math.ceil(entries.length / BOX_SIZE);
@@ -27,6 +43,7 @@ type Props = {
 
 export function HomeBoxView({ onSelect, search }: Props) {
   const { data, isLoading, error } = useLivingDexEntries();
+  const [statusFilter, setStatusFilter] = useState<HomeStatusFilter>("all");
   const ownedRecords = usePokedexStore((s) => s.owned);
   const showCosmeticForms = usePokedexStore((s) => s.showCosmeticForms);
   const setShowCosmeticForms = usePokedexStore((s) => s.setShowCosmeticForms);
@@ -80,74 +97,109 @@ export function HomeBoxView({ onSelect, search }: Props) {
   const boxes = buildBoxes(orderedEntries);
 
   const q = search.trim().toLowerCase();
-  const matchingKeys = q
-    ? new Set(
-        orderedEntries
-          .filter((e) => {
-            const nameMatch = e.displayName.toLowerCase().includes(q);
-            const numMatch = String(e.speciesId).startsWith(
-              q.replace(/^#0*/, ""),
-            );
-            return nameMatch || numMatch;
-          })
-          .map((e) => `${e.speciesId}-${e.formName ?? "base"}`),
-      )
-    : null;
+  const matchingKeys = new Set(
+    orderedEntries
+      .filter((entry) => {
+        const record = ownedRecords[ownedKey(entry.speciesId, entry.formName)];
+        if (statusFilter === "in-home" && !record?.in_home) return false;
+        if (statusFilter === "pending" && (!record?.owned || record.in_home)) {
+          return false;
+        }
+        if (statusFilter === "shiny" && !record?.shiny_owned) return false;
+        if (statusFilter === "planned" && (record?.owned || !record?.planned)) {
+          return false;
+        }
+        if (statusFilter === "missing" && record?.owned) return false;
+        if (!q) return true;
+
+        const nameMatch = entry.displayName.toLowerCase().includes(q);
+        const numMatch = String(entry.speciesId).startsWith(
+          q.replace(/^#0*/, ""),
+        );
+        return nameMatch || numMatch;
+      })
+      .map((entry) => `${entry.speciesId}-${entry.formName ?? "base"}`),
+  );
+  const hasActiveFilter = q.length > 0 || statusFilter !== "all";
+  const visibleBoxes = !hasActiveFilter
+    ? boxes.map((box, boxIndex) => ({ box, boxIndex }))
+    : boxes.flatMap((box, boxIndex) =>
+        box.some((entry) =>
+          entry
+            ? matchingKeys.has(`${entry.speciesId}-${entry.formName ?? "base"}`)
+            : false,
+        )
+          ? [{ box, boxIndex }]
+          : [],
+      );
 
   return (
     <div className="mx-auto max-w-7xl px-4 pb-8">
-      {/* Summary bar */}
-      <div className="mb-4 flex flex-wrap items-baseline gap-x-5 gap-y-2 border-b border-gray-100 pb-4 dark:border-gray-800">
-        <div className="flex items-baseline gap-1.5">
-          <span className="text-2xl font-bold tabular-nums text-green-400">
-            {summary.inHome}
-          </span>
-          <span className="text-xs text-gray-400">in HOME</span>
-          <span className="mx-1 text-gray-600 dark:text-gray-600">/</span>
-          <span className="text-sm font-semibold tabular-nums text-gray-300">
-            {summary.owned}
-          </span>
-          <span className="text-xs text-gray-400">owned</span>
+      {/* Summary and controls */}
+      <div className="mb-4 border-b border-gray-100 pb-4 dark:border-gray-800">
+
+        <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex flex-wrap items-center gap-1 rounded-lg bg-gray-100 p-1 dark:bg-gray-800">
+            {HOME_STATUS_OPTIONS.map(({ value, label }) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => setStatusFilter(value)}
+                aria-pressed={statusFilter === value}
+                className={`rounded-md px-2.5 py-1 text-[10px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${
+                  statusFilter === value
+                    ? "bg-gray-800 text-white shadow-sm dark:bg-gray-100 dark:text-gray-900"
+                    : "text-gray-500 hover:bg-white hover:text-gray-700 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-white"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowCosmeticForms(!showCosmeticForms)}
+            className={`w-fit rounded-full px-2.5 py-1 text-[10px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${
+              showCosmeticForms
+                ? "bg-teal-500 text-white"
+                : "bg-gray-100 text-gray-500 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-400 dark:hover:bg-gray-600"
+            }`}
+          >
+            Form variants {showCosmeticForms ? "on" : "off"}
+          </button>
         </div>
-        {summary.pending > 0 && (
-          <span className="text-xs font-semibold tabular-nums text-blue-400">
-            {summary.pending} pending transfer
-          </span>
-        )}
-        <button
-          type="button"
-          onClick={() => setShowCosmeticForms(!showCosmeticForms)}
-          className={`rounded-full px-2.5 py-1 text-[10px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${
-            showCosmeticForms
-              ? "bg-teal-500 text-white"
-              : "bg-gray-100 text-gray-500 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-400 dark:hover:bg-gray-600"
-          }`}
-        >
-          Form variants {showCosmeticForms ? "on" : "off"}
-        </button>
-        <div className="ml-auto flex items-center gap-3 text-[10px] text-gray-500">
-          <span className="flex items-center gap-1.5">
-            <span className="inline-block h-3 w-3 rounded-sm bg-green-950/30 ring-1 ring-green-400" />
-            In HOME
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="inline-block h-3 w-3 rounded-sm bg-blue-950/20 ring-1 ring-blue-400" />
-            Pending
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="inline-block h-3 w-3 rounded-sm bg-yellow-950/40 ring-1 ring-yellow-400" />
-            Shiny
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="inline-block h-3 w-3 rounded-sm bg-violet-950/30 ring-1 ring-violet-400" />
-            Planned
-          </span>
+
+        <div className="my-3 flex flex-wrap items-center gap-2">
+          <div className="rounded-lg border border-green-200 bg-green-50 px-3 py-2 dark:border-green-900/60 dark:bg-green-950/30">
+            <span className="text-lg font-black tabular-nums text-green-500">
+              {summary.inHome}
+            </span>
+            <span className="ml-1.5 text-xs font-semibold text-green-700 dark:text-green-300">
+              In HOME
+            </span>
+          </div>
+          <div className="rounded-lg border border-gray-200 bg-white px-3 py-2 dark:border-gray-700 dark:bg-gray-800">
+            <span className="text-lg font-black tabular-nums text-gray-700 dark:text-gray-100">
+              {summary.owned}
+            </span>
+            <span className="ml-1.5 text-xs font-semibold text-gray-500 dark:text-gray-300">
+              Owned
+            </span>
+          </div>
+          <div className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 dark:border-blue-900/60 dark:bg-blue-950/30">
+            <span className="text-lg font-black tabular-nums text-blue-500">
+              {summary.pending}
+            </span>
+            <span className="ml-1.5 text-xs font-semibold text-blue-700 dark:text-blue-300">
+              Pending
+            </span>
+          </div>
         </div>
       </div>
 
       {/* Box grid */}
       <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-        {boxes.map((box, boxIndex) => (
+        {visibleBoxes.map(({ box, boxIndex }) => (
           <section
             key={boxIndex}
             className="scroll-mt-14 rounded-xl border border-gray-100 bg-gray-50 p-3 dark:border-gray-700/50 dark:bg-gray-800/60"
@@ -176,6 +228,11 @@ export function HomeBoxView({ onSelect, search }: Props) {
             </div>
           </section>
         ))}
+        {visibleBoxes.length === 0 && (
+          <div className="col-span-full py-12 text-center text-sm text-gray-400">
+            No Pokemon match this HOME view.
+          </div>
+        )}
       </div>
     </div>
   );
