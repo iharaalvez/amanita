@@ -46,50 +46,50 @@ const SHINY_HUNT_METHODS: { value: ShinyHuntMethod; label: string }[] = [
 
 const GAME_COLORS: Record<string, string> = {
   "red-blue": "#dc2626",
-  "yellow": "#ca8a04",
+  yellow: "#ca8a04",
   "gold-silver": "#d97706",
-  "crystal": "#0284c7",
+  crystal: "#0284c7",
   "ruby-sapphire": "#be123c",
-  "emerald": "#16a34a",
+  emerald: "#16a34a",
   "firered-leafgreen": "#ea580c",
   "diamond-pearl": "#7c3aed",
-  "platinum": "#6b7280",
+  platinum: "#6b7280",
   "heartgold-soulsilver": "#b45309",
   "black-white": "#374151",
   "black2-white2": "#1f2937",
   "x-y": "#2563eb",
-  "oras": "#b91c1c",
+  oras: "#b91c1c",
   "sun-moon": "#f97316",
-  "usum": "#c2410c",
-  "swsh": "#4f46e5",
-  "bdsp": "#7c3aed",
-  "pla": "#15803d",
+  usum: "#c2410c",
+  swsh: "#4f46e5",
+  bdsp: "#7c3aed",
+  pla: "#15803d",
   "scarlet-violet": "#9f1239",
   "legends-za": "#4b5563",
 };
 
 const GAME_GRADIENT: Record<string, [string, string]> = {
-  "red-blue":            ["#dc2626", "#2563eb"],
-  "yellow":              ["#ca8a04", "#f59e0b"],
-  "gold-silver":         ["#d97706", "#9ca3af"],
-  "crystal":             ["#0284c7", "#a78bfa"],
-  "ruby-sapphire":       ["#be123c", "#1d4ed8"],
-  "emerald":             ["#15803d", "#34d399"],
-  "firered-leafgreen":   ["#dc2626", "#16a34a"],
-  "diamond-pearl":       ["#818cf8", "#ec4899"],
-  "platinum":            ["#6b7280", "#d1d5db"],
-  "heartgold-soulsilver":["#d97706", "#9ca3af"],
-  "black-white":         ["#1f2937", "#9ca3af"],
-  "black2-white2":       ["#1f2937", "#9ca3af"],
-  "x-y":                 ["#2563eb", "#7c3aed"],
-  "oras":                ["#dc2626", "#1d4ed8"],
-  "sun-moon":            ["#f97316", "#6366f1"],
-  "usum":                ["#c2410c", "#4f46e5"],
-  "swsh":                ["#1d4ed8", "#dc2626"],
-  "bdsp":                ["#818cf8", "#f472b6"],
-  "pla":                 ["#15803d", "#1e3a5f"],
-  "scarlet-violet":      ["#be123c", "#7c3aed"],
-  "legends-za":          ["#4b5563", "#1e293b"],
+  "red-blue": ["#dc2626", "#2563eb"],
+  yellow: ["#ca8a04", "#f59e0b"],
+  "gold-silver": ["#d97706", "#9ca3af"],
+  crystal: ["#0284c7", "#a78bfa"],
+  "ruby-sapphire": ["#be123c", "#1d4ed8"],
+  emerald: ["#15803d", "#34d399"],
+  "firered-leafgreen": ["#dc2626", "#16a34a"],
+  "diamond-pearl": ["#818cf8", "#ec4899"],
+  platinum: ["#6b7280", "#d1d5db"],
+  "heartgold-soulsilver": ["#d97706", "#9ca3af"],
+  "black-white": ["#1f2937", "#9ca3af"],
+  "black2-white2": ["#1f2937", "#9ca3af"],
+  "x-y": ["#2563eb", "#7c3aed"],
+  oras: ["#dc2626", "#1d4ed8"],
+  "sun-moon": ["#f97316", "#6366f1"],
+  usum: ["#c2410c", "#4f46e5"],
+  swsh: ["#1d4ed8", "#dc2626"],
+  bdsp: ["#818cf8", "#f472b6"],
+  pla: ["#15803d", "#1e3a5f"],
+  "scarlet-violet": ["#be123c", "#7c3aed"],
+  "legends-za": ["#4b5563", "#1e293b"],
 };
 
 const TYPE_COLORS: Record<string, string> = {
@@ -206,7 +206,11 @@ function StatusToggle({
       }`}
     >
       <span
-        style={!active && !disabled ? { color: inactiveColor ?? gradient[0] } : undefined}
+        style={
+          !active && !disabled
+            ? { color: inactiveColor ?? gradient[0] }
+            : undefined
+        }
         className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${
           active
             ? "bg-white/20"
@@ -302,9 +306,6 @@ export function PokemonDetailModal({
     0,
   );
 
-  const registeredGames = GAME_LIST.filter(
-    (game) => ownedRecord?.game_dex[game.id],
-  );
   const availableGameOptions = GAME_LIST.filter(
     (game) => availableGames[game.id],
   );
@@ -457,7 +458,13 @@ export function PokemonDetailModal({
                     helper={owned ? "Caught or bred" : "Not in your dex"}
                     gradient={["#16a34a", "#4ade80"]}
                     inactiveColor={owned ? undefined : "#ef4444"}
-                    icon={owned ? <CheckIcon className="h-5 w-5" /> : <XIcon className="h-5 w-5" />}
+                    icon={
+                      owned ? (
+                        <CheckIcon className="h-5 w-5" />
+                      ) : (
+                        <XIcon className="h-5 w-5" />
+                      )
+                    }
                     onClick={() =>
                       owned
                         ? clearOwnership(speciesId, formName)
@@ -480,8 +487,16 @@ export function PokemonDetailModal({
                   <StatusToggle
                     active={shinyOwned}
                     disabled={shinyLocked}
-                    label={shinyLocked ? "Locked" : shinyOwned ? "Shiny" : "Shiny"}
-                    helper={shinyLocked ? "Unavailable" : shinyOwned ? "You own it!" : "Track shiny"}
+                    label={
+                      shinyLocked ? "Locked" : shinyOwned ? "Shiny" : "Shiny"
+                    }
+                    helper={
+                      shinyLocked
+                        ? "Unavailable"
+                        : shinyOwned
+                          ? "You own it!"
+                          : "Track shiny"
+                    }
                     gradient={["#d97706", "#fbbf24"]}
                     icon={<SparkleIcon className="h-5 w-5" />}
                     onClick={() =>
@@ -666,8 +681,15 @@ export function PokemonDetailModal({
                 </p>
               ) : contextGameId ? (
                 (() => {
-                  const game = availableGameOptions.find((g) => g.id === contextGameId);
-                  if (!game) return <p className="text-xs text-gray-400">Game not in your available list</p>;
+                  const game = availableGameOptions.find(
+                    (g) => g.id === contextGameId,
+                  );
+                  if (!game)
+                    return (
+                      <p className="text-xs text-gray-400">
+                        Game not in your available list
+                      </p>
+                    );
                   const isRegistered = !!ownedRecord?.game_dex[game.id];
                   const grad = GAME_GRADIENT[game.id];
                   const color = GAME_COLORS[game.id] ?? "#6b7280";
@@ -685,7 +707,10 @@ export function PokemonDetailModal({
                       <XIcon className="h-4 w-4 shrink-0" />
                     </button>
                   ) : (
-                    <div style={{ background: gradBg }} className="rounded-xl p-[2px]">
+                    <div
+                      style={{ background: gradBg }}
+                      className="rounded-xl p-[2px]"
+                    >
                       <button
                         type="button"
                         onClick={() => markOwnedInGame(speciesId, game.id)}
@@ -719,7 +744,11 @@ export function PokemonDetailModal({
                         <XIcon className="h-3 w-3" />
                       </button>
                     ) : (
-                      <div key={game.id} style={{ background: gradBg }} className="rounded-full p-[2px]">
+                      <div
+                        key={game.id}
+                        style={{ background: gradBg }}
+                        className="rounded-full p-[2px]"
+                      >
                         <button
                           type="button"
                           onClick={() => markOwnedInGame(speciesId, game.id)}
