@@ -59,7 +59,7 @@ function GameSlot({ entry, gameId, onSelect }: GameSlotProps) {
           <CheckIcon className="h-2.5 w-2.5" />
         </span>
       )}
-      {exclusiveVersion && !owned && (
+      {exclusiveVersion && (
         <span
           className="absolute left-2 top-2 rounded bg-amber-100 px-1 text-[8px] font-bold uppercase tracking-wide text-amber-700 dark:bg-amber-900/40 dark:text-amber-400"
           aria-hidden
