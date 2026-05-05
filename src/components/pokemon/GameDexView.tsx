@@ -427,53 +427,78 @@ export function GameDexView({ onSelect }: Props) {
           </div>
           {totalInGame > 0 && (
             <>
-              <div className="mb-3 grid grid-cols-3 gap-2 text-center">
-                <div className="rounded-lg bg-green-50 px-3 py-2 dark:bg-green-950/40">
-                  <p className="text-xl font-bold tabular-nums text-green-500">
+              {/* Mobile: compact tagline + bar */}
+              <div className="lg:hidden">
+                <div className="mb-2 h-2.5 overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700">
+                  <div
+                    className={`h-full rounded-full transition-all duration-500 ${selectedGame.hasShinyCharm ? "bg-yellow-400" : "bg-green-400"}`}
+                    style={{ width: `${progressPct}%` }}
+                  />
+                </div>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  <span className="font-bold tabular-nums text-green-600 dark:text-green-400">
                     {ownedInGame}
-                  </p>
-                  <p className="text-[10px] font-medium text-green-600 dark:text-green-400">
-                    registered
-                  </p>
-                </div>
-                <div className="rounded-lg bg-gray-100 px-3 py-2 dark:bg-gray-700">
-                  <p className="text-xl font-bold tabular-nums text-gray-700 dark:text-gray-100">
-                    {totalInGame}
-                  </p>
-                  <p className="text-[10px] font-medium text-gray-500 dark:text-gray-400">
-                    required
-                  </p>
-                </div>
-                <div className="rounded-lg bg-yellow-50 px-3 py-2 dark:bg-yellow-950/30">
-                  <p className="text-xl font-bold tabular-nums text-yellow-500">
+                  </span>
+                  <span className="mx-1 text-gray-300 dark:text-gray-600">/</span>
+                  <span className="tabular-nums">{totalInGame}</span>
+                  {" · "}
+                  <span className={`font-semibold tabular-nums ${selectedGame.hasShinyCharm ? "text-yellow-600 dark:text-yellow-400" : ""}`}>
                     {missingInGame}
-                  </p>
-                  <p className="text-[10px] font-medium text-yellow-600 dark:text-yellow-400">
-                    {selectedGame.hasShinyCharm ? "to charm" : "missing"}
-                  </p>
+                  </span>
+                  {" "}
+                  {selectedGame.hasShinyCharm ? "to charm" : "missing"}
+                  {" · "}
+                  <span className="tabular-nums">{progressPct.toFixed(1)}%</span>
+                </p>
+              </div>
+
+              {/* Desktop: full stat grid + bar */}
+              <div className="hidden lg:block">
+                <div className="mb-3 grid grid-cols-3 gap-2 text-center">
+                  <div className="rounded-lg bg-green-50 px-3 py-2 dark:bg-green-950/40">
+                    <p className="text-xl font-bold tabular-nums text-green-500">
+                      {ownedInGame}
+                    </p>
+                    <p className="text-[10px] font-medium text-green-600 dark:text-green-400">
+                      registered
+                    </p>
+                  </div>
+                  <div className="rounded-lg bg-gray-100 px-3 py-2 dark:bg-gray-700">
+                    <p className="text-xl font-bold tabular-nums text-gray-700 dark:text-gray-100">
+                      {totalInGame}
+                    </p>
+                    <p className="text-[10px] font-medium text-gray-500 dark:text-gray-400">
+                      required
+                    </p>
+                  </div>
+                  <div className="rounded-lg bg-yellow-50 px-3 py-2 dark:bg-yellow-950/30">
+                    <p className="text-xl font-bold tabular-nums text-yellow-500">
+                      {missingInGame}
+                    </p>
+                    <p className="text-[10px] font-medium text-yellow-600 dark:text-yellow-400">
+                      {selectedGame.hasShinyCharm ? "to charm" : "missing"}
+                    </p>
+                  </div>
+                </div>
+                <div className="mb-1 flex justify-between text-xs text-gray-400">
+                  <span>
+                    {selectedGame.hasShinyCharm
+                      ? "Shiny Charm progress"
+                      : "Pokédex progress"}
+                  </span>
+                  <span className="tabular-nums font-semibold">
+                    {progressPct.toFixed(1)}%
+                  </span>
+                </div>
+                <div className="h-2.5 overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700">
+                  <div
+                    className={`h-full rounded-full transition-all duration-500 ${selectedGame.hasShinyCharm ? "bg-yellow-400" : "bg-green-400"}`}
+                    style={{ width: `${progressPct}%` }}
+                  />
                 </div>
               </div>
-              <div className="mb-1 flex justify-between text-xs text-gray-400">
-                <span>
-                  {selectedGame.hasShinyCharm
-                    ? "Shiny Charm progress"
-                    : "Pokédex progress"}
-                </span>
-                <span className="tabular-nums font-semibold">
-                  {progressPct.toFixed(1)}%
-                </span>
-              </div>
-              <div className="h-2.5 overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700">
-                <div
-                  className={`h-full rounded-full transition-all duration-500 ${
-                    selectedGame.hasShinyCharm
-                      ? "bg-yellow-400"
-                      : "bg-green-400"
-                  }`}
-                  style={{ width: `${progressPct}%` }}
-                />
-              </div>
-              {selectedGame.hasShinyCharm && shinyCharmReady && (
+
+              {shinyCharmReady && (
                 <div className="mt-3 flex items-center gap-2 rounded-lg border border-yellow-300 bg-yellow-50 px-3 py-2.5 dark:border-yellow-700 dark:bg-yellow-950/30">
                   <SparkleIcon className="h-4 w-4 shrink-0 text-yellow-500" />
                   <span className="text-sm font-bold text-yellow-700 dark:text-yellow-400">
@@ -484,8 +509,7 @@ export function GameDexView({ onSelect }: Props) {
               {!selectedGame.pokeapiReady &&
                 !hasGamePokedexOverride(selectedGame.id) && (
                   <p className="mt-3 text-xs text-amber-600 dark:text-amber-400">
-                    Dex and encounter data for this game may be incomplete until
-                    curated locally.
+                    Dex and encounter data for this game may be incomplete.
                   </p>
                 )}
             </>
