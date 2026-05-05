@@ -6,6 +6,7 @@ import { useGamePokedex } from "@/hooks/useGamePokedex";
 import { usePokedexStore } from "@/store/pokedexStore";
 import { hasGamePokedexOverride } from "@/config/game-pokedex-overrides";
 import { GAME_LIST, getGameById, getGamesByGeneration } from "@/config/games";
+import { getExclusiveVersion } from "@/config/version-exclusives";
 import { CheckIcon, SparkleIcon, XIcon } from "@/components/ui";
 import type { GameDexEntry } from "@/types/pokemon";
 
@@ -33,12 +34,17 @@ function GameSlot({ entry, gameId, onSelect }: GameSlotProps) {
   );
   const paddedGameNumber = `#${String(entry.entryNumber).padStart(3, "0")}`;
   const paddedNationalNumber = `Nat. #${String(entry.speciesId).padStart(4, "0")}`;
+  const exclusiveVersion = getExclusiveVersion(gameId, entry.speciesId);
 
   return (
     <button
       onClick={() => onSelect(entry.speciesId, entry.formName)}
       aria-label={`${entry.displayName}, ${owned ? "registered" : "not registered"} in this game`}
-      title={`${paddedGameNumber} - ${entry.displayName} (${paddedNationalNumber})`}
+      title={
+        exclusiveVersion
+          ? `${paddedGameNumber} - ${entry.displayName} (${paddedNationalNumber}) · ${exclusiveVersion} exclusive`
+          : `${paddedGameNumber} - ${entry.displayName} (${paddedNationalNumber})`
+      }
       className={`relative flex h-[132px] w-full cursor-pointer flex-col items-center justify-center gap-1 rounded-lg p-2 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 sm:w-[120px] ${
         owned
           ? "bg-green-50 ring-1 ring-green-400 dark:bg-green-950/30"
@@ -51,6 +57,14 @@ function GameSlot({ entry, gameId, onSelect }: GameSlotProps) {
           aria-hidden
         >
           <CheckIcon className="h-2.5 w-2.5" />
+        </span>
+      )}
+      {exclusiveVersion && !owned && (
+        <span
+          className="absolute left-2 top-2 rounded bg-amber-100 px-1 text-[8px] font-bold uppercase tracking-wide text-amber-700 dark:bg-amber-900/40 dark:text-amber-400"
+          aria-hidden
+        >
+          {exclusiveVersion.split(" ")[0]}
         </span>
       )}
       <Image

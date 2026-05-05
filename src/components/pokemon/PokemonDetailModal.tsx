@@ -12,6 +12,7 @@ import {
   getGamePokemonLocationOverride,
 } from "@/config/game-pokemon-location-overrides";
 import { GAME_LIST } from "@/config/games";
+import { getExclusiveVersion } from "@/config/version-exclusives";
 import {
   CheckIcon,
   ChevronDownIcon,
@@ -696,6 +697,10 @@ export function PokemonDetailModal({
                   const gradBg = grad
                     ? `linear-gradient(135deg, ${grad[0]}, ${grad[1]})`
                     : color;
+                  const exclusiveVersion = getExclusiveVersion(
+                    game.id,
+                    speciesId,
+                  );
                   return isRegistered ? (
                     <button
                       type="button"
@@ -703,7 +708,14 @@ export function PokemonDetailModal({
                       style={{ background: gradBg }}
                       className="flex w-full items-center justify-between rounded-xl px-4 py-2.5 text-sm font-bold text-white shadow-sm transition-opacity hover:opacity-85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
                     >
-                      <span>Registered in {game.name}</span>
+                      <span className="flex flex-col items-start">
+                        <span>Registered in {game.name}</span>
+                        {exclusiveVersion && (
+                          <span className="text-[11px] font-normal opacity-75">
+                            {exclusiveVersion} exclusive
+                          </span>
+                        )}
+                      </span>
                       <XIcon className="h-4 w-4 shrink-0" />
                     </button>
                   ) : (
@@ -715,9 +727,14 @@ export function PokemonDetailModal({
                         type="button"
                         onClick={() => markOwnedInGame(speciesId, game.id)}
                         style={{ color: grad ? grad[0] : color }}
-                        className="flex w-full items-center justify-center rounded-[10px] bg-white px-4 py-2.5 text-sm font-bold transition-opacity hover:opacity-85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 dark:bg-gray-800"
+                        className="flex w-full flex-col items-center justify-center rounded-[10px] bg-white px-4 py-2.5 text-sm font-bold transition-opacity hover:opacity-85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 dark:bg-gray-800"
                       >
-                        + Register in {game.name}
+                        <span>+ Register in {game.name}</span>
+                        {exclusiveVersion && (
+                          <span className="text-[11px] font-normal opacity-60">
+                            {exclusiveVersion} exclusive
+                          </span>
+                        )}
                       </button>
                     </div>
                   );
@@ -731,16 +748,28 @@ export function PokemonDetailModal({
                     const gradBg = grad
                       ? `linear-gradient(135deg, ${grad[0]}, ${grad[1]})`
                       : color;
+                    const exclusiveVersion = getExclusiveVersion(
+                      game.id,
+                      speciesId,
+                    );
+                    const label = exclusiveVersion
+                      ? `${game.name} · ${exclusiveVersion} only`
+                      : game.name;
                     return isRegistered ? (
                       <button
                         key={game.id}
                         type="button"
                         onClick={() => clearOwnedInGame(speciesId, game.id)}
-                        title={`Remove from ${game.name}`}
+                        title={`Remove from ${label}`}
                         style={{ background: gradBg }}
                         className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold text-white transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
                       >
                         {game.name}
+                        {exclusiveVersion && (
+                          <span className="rounded bg-white/25 px-1 text-[9px] font-bold">
+                            {exclusiveVersion.split(" ")[0][0]}
+                          </span>
+                        )}
                         <XIcon className="h-3 w-3" />
                       </button>
                     ) : (
@@ -752,11 +781,16 @@ export function PokemonDetailModal({
                         <button
                           type="button"
                           onClick={() => markOwnedInGame(speciesId, game.id)}
-                          title={`Add to ${game.name}`}
+                          title={`Add to ${label}`}
                           style={{ color: grad ? grad[0] : color }}
-                          className="rounded-full bg-white px-2.5 py-[3px] text-xs font-semibold transition-opacity hover:opacity-70 focus-visible:outline-none dark:bg-gray-800"
+                          className="inline-flex items-center gap-1 rounded-full bg-white px-2.5 py-[3px] text-xs font-semibold transition-opacity hover:opacity-70 focus-visible:outline-none dark:bg-gray-800"
                         >
                           {game.name}
+                          {exclusiveVersion && (
+                            <span className="rounded bg-black/10 px-1 text-[9px] font-bold dark:bg-white/10">
+                              {exclusiveVersion.split(" ")[0][0]}
+                            </span>
+                          )}
                         </button>
                       </div>
                     );
