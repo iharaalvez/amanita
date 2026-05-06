@@ -6,7 +6,6 @@ import type { ReactNode } from "react";
 import { usePokedexStore, ownedKey } from "@/store/pokedexStore";
 import { usePokemonSpecies } from "@/hooks/usePokemon";
 import { useEncounters } from "@/hooks/useEncounters";
-import { hasGamePokedexOverride } from "@/config/game-pokedex-overrides";
 import {
   GAME_POKEMON_LOCATION_OVERRIDES,
   getGamePokemonLocationOverride,
@@ -989,21 +988,6 @@ export function PokemonDetailModal({
                 it as guidance, not a guarantee.
               </p>
 
-              {GAME_LIST.some(
-                (game) =>
-                  !game.pokeapiReady && !hasGamePokedexOverride(game.id),
-              ) && (
-                <p className="mt-2 text-[11px] italic text-amber-600 dark:text-amber-400">
-                  Location data for{" "}
-                  {GAME_LIST.filter(
-                    (game) =>
-                      !game.pokeapiReady && !hasGamePokedexOverride(game.id),
-                  )
-                    .map((game) => game.name)
-                    .join(", ")}{" "}
-                  is not yet available in the local database.
-                </p>
-              )}
             </section>
           </>
         ) : null}

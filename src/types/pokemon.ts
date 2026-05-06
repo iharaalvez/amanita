@@ -79,6 +79,7 @@ export type GameDexEntry = {
   formName: string | null;
   displayName: string;
   spriteUrl: string;
+  optional: boolean;
 };
 
 export type ApiHealth = {

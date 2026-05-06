@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import { useGamePokedex } from "@/hooks/useGamePokedex";
 import { usePokedexStore } from "@/store/pokedexStore";
-import { hasGamePokedexOverride } from "@/config/game-pokedex-overrides";
 import { GAME_LIST, getGameById, getGamesByGeneration } from "@/config/games";
 import { getExclusiveVersion } from "@/config/version-exclusives";
 import { CheckIcon, SparkleIcon, XIcon } from "@/components/ui";
@@ -153,12 +152,6 @@ function AvailableGamesModal({ onClose }: AvailableGamesModalProps) {
                         <span className="block truncate text-sm font-semibold">
                           {game.name}
                         </span>
-                        {!game.pokeapiReady &&
-                          !hasGamePokedexOverride(game.id) && (
-                            <span className="text-[10px] text-amber-600 dark:text-amber-400">
-                              Data pending
-                            </span>
-                          )}
                       </span>
                       <span
                         className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border ${
@@ -275,12 +268,11 @@ export function GameDexView({ onSelect }: Props) {
   }, [availableGameIds.length, availableGames, showAvailableOnly]);
 
   const ownedInGame = registeredByGame.get(selectedGameId)?.size ?? 0;
-  const totalInGame = gameDex?.length ?? 0;
+  const totalInGame = gameDex?.filter((e) => !e.optional).length ?? 0;
   const progressPct = totalInGame > 0 ? (ownedInGame / totalInGame) * 100 : 0;
   const shinyCharmReady =
     selectedGame.hasShinyCharm && ownedInGame >= totalInGame && totalInGame > 0;
-  const hasGameDexData =
-    selectedGame.pokeapiReady || hasGamePokedexOverride(selectedGame.id);
+  const hasGameDexData = true;
   const missingInGame = Math.max(0, totalInGame - ownedInGame);
   const completionFilters: {
     value: CompletionFilter;
@@ -379,13 +371,7 @@ export function GameDexView({ onSelect }: Props) {
                         />
                       )}
                     </span>
-                    {!game.pokeapiReady && !hasGamePokedexOverride(game.id) ? (
-                      <span
-                        className={`text-[10px] ${isSelected ? "text-blue-100" : "text-amber-600 dark:text-amber-400"}`}
-                      >
-                        Data pending
-                      </span>
-                    ) : ownedCount > 0 ? (
+                    {ownedCount > 0 ? (
                       <span
                         className={`text-[10px] tabular-nums ${isSelected ? "text-blue-100" : "text-gray-400"}`}
                       >
@@ -457,12 +443,6 @@ export function GameDexView({ onSelect }: Props) {
                   </span>
                 </div>
               )}
-              {!selectedGame.pokeapiReady &&
-                !hasGamePokedexOverride(selectedGame.id) && (
-                  <p className="mt-3 text-xs text-amber-600 dark:text-amber-400">
-                    Dex and encounter data for this game may be incomplete.
-                  </p>
-                )}
             </>
           )}
         </div>

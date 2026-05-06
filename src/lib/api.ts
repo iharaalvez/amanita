@@ -11,23 +11,6 @@ const MYTHICAL_IDS = new Set([
   721, 801, 802, 807, 808, 809, 893, 1025,
 ]);
 
-const NATIONAL_DEX_MAX_BY_GAME: Record<string, number> = {
-  "red-blue": 151,
-  yellow: 151,
-  "gold-silver": 251,
-  crystal: 251,
-  "ruby-sapphire": 386,
-  emerald: 386,
-  "firered-leafgreen": 386,
-  "diamond-pearl": 493,
-  platinum: 493,
-  "heartgold-soulsilver": 493,
-  "black-white": 649,
-  "black2-white2": 649,
-  "x-y": 721,
-  oras: 721,
-  bdsp: 493,
-};
 
 const SHINY_CHARM_GAME_IDS = new Set(
   GAME_LIST.filter((game) => game.hasShinyCharm).map((game) => game.id),
@@ -171,13 +154,14 @@ async function getRawGameDexEntries(
   return (data ?? []) as RawGameDexEntry[];
 }
 
-function isExcludedFromGameDex(gameId: string, speciesId: number): boolean {
+function isOptionalInGameDex(gameId: string, speciesId: number): boolean {
   return SHINY_CHARM_GAME_IDS.has(gameId) && MYTHICAL_IDS.has(speciesId);
 }
 
 function mapGameDexEntry(
   entry: LivingDexEntry,
   entryNumber: number,
+  optional: boolean,
 ): GameDexEntry {
   return {
     speciesId: entry.speciesId,
@@ -185,6 +169,7 @@ function mapGameDexEntry(
     formName: entry.formName,
     displayName: entry.displayName,
     spriteUrl: entry.spriteUrl,
+    optional,
   };
 }
 
@@ -198,16 +183,6 @@ export const api = {
     const livingEntries = (await getRawLivingDexEntries()).map(
       mapLivingDexEntry,
     );
-    const maxSpeciesId = NATIONAL_DEX_MAX_BY_GAME[gameId];
-
-    if (maxSpeciesId) {
-      return livingEntries
-        .filter((entry) => entry.formName === null)
-        .filter((entry) => entry.speciesId <= maxSpeciesId)
-        .filter((entry) => !isExcludedFromGameDex(gameId, entry.speciesId))
-        .map((entry) => mapGameDexEntry(entry, entry.speciesId));
-    }
-
     const gameRows = await getRawGameDexEntries(gameId);
     const livingEntryByKey = new Map(
       livingEntries.map((entry) => [
@@ -218,19 +193,18 @@ export const api = {
     const bySpecies = new Map<number, GameDexEntry>();
 
     for (const row of gameRows) {
-      if (isExcludedFromGameDex(gameId, row.species_id)) continue;
-
       const formName = row.form_name === "" ? null : row.form_name;
       const livingEntry = livingEntryByKey.get(
         livingEntryKey(row.species_id, formName),
       );
       if (!livingEntry) continue;
 
+      const optional = isOptionalInGameDex(gameId, row.species_id);
       const current = bySpecies.get(row.species_id);
       if (!current || formName) {
         bySpecies.set(
           row.species_id,
-          mapGameDexEntry(livingEntry, row.entry_number ?? row.species_id),
+          mapGameDexEntry(livingEntry, row.entry_number ?? row.species_id, optional),
         );
       }
     }
