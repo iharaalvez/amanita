@@ -278,11 +278,13 @@ export function PokemonDetailModal({
   const clearOwnership = usePokedexStore((s) => s.clearOwnership);
   const markOwnedInGame = usePokedexStore((s) => s.markOwnedInGame);
   const clearOwnedInGame = usePokedexStore((s) => s.clearOwnedInGame);
-  const isOwnedInGame = usePokedexStore((s) => s.isOwnedInGame);
   const markShinyOwnedInGame = usePokedexStore((s) => s.markShinyOwnedInGame);
   const clearShinyOwnedInGame = usePokedexStore((s) => s.clearShinyOwnedInGame);
-  const isShinyOwnedInGame = usePokedexStore((s) => s.isShinyOwnedInGame);
   const availableGames = usePokedexStore((s) => s.availableGames);
+  const gameDexProgress = usePokedexStore((s) => s.gameDexProgress);
+  const shinyGameDexProgress = usePokedexStore(
+    (s) => s.shinyGameDexProgress,
+  );
 
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
@@ -313,6 +315,10 @@ export function PokemonDetailModal({
   const availableGameOptions = GAME_LIST.filter(
     (game) => availableGames[game.id],
   );
+  const isOwnedInGame = (gameId: string) =>
+    (gameDexProgress[gameId] ?? []).includes(speciesId);
+  const isShinyOwnedInGame = (gameId: string) =>
+    (shinyGameDexProgress[gameId] ?? []).includes(speciesId);
   const availableGameNames = new Set(
     availableGameOptions.map((game) => game.name),
   );
@@ -665,8 +671,8 @@ export function PokemonDetailModal({
                         Game not in your available list
                       </p>
                     );
-                  const isRegistered = isOwnedInGame(speciesId, game.id);
-                  const isShinyInGame = isShinyOwnedInGame(speciesId, game.id);
+                  const isRegistered = isOwnedInGame(game.id);
+                  const isShinyInGame = isShinyOwnedInGame(game.id);
                   const grad = GAME_GRADIENT[game.id];
                   const color = GAME_COLORS[game.id] ?? "#6b7280";
                   const gradBg = grad
@@ -744,8 +750,8 @@ export function PokemonDetailModal({
               ) : (
                 <div className="flex flex-wrap gap-1.5">
                   {availableGameOptions.map((game) => {
-                    const isRegistered = isOwnedInGame(speciesId, game.id);
-                    const isShinyInGame = isShinyOwnedInGame(speciesId, game.id);
+                    const isRegistered = isOwnedInGame(game.id);
+                    const isShinyInGame = isShinyOwnedInGame(game.id);
                     const grad = GAME_GRADIENT[game.id];
                     const color = GAME_COLORS[game.id] ?? "#6b7280";
                     const gradBg = grad
