@@ -17,9 +17,6 @@ export function ownedKey(speciesId: number, formName?: string | null): string {
   return `${speciesId}-${formName ?? "base"}`;
 }
 
-function baseKey(speciesId: number): string {
-  return `${speciesId}-base`;
-}
 
 type PokedexState = {
   owned: Record<string, OwnedRecord>;
