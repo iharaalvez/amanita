@@ -32,7 +32,7 @@ function downloadCSV(
     entries.map((e) => [ownedKey(e.speciesId, e.formName), e.displayName]),
   );
   const header =
-    "speciesId,formName,name,owned,shiny_owned,method,game_caught,shiny_method,shiny_game";
+    "speciesId,formName,name,owned,shiny_owned,method,shiny_method,shiny_game";
   const rows = Object.entries(owned).map(([key, r]) => {
     const name = (nameMap.get(key) ?? "").replace(/"/g, '""');
     return [
@@ -42,7 +42,6 @@ function downloadCSV(
       r.owned ? "TRUE" : "FALSE",
       r.shiny_owned ? "TRUE" : "FALSE",
       r.method ?? "",
-      r.game_caught ?? "",
       r.shiny_method ?? "",
       r.shiny_game ?? "",
     ].join(",");

@@ -21,9 +21,6 @@ export type OwnedRecord = {
   shiny_owned: boolean;
   in_home?: boolean;
   method?: OwnershipMethod;
-  game?: string;
-  game_caught?: string;
-  game_dex: Record<string, boolean>;
   notes?: string;
   date_obtained?: string;
   shiny_method?: ShinyHuntMethod;

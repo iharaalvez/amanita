@@ -17,10 +17,10 @@ type SupabaseRow = {
   shiny_owned: boolean;
   in_home: boolean;
   method: string | null;
-  game_caught: string | null;
   shiny_method: string | null;
   shiny_game: string | null;
-  game_dex: Record<string, boolean>;
+  // Legacy column kept for one-time migration only — no longer written
+  game_dex?: Record<string, boolean>;
 };
 
 export async function loadFromSupabase(
@@ -39,7 +39,7 @@ export async function loadFromSupabase(
     supabase.from("pokedex").select("*").eq("user_id", resolvedUserId),
     supabase
       .from("user_settings")
-      .select("available_games")
+      .select("available_games, game_dex_progress")
       .eq("user_id", resolvedUserId)
       .maybeSingle(),
   ]);
@@ -48,7 +48,6 @@ export async function loadFromSupabase(
 
   const rows = (pokemonResult.data ?? []) as SupabaseRow[];
   const owned: Record<string, OwnedRecord> = {};
-  const gameDexProgress: Record<string, number[]> = {};
 
   for (const row of rows) {
     const key = ownedKey(row.species_id, row.form_name);
@@ -59,16 +58,33 @@ export async function loadFromSupabase(
       shiny_owned: row.shiny_owned,
       in_home: row.in_home,
       method: (row.method as OwnershipMethod) ?? undefined,
-      game_caught: row.game_caught ?? undefined,
       shiny_method: (row.shiny_method as ShinyHuntMethod) ?? undefined,
       shiny_game: row.shiny_game ?? undefined,
-      game_dex: row.game_dex ?? {},
     };
+  }
 
-    for (const [gameId, registered] of Object.entries(owned[key].game_dex)) {
-      if (!registered) continue;
-      if (!gameDexProgress[gameId]) gameDexProgress[gameId] = [];
-      gameDexProgress[gameId].push(row.species_id);
+  // Load game dex progress from user_settings, migrating legacy per-row data if needed
+  const storedProgress = settingsResult.data?.game_dex_progress as Record<
+    string,
+    number[]
+  > | null;
+  let gameDexProgress: Record<string, number[]>;
+
+  if (storedProgress && Object.keys(storedProgress).length > 0) {
+    gameDexProgress = storedProgress;
+  } else {
+    // One-time migration: rebuild from legacy game_dex column on pokedex rows
+    gameDexProgress = {};
+    for (const row of rows) {
+      if (!row.game_dex) continue;
+      for (const [gameId, registered] of Object.entries(row.game_dex)) {
+        if (!registered) continue;
+        if (!gameDexProgress[gameId]) gameDexProgress[gameId] = [];
+        gameDexProgress[gameId].push(row.species_id);
+      }
+    }
+    if (Object.keys(gameDexProgress).length > 0) {
+      void syncGameDexProgress(gameDexProgress);
     }
   }
 
@@ -97,10 +113,8 @@ export async function syncRecord(record: OwnedRecord): Promise<void> {
       shiny_owned: record.shiny_owned,
       in_home: record.in_home ?? false,
       method: record.method ?? null,
-      game_caught: record.game_caught ?? null,
       shiny_method: record.shiny_method ?? null,
       shiny_game: record.shiny_game ?? null,
-      game_dex: record.game_dex,
       updated_at: new Date().toISOString(),
     },
     { onConflict: "user_id,species_id,form_name" },
@@ -126,6 +140,22 @@ export async function deleteRecord(
   } else {
     await query.eq("form_name", formName);
   }
+}
+
+export async function syncGameDexProgress(
+  progress: Record<string, number[]>,
+): Promise<void> {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return;
+
+  await supabase
+    .from("user_settings")
+    .upsert(
+      { user_id: user.id, game_dex_progress: progress },
+      { onConflict: "user_id" },
+    );
 }
 
 export async function syncAvailableGames(
@@ -160,10 +190,8 @@ export async function syncAllRecords(
     shiny_owned: record.shiny_owned,
     in_home: record.in_home ?? false,
     method: record.method ?? null,
-    game_caught: record.game_caught ?? null,
     shiny_method: record.shiny_method ?? null,
     shiny_game: record.shiny_game ?? null,
-    game_dex: record.game_dex,
     updated_at: new Date().toISOString(),
   }));
 
@@ -172,5 +200,8 @@ export async function syncAllRecords(
       .from("pokedex")
       .upsert(rows, { onConflict: "user_id,species_id,form_name" });
   }
-  await syncAvailableGames(snapshot.availableGames);
+  await Promise.all([
+    syncAvailableGames(snapshot.availableGames),
+    syncGameDexProgress(snapshot.gameDexProgress),
+  ]);
 }

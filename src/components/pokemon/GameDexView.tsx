@@ -183,7 +183,6 @@ type CompletionFilter = "all" | "missing" | "registered";
 export function GameDexView({ onSelect }: Props) {
   const availableGames = usePokedexStore((state) => state.availableGames);
   const gameDexProgress = usePokedexStore((state) => state.gameDexProgress);
-  const ownedRecords = usePokedexStore((state) => state.owned);
   const [selectedGameId, setSelectedGameId] = useState("scarlet-violet");
   const [showAvailableOnly, setShowAvailableOnly] = useState(true);
   const [completionFilter, setCompletionFilter] =
@@ -214,22 +213,13 @@ export function GameDexView({ onSelect }: Props) {
   }, [availableGameIds, availableGames, selectedGameId]);
 
   const registeredByGame = useMemo(() => {
-    const idsByGame = new Map<string, Set<number>>();
-
-    for (const [gameId, ids] of Object.entries(gameDexProgress)) {
-      idsByGame.set(gameId, new Set(ids));
-    }
-
-    for (const record of Object.values(ownedRecords)) {
-      for (const [gameId, registered] of Object.entries(record.game_dex)) {
-        if (!registered) continue;
-        if (!idsByGame.has(gameId)) idsByGame.set(gameId, new Set());
-        idsByGame.get(gameId)!.add(record.pokedex_number);
-      }
-    }
-
-    return idsByGame;
-  }, [gameDexProgress, ownedRecords]);
+    return new Map(
+      Object.entries(gameDexProgress).map(([gameId, ids]) => [
+        gameId,
+        new Set(ids),
+      ]),
+    );
+  }, [gameDexProgress]);
 
   const filteredGamePokemon = useMemo(() => {
     const normalizedQuery = searchQuery.trim().toLowerCase();

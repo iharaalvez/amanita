@@ -278,6 +278,7 @@ export function PokemonDetailModal({
   const clearOwnership = usePokedexStore((s) => s.clearOwnership);
   const markOwnedInGame = usePokedexStore((s) => s.markOwnedInGame);
   const clearOwnedInGame = usePokedexStore((s) => s.clearOwnedInGame);
+  const isOwnedInGame = usePokedexStore((s) => s.isOwnedInGame);
   const availableGames = usePokedexStore((s) => s.availableGames);
 
   useEffect(() => {
@@ -570,35 +571,6 @@ export function PokemonDetailModal({
                   </div>
                 </div>
 
-                <div>
-                  <label
-                    htmlFor="caught-in"
-                    className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-gray-400"
-                  >
-                    Caught in
-                  </label>
-                  <select
-                    id="caught-in"
-                    value={ownedRecord?.game_caught ?? ""}
-                    onChange={(event) =>
-                      event.target.value &&
-                      markOwnedInGame(speciesId, event.target.value)
-                    }
-                    disabled={availableGameOptions.length === 0}
-                    className="w-full rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200"
-                  >
-                    <option value="">
-                      {availableGameOptions.length > 0
-                        ? "- select game -"
-                        : "Mark games available first"}
-                    </option>
-                    {availableGameOptions.map((game) => (
-                      <option key={game.id} value={game.id}>
-                        {game.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
               </section>
             )}
 
@@ -690,7 +662,7 @@ export function PokemonDetailModal({
                         Game not in your available list
                       </p>
                     );
-                  const isRegistered = !!ownedRecord?.game_dex[game.id];
+                  const isRegistered = isOwnedInGame(speciesId, game.id);
                   const grad = GAME_GRADIENT[game.id];
                   const color = GAME_COLORS[game.id] ?? "#6b7280";
                   const gradBg = grad
@@ -741,7 +713,7 @@ export function PokemonDetailModal({
               ) : (
                 <div className="flex flex-wrap gap-1.5">
                   {availableGameOptions.map((game) => {
-                    const isRegistered = !!ownedRecord?.game_dex[game.id];
+                    const isRegistered = isOwnedInGame(speciesId, game.id);
                     const grad = GAME_GRADIENT[game.id];
                     const color = GAME_COLORS[game.id] ?? "#6b7280";
                     const gradBg = grad
