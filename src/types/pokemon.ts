@@ -87,6 +87,7 @@ export type ApiHealth = {
 export type ProgressSnapshot = {
   owned: Record<string, OwnedRecord>;
   gameDexProgress: Record<string, number[]>;
+  shinyGameDexProgress: Record<string, number[]>;
   availableGames: Record<string, boolean>;
 };
 

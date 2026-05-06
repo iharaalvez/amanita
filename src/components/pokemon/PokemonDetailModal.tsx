@@ -279,6 +279,9 @@ export function PokemonDetailModal({
   const markOwnedInGame = usePokedexStore((s) => s.markOwnedInGame);
   const clearOwnedInGame = usePokedexStore((s) => s.clearOwnedInGame);
   const isOwnedInGame = usePokedexStore((s) => s.isOwnedInGame);
+  const markShinyOwnedInGame = usePokedexStore((s) => s.markShinyOwnedInGame);
+  const clearShinyOwnedInGame = usePokedexStore((s) => s.clearShinyOwnedInGame);
+  const isShinyOwnedInGame = usePokedexStore((s) => s.isShinyOwnedInGame);
   const availableGames = usePokedexStore((s) => s.availableGames);
 
   useEffect(() => {
@@ -663,6 +666,7 @@ export function PokemonDetailModal({
                       </p>
                     );
                   const isRegistered = isOwnedInGame(speciesId, game.id);
+                  const isShinyInGame = isShinyOwnedInGame(speciesId, game.id);
                   const grad = GAME_GRADIENT[game.id];
                   const color = GAME_COLORS[game.id] ?? "#6b7280";
                   const gradBg = grad
@@ -672,41 +676,68 @@ export function PokemonDetailModal({
                     game.id,
                     speciesId,
                   );
-                  return isRegistered ? (
-                    <button
-                      type="button"
-                      onClick={() => clearOwnedInGame(speciesId, game.id)}
-                      style={{ background: gradBg }}
-                      className="flex w-full items-center justify-between rounded-xl px-4 py-2.5 text-sm font-bold text-white shadow-sm transition-opacity hover:opacity-85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
-                    >
-                      <span className="flex flex-col items-start">
-                        <span>Registered in {game.name}</span>
-                        {exclusiveVersion && (
-                          <span className="text-[11px] font-normal opacity-75">
-                            {exclusiveVersion} exclusive
+                  return (
+                    <div className="flex flex-col gap-2">
+                      {isRegistered ? (
+                        <button
+                          type="button"
+                          onClick={() => clearOwnedInGame(speciesId, game.id)}
+                          style={{ background: gradBg }}
+                          className="flex w-full items-center justify-between rounded-xl px-4 py-2.5 text-sm font-bold text-white shadow-sm transition-opacity hover:opacity-85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                        >
+                          <span className="flex flex-col items-start">
+                            <span>Registered in {game.name}</span>
+                            {exclusiveVersion && (
+                              <span className="text-[11px] font-normal opacity-75">
+                                {exclusiveVersion} exclusive
+                              </span>
+                            )}
                           </span>
-                        )}
-                      </span>
-                      <XIcon className="h-4 w-4 shrink-0" />
-                    </button>
-                  ) : (
-                    <div
-                      style={{ background: gradBg }}
-                      className="rounded-xl p-[2px]"
-                    >
-                      <button
-                        type="button"
-                        onClick={() => markOwnedInGame(speciesId, game.id)}
-                        style={{ color: grad ? grad[0] : color }}
-                        className="flex w-full flex-col items-center justify-center rounded-[10px] bg-white px-4 py-2.5 text-sm font-bold transition-opacity hover:opacity-85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 dark:bg-gray-800"
-                      >
-                        <span>+ Register in {game.name}</span>
-                        {exclusiveVersion && (
-                          <span className="text-[11px] font-normal opacity-60">
-                            {exclusiveVersion} exclusive
-                          </span>
-                        )}
-                      </button>
+                          <XIcon className="h-4 w-4 shrink-0" />
+                        </button>
+                      ) : (
+                        <div
+                          style={{ background: gradBg }}
+                          className="rounded-xl p-[2px]"
+                        >
+                          <button
+                            type="button"
+                            onClick={() => markOwnedInGame(speciesId, game.id)}
+                            style={{ color: grad ? grad[0] : color }}
+                            className="flex w-full flex-col items-center justify-center rounded-[10px] bg-white px-4 py-2.5 text-sm font-bold transition-opacity hover:opacity-85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 dark:bg-gray-800"
+                          >
+                            <span>+ Register in {game.name}</span>
+                            {exclusiveVersion && (
+                              <span className="text-[11px] font-normal opacity-60">
+                                {exclusiveVersion} exclusive
+                              </span>
+                            )}
+                          </button>
+                        </div>
+                      )}
+                      {isRegistered && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            isShinyInGame
+                              ? clearShinyOwnedInGame(speciesId, game.id)
+                              : markShinyOwnedInGame(speciesId, game.id)
+                          }
+                          style={
+                            isShinyInGame
+                              ? { background: "linear-gradient(135deg, #d97706, #fbbf24)" }
+                              : undefined
+                          }
+                          className={`flex w-full items-center justify-center gap-1.5 rounded-xl px-4 py-2 text-sm font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-400 ${
+                            isShinyInGame
+                              ? "text-white shadow-sm"
+                              : "bg-gray-100 text-gray-500 hover:bg-yellow-50 hover:text-yellow-600 dark:bg-gray-700 dark:text-gray-400 dark:hover:bg-yellow-950/40 dark:hover:text-yellow-400"
+                          }`}
+                        >
+                          <SparkleIcon className="h-4 w-4" />
+                          {isShinyInGame ? "Shiny caught" : "Mark shiny"}
+                        </button>
+                      )}
                     </div>
                   );
                 })()
@@ -714,6 +745,7 @@ export function PokemonDetailModal({
                 <div className="flex flex-wrap gap-1.5">
                   {availableGameOptions.map((game) => {
                     const isRegistered = isOwnedInGame(speciesId, game.id);
+                    const isShinyInGame = isShinyOwnedInGame(speciesId, game.id);
                     const grad = GAME_GRADIENT[game.id];
                     const color = GAME_COLORS[game.id] ?? "#6b7280";
                     const gradBg = grad
@@ -727,22 +759,42 @@ export function PokemonDetailModal({
                       ? `${game.name} · ${exclusiveVersion} only`
                       : game.name;
                     return isRegistered ? (
-                      <button
+                      <div
                         key={game.id}
-                        type="button"
-                        onClick={() => clearOwnedInGame(speciesId, game.id)}
-                        title={`Remove from ${label}`}
                         style={{ background: gradBg }}
-                        className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold text-white transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                        className="flex items-center rounded-full"
                       >
-                        {game.name}
-                        {exclusiveVersion && (
-                          <span className="rounded bg-white/25 px-1 text-[9px] font-bold">
-                            {exclusiveVersion.split(" ")[0][0]}
-                          </span>
-                        )}
-                        <XIcon className="h-3 w-3" />
-                      </button>
+                        <button
+                          type="button"
+                          onClick={() => clearOwnedInGame(speciesId, game.id)}
+                          title={`Remove from ${label}`}
+                          className="inline-flex items-center gap-1 rounded-l-full pl-2.5 pr-1.5 py-1 text-xs font-semibold text-white transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                        >
+                          {game.name}
+                          {exclusiveVersion && (
+                            <span className="rounded bg-white/25 px-1 text-[9px] font-bold">
+                              {exclusiveVersion.split(" ")[0][0]}
+                            </span>
+                          )}
+                          <XIcon className="h-3 w-3" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            isShinyInGame
+                              ? clearShinyOwnedInGame(speciesId, game.id)
+                              : markShinyOwnedInGame(speciesId, game.id)
+                          }
+                          title={isShinyInGame ? `Remove shiny in ${game.name}` : `Mark shiny in ${game.name}`}
+                          className={`rounded-r-full pl-1 pr-2 py-1 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-400 ${
+                            isShinyInGame
+                              ? "text-yellow-300"
+                              : "text-white/40 hover:text-yellow-300"
+                          }`}
+                        >
+                          <SparkleIcon className="h-3 w-3" />
+                        </button>
+                      </div>
                     ) : (
                       <div
                         key={game.id}

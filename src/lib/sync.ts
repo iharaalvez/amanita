@@ -39,7 +39,7 @@ export async function loadFromSupabase(
     supabase.from("pokedex").select("*").eq("user_id", resolvedUserId),
     supabase
       .from("user_settings")
-      .select("available_games, game_dex_progress")
+      .select("available_games, game_dex_progress, shiny_game_dex_progress")
       .eq("user_id", resolvedUserId)
       .maybeSingle(),
   ]);
@@ -91,6 +91,7 @@ export async function loadFromSupabase(
   return {
     owned,
     gameDexProgress,
+    shinyGameDexProgress: (settingsResult.data?.shiny_game_dex_progress ?? {}) as Record<string, number[]>,
     availableGames: (settingsResult.data?.available_games ?? {}) as Record<
       string,
       boolean
@@ -158,6 +159,22 @@ export async function syncGameDexProgress(
     );
 }
 
+export async function syncShinyGameDexProgress(
+  progress: Record<string, number[]>,
+): Promise<void> {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return;
+
+  await supabase
+    .from("user_settings")
+    .upsert(
+      { user_id: user.id, shiny_game_dex_progress: progress },
+      { onConflict: "user_id" },
+    );
+}
+
 export async function syncAvailableGames(
   games: Record<string, boolean>,
 ): Promise<void> {
@@ -203,5 +220,6 @@ export async function syncAllRecords(
   await Promise.all([
     syncAvailableGames(snapshot.availableGames),
     syncGameDexProgress(snapshot.gameDexProgress),
+    syncShinyGameDexProgress(snapshot.shinyGameDexProgress),
   ]);
 }

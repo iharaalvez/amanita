@@ -5,6 +5,7 @@ import {
   deleteRecord,
   syncAvailableGames,
   syncGameDexProgress,
+  syncShinyGameDexProgress,
 } from "@/lib/sync";
 import type {
   OwnedRecord,
@@ -21,6 +22,7 @@ export function ownedKey(speciesId: number, formName?: string | null): string {
 type PokedexState = {
   owned: Record<string, OwnedRecord>;
   gameDexProgress: Record<string, number[]>;
+  shinyGameDexProgress: Record<string, number[]>;
   availableGames: Record<string, boolean>;
   showCosmeticForms: boolean;
   setShowCosmeticForms: (value: boolean) => void;
@@ -48,6 +50,9 @@ type PokedexState = {
   markOwnedInGame: (speciesId: number, gameId: string) => void;
   clearOwnedInGame: (speciesId: number, gameId: string) => void;
   isOwnedInGame: (speciesId: number, gameId: string) => boolean;
+  markShinyOwnedInGame: (speciesId: number, gameId: string) => void;
+  clearShinyOwnedInGame: (speciesId: number, gameId: string) => void;
+  isShinyOwnedInGame: (speciesId: number, gameId: string) => boolean;
   isOwned: (speciesId: number, formName?: string | null) => boolean;
   getOwnedCount: () => number;
   getTotalOwned: () => number;
@@ -72,6 +77,7 @@ export const usePokedexStore = create<PokedexState>()(
     (set, get) => ({
       owned: {},
       gameDexProgress: {},
+      shinyGameDexProgress: {},
       availableGames: {},
       showCosmeticForms: false,
       setShowCosmeticForms: (value) => set({ showCosmeticForms: value }),
@@ -80,6 +86,7 @@ export const usePokedexStore = create<PokedexState>()(
         set({
           owned: snapshot.owned,
           gameDexProgress: snapshot.gameDexProgress,
+          shinyGameDexProgress: snapshot.shinyGameDexProgress,
           availableGames: snapshot.availableGames,
         });
       },
@@ -87,11 +94,12 @@ export const usePokedexStore = create<PokedexState>()(
       getProgressSnapshot: () => ({
         owned: get().owned,
         gameDexProgress: get().gameDexProgress,
+        shinyGameDexProgress: get().shinyGameDexProgress,
         availableGames: get().availableGames,
       }),
 
       clearAll: () =>
-        set({ owned: {}, gameDexProgress: {}, availableGames: {} }),
+        set({ owned: {}, gameDexProgress: {}, shinyGameDexProgress: {}, availableGames: {} }),
 
       markOwned: (speciesId, formName, method) => {
         const key = ownedKey(speciesId, formName);
@@ -249,6 +257,33 @@ export const usePokedexStore = create<PokedexState>()(
       isOwnedInGame: (speciesId, gameId) =>
         (get().gameDexProgress[gameId] ?? []).includes(speciesId),
 
+      markShinyOwnedInGame: (speciesId, gameId) =>
+        set((state) => {
+          const newProgress = {
+            ...state.shinyGameDexProgress,
+            [gameId]: Array.from(
+              new Set([...(state.shinyGameDexProgress[gameId] ?? []), speciesId]),
+            ),
+          };
+          void syncShinyGameDexProgress(newProgress);
+          return { shinyGameDexProgress: newProgress };
+        }),
+
+      clearShinyOwnedInGame: (speciesId, gameId) =>
+        set((state) => {
+          const newProgress = {
+            ...state.shinyGameDexProgress,
+            [gameId]: (state.shinyGameDexProgress[gameId] ?? []).filter(
+              (id) => id !== speciesId,
+            ),
+          };
+          void syncShinyGameDexProgress(newProgress);
+          return { shinyGameDexProgress: newProgress };
+        }),
+
+      isShinyOwnedInGame: (speciesId, gameId) =>
+        (get().shinyGameDexProgress[gameId] ?? []).includes(speciesId),
+
       isOwned: (speciesId, formName) =>
         !!get().owned[ownedKey(speciesId, formName)]?.owned,
 
@@ -263,7 +298,7 @@ export const usePokedexStore = create<PokedexState>()(
     }),
     {
       name: "living-pokedex-v1",
-      version: 4,
+      version: 5,
       migrate: (persistedState, version) => {
         if (!isRecord(persistedState)) return persistedState;
         if (version < 3) {

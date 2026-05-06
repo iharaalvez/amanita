@@ -31,59 +31,85 @@ function GameSlot({ entry, gameId, onSelect }: GameSlotProps) {
   const owned = usePokedexStore((state) =>
     state.isOwnedInGame(entry.speciesId, gameId),
   );
+  const shinyOwned = usePokedexStore((state) =>
+    state.isShinyOwnedInGame(entry.speciesId, gameId),
+  );
+  const markShinyOwnedInGame = usePokedexStore((s) => s.markShinyOwnedInGame);
+  const clearShinyOwnedInGame = usePokedexStore((s) => s.clearShinyOwnedInGame);
   const paddedGameNumber = `#${String(entry.entryNumber).padStart(3, "0")}`;
   const paddedNationalNumber = `Nat. #${String(entry.speciesId).padStart(4, "0")}`;
   const exclusiveVersion = getExclusiveVersion(gameId, entry.speciesId);
 
   return (
-    <button
-      onClick={() => onSelect(entry.speciesId, entry.formName)}
-      aria-label={`${entry.displayName}, ${owned ? "registered" : "not registered"} in this game`}
-      title={
-        exclusiveVersion
-          ? `${paddedGameNumber} - ${entry.displayName} (${paddedNationalNumber}) · ${exclusiveVersion} exclusive`
-          : `${paddedGameNumber} - ${entry.displayName} (${paddedNationalNumber})`
-      }
-      className={`relative flex h-[132px] w-full cursor-pointer flex-col items-center justify-center gap-1 rounded-lg p-2 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 sm:w-[120px] ${
-        owned
-          ? "bg-green-50 ring-1 ring-green-400 dark:bg-green-950/30"
-          : "bg-white/50 hover:bg-gray-200 dark:bg-gray-900/20 dark:hover:bg-gray-600"
-      }`}
-    >
-      {owned && (
-        <span
-          className="absolute right-2 top-2 flex h-4 w-4 items-center justify-center rounded-full bg-green-400 text-white"
-          aria-hidden
-        >
-          <CheckIcon className="h-2.5 w-2.5" />
-        </span>
-      )}
-      {exclusiveVersion && (
-        <span
-          className="absolute left-2 top-2 rounded bg-amber-100 px-1 text-[8px] font-bold uppercase tracking-wide text-amber-700 dark:bg-amber-900/40 dark:text-amber-400"
-          aria-hidden
-        >
-          {exclusiveVersion.split(" ")[0]}
-        </span>
-      )}
-      <Image
-        src={entry.spriteUrl}
-        alt={entry.displayName}
-        width={88}
-        height={88}
-        unoptimized
-        style={{ imageRendering: "pixelated" }}
-        className={`h-20 w-20 object-contain transition-all duration-200 ${
-          owned ? "" : "grayscale opacity-55"
+    <div className="group relative sm:w-[120px]">
+      <button
+        onClick={() => onSelect(entry.speciesId, entry.formName)}
+        aria-label={`${entry.displayName}, ${owned ? "registered" : "not registered"} in this game`}
+        title={
+          exclusiveVersion
+            ? `${paddedGameNumber} - ${entry.displayName} (${paddedNationalNumber}) · ${exclusiveVersion} exclusive`
+            : `${paddedGameNumber} - ${entry.displayName} (${paddedNationalNumber})`
+        }
+        className={`relative flex h-[132px] w-full cursor-pointer flex-col items-center justify-center gap-1 rounded-lg p-2 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${
+          owned
+            ? "bg-green-50 ring-1 ring-green-400 dark:bg-green-950/30"
+            : "bg-white/50 hover:bg-gray-200 dark:bg-gray-900/20 dark:hover:bg-gray-600"
         }`}
-      />
-      <span className="text-[10px] text-gray-400 tabular-nums">
-        {paddedGameNumber}
-      </span>
-      <span className="w-full truncate px-1 text-center text-[11px] font-medium text-gray-600 dark:text-gray-300">
-        {entry.displayName}
-      </span>
-    </button>
+      >
+        {owned && (
+          <span
+            className="absolute right-2 top-2 flex h-4 w-4 items-center justify-center rounded-full bg-green-400 text-white"
+            aria-hidden
+          >
+            <CheckIcon className="h-2.5 w-2.5" />
+          </span>
+        )}
+        {exclusiveVersion && (
+          <span
+            className="absolute left-2 top-2 rounded bg-amber-100 px-1 text-[8px] font-bold uppercase tracking-wide text-amber-700 dark:bg-amber-900/40 dark:text-amber-400"
+            aria-hidden
+          >
+            {exclusiveVersion.split(" ")[0]}
+          </span>
+        )}
+        <Image
+          src={entry.spriteUrl}
+          alt={entry.displayName}
+          width={88}
+          height={88}
+          unoptimized
+          style={{ imageRendering: "pixelated" }}
+          className={`h-20 w-20 object-contain transition-all duration-200 ${
+            owned ? "" : "grayscale opacity-55"
+          }`}
+        />
+        <span className="text-[10px] text-gray-400 tabular-nums">
+          {paddedGameNumber}
+        </span>
+        <span className="w-full truncate px-1 text-center text-[11px] font-medium text-gray-600 dark:text-gray-300">
+          {entry.displayName}
+        </span>
+      </button>
+      {owned && (
+        <button
+          type="button"
+          onClick={() =>
+            shinyOwned
+              ? clearShinyOwnedInGame(entry.speciesId, gameId)
+              : markShinyOwnedInGame(entry.speciesId, gameId)
+          }
+          title={shinyOwned ? "Remove shiny" : "Mark as shiny"}
+          aria-label={shinyOwned ? `Remove shiny for ${entry.displayName}` : `Mark ${entry.displayName} as shiny in this game`}
+          className={`absolute bottom-2 right-2 z-10 flex h-5 w-5 items-center justify-center rounded-full border transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-400 ${
+            shinyOwned
+              ? "border-yellow-400 bg-yellow-400 text-white"
+              : "border-gray-200 bg-white/90 text-gray-300 opacity-0 group-hover:opacity-100 dark:border-gray-600 dark:bg-gray-800/90 dark:text-gray-500"
+          }`}
+        >
+          <SparkleIcon className="h-3 w-3" />
+        </button>
+      )}
+    </div>
   );
 }
 
