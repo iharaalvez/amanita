@@ -4,7 +4,11 @@ import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import type { ReactNode } from "react";
 import { usePokedexStore, ownedKey } from "@/store/pokedexStore";
-import { usePokemonSpecies } from "@/hooks/usePokemon";
+import {
+  useLivingDexEntries,
+  usePokemonEvolution,
+  usePokemonSpecies,
+} from "@/hooks/usePokemon";
 import { useEncounters } from "@/hooks/useEncounters";
 import {
   GAME_POKEMON_LOCATION_OVERRIDES,
@@ -13,6 +17,7 @@ import {
 import { GAME_LIST } from "@/config/games";
 import { getExclusiveVersion } from "@/config/version-exclusives";
 import {
+  ArrowRightIcon,
   CheckIcon,
   ChevronDownIcon,
   HomeIcon,
@@ -155,6 +160,21 @@ function gameNameMatchesAvailableGame(
   return gameName.split(" / ").some((name) => availableGameNames.has(name));
 }
 
+function titleCasePokemonName(name: string): string {
+  return name
+    .split("-")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
+}
+
+function getEvolutionStageLabel(index: number, totalStages: number): string {
+  if (index === 0) return "Unevolved";
+  if (totalStages === 2) return "Evolution";
+  if (index === 1) return "First Evolution";
+  if (index === 2) return "Second Evolution";
+  return `Stage ${index + 1}`;
+}
+
 type StatusToggleProps = {
   active: boolean;
   disabled?: boolean;
@@ -260,6 +280,9 @@ export function PokemonDetailModal({
   const [showShiny, setShowShiny] = useState(false);
 
   const { data: speciesForms, isLoading } = usePokemonSpecies(speciesId);
+  const { data: livingDexEntries } = useLivingDexEntries();
+  const { data: evolutionLines, isLoading: evolutionLoading } =
+    usePokemonEvolution(speciesId);
   const { data: encounters, isLoading: encLoading } = useEncounters(speciesId);
   const selectedEntry =
     speciesForms?.find((entry) => entry.formName === formName) ??
@@ -306,6 +329,14 @@ export function PokemonDetailModal({
     (entry) => entry.formName !== null,
   );
   const shinyLocked = isShinyLocked(speciesId, formName);
+  const selectedEvolutionLines = (evolutionLines ?? []).filter((line) =>
+    line.some((stage) => stage.id === speciesId),
+  );
+  const livingDexEntryBySpeciesId = new Map(
+    (livingDexEntries ?? [])
+      .filter((entry) => entry.formName === null)
+      .map((entry) => [entry.speciesId, entry]),
+  );
   const stats = selectedEntry?.stats ?? {};
   const totalStats = Object.values(stats).reduce(
     (sum, stat) => sum + (stat ?? 0),
@@ -363,7 +394,7 @@ export function PokemonDetailModal({
         aria-label={
           selectedEntry ? `${displayName} details` : "Pokemon details"
         }
-        className="relative max-h-[92vh] w-full overflow-y-auto rounded-t-2xl border-gray-100 bg-white pb-[env(safe-area-inset-bottom)] shadow-2xl dark:border-gray-700 dark:bg-gray-800 sm:h-full sm:max-h-none sm:max-w-[460px] sm:rounded-none sm:border-l sm:pb-0"
+        className="relative max-h-[92vh] w-full overflow-y-auto rounded-t-2xl border-gray-100 bg-white pb-[env(safe-area-inset-bottom)] shadow-2xl dark:border-gray-700 dark:bg-gray-800 sm:h-full sm:max-h-none sm:max-w-[540px] sm:rounded-none sm:border-l sm:pb-0"
         onClick={(event) => event.stopPropagation()}
       >
         {selectedEntry?.types?.[0] && (
@@ -555,6 +586,127 @@ export function PokemonDetailModal({
                 </div>
               </section>
             )}
+
+            <section className="px-6 pb-4">
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <h3 className="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                  Evolution line
+                </h3>
+                {selectedEvolutionLines.length > 1 && (
+                  <span className="text-[11px] tabular-nums text-gray-400">
+                    {selectedEvolutionLines.length} paths
+                  </span>
+                )}
+              </div>
+
+              {evolutionLoading ? (
+                <div className="flex flex-col gap-2">
+                  {[1, 2, 3].map((i) => (
+                    <div
+                      key={i}
+                      className="h-32 animate-pulse rounded-xl bg-gray-200 dark:bg-gray-700"
+                    />
+                  ))}
+                </div>
+              ) : selectedEvolutionLines.length === 0 ? (
+                <p className="rounded-xl border border-dashed border-gray-200 px-4 py-4 text-sm text-gray-400 dark:border-gray-700">
+                  No evolution data found
+                </p>
+              ) : (
+                <div className="flex flex-col gap-2">
+                  {selectedEvolutionLines.map((line) => (
+                    <div
+                      key={line.map((stage) => stage.id).join("-")}
+                      className="rounded-2xl border border-emerald-900/20 bg-gradient-to-br from-emerald-100 to-lime-100 p-2.5 shadow-inner dark:border-emerald-400/20 dark:from-emerald-950/50 dark:to-lime-950/30"
+                    >
+                      <div className="flex w-full items-stretch gap-1.5">
+                        {line.map((stage, index) => {
+                          const stageEntry =
+                            livingDexEntryBySpeciesId.get(stage.id);
+                          const isCurrentStage = stage.id === speciesId;
+                          const stageType = stageEntry?.types?.[0];
+                          const typeColor = stageType
+                            ? TYPE_COLORS[stageType]
+                            : "#6b7280";
+                          return (
+                            <div key={stage.id} className="contents">
+                              <div className="min-w-0 flex-1">
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    onNavigate(stage.id, stage.id, null)
+                                  }
+                                  className={`group flex h-full min-h-[128px] w-full flex-col items-center rounded-xl border px-1.5 py-2 text-center shadow-sm transition-transform hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${
+                                    isCurrentStage
+                                      ? "border-blue-400 bg-white text-blue-700 ring-2 ring-blue-300 dark:bg-gray-900 dark:text-blue-300"
+                                      : "border-white/70 bg-white/90 text-gray-700 dark:border-gray-700 dark:bg-gray-900/90 dark:text-gray-200"
+                                  }`}
+                                >
+                                  <span
+                                    className="mb-1 flex h-16 w-16 items-center justify-center rounded-full border-2 bg-white/70 shadow-inner dark:bg-gray-800/70"
+                                    style={{ borderColor: `${typeColor}80` }}
+                                  >
+                                    {stageEntry?.spriteUrl ? (
+                                      <Image
+                                        src={stageEntry.spriteUrl}
+                                        alt={stageEntry.displayName}
+                                        width={76}
+                                        height={76}
+                                        unoptimized
+                                        style={{
+                                          imageRendering: "pixelated",
+                                        }}
+                                        className="h-14 w-14 object-contain transition-transform group-hover:scale-105"
+                                      />
+                                    ) : (
+                                      <span className="h-10 w-10 rounded-full bg-gray-300 opacity-40 dark:bg-gray-600" />
+                                    )}
+                                  </span>
+                                  <span
+                                    className="mb-0.5 max-w-full truncate text-[11px] font-medium leading-tight text-gray-500 dark:text-gray-400"
+                                  >
+                                    {getEvolutionStageLabel(
+                                      index,
+                                      line.length,
+                                    )}
+                                  </span>
+                                  <span className="max-w-full truncate text-sm font-bold leading-tight">
+                                    {stageEntry?.displayName ??
+                                      titleCasePokemonName(stage.name)}
+                                  </span>
+                                  {stageType && (
+                                    <span
+                                      className="mt-1 rounded px-2 py-0.5 text-[10px] font-bold uppercase text-white"
+                                      style={{ backgroundColor: typeColor }}
+                                    >
+                                      {stageType}
+                                    </span>
+                                  )}
+                                  {isCurrentStage && (
+                                    <span className="mt-1 rounded bg-blue-100 px-1.5 py-0.5 text-[9px] font-bold uppercase text-blue-600 dark:bg-blue-950 dark:text-blue-300">
+                                      Current
+                                    </span>
+                                  )}
+                                </button>
+                              </div>
+                              {index < line.length - 1 && (
+                                <div className="flex w-16 shrink-0 flex-col items-center justify-center gap-1 text-center sm:w-20">
+                                  <p className="max-w-full break-words text-[10px] font-bold leading-tight text-gray-700 dark:text-gray-200">
+                                    {line[index + 1]?.conditions.join(" or ") ||
+                                      "Special evolution"}
+                                  </p>
+                                  <ArrowRightIcon className="h-5 w-5 text-emerald-700 dark:text-emerald-300" />
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
 
             {owned && (
               <section className="flex flex-col gap-3 px-6 pb-4">

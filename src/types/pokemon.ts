@@ -91,7 +91,12 @@ export type ProgressSnapshot = {
   availableGames: Record<string, boolean>;
 };
 
-export type EvolutionStage = { name: string; id: number };
+export type EvolutionStage = {
+  name: string;
+  id: number;
+  evolvesFromId: number | null;
+  conditions: string[];
+};
 
 export type GameDex = {
   gameId: string;
