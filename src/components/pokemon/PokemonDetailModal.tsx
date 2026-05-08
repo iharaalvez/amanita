@@ -118,6 +118,145 @@ const TYPE_COLORS: Record<string, string> = {
   fairy: "#EE99AC",
 };
 
+// attacker -> defender -> multiplier (omits 1×)
+const TYPE_CHART: Record<string, Record<string, number>> = {
+  normal: { rock: 0.5, ghost: 0, steel: 0.5 },
+  fire: {
+    fire: 0.5,
+    water: 0.5,
+    rock: 0.5,
+    dragon: 0.5,
+    grass: 2,
+    ice: 2,
+    bug: 2,
+    steel: 2,
+  },
+  water: { water: 0.5, grass: 0.5, dragon: 0.5, fire: 2, ground: 2, rock: 2 },
+  electric: {
+    electric: 0.5,
+    grass: 0.5,
+    dragon: 0.5,
+    ground: 0,
+    water: 2,
+    flying: 2,
+  },
+  grass: {
+    fire: 0.5,
+    grass: 0.5,
+    poison: 0.5,
+    flying: 0.5,
+    bug: 0.5,
+    dragon: 0.5,
+    steel: 0.5,
+    water: 2,
+    ground: 2,
+    rock: 2,
+  },
+  ice: {
+    fire: 0.5,
+    water: 0.5,
+    ice: 0.5,
+    steel: 0.5,
+    grass: 2,
+    ground: 2,
+    flying: 2,
+    dragon: 2,
+  },
+  fighting: {
+    poison: 0.5,
+    bug: 0.5,
+    psychic: 0.5,
+    flying: 0.5,
+    fairy: 0.5,
+    ghost: 0,
+    normal: 2,
+    ice: 2,
+    rock: 2,
+    dark: 2,
+    steel: 2,
+  },
+  poison: {
+    poison: 0.5,
+    ground: 0.5,
+    rock: 0.5,
+    ghost: 0.5,
+    steel: 0,
+    grass: 2,
+    fairy: 2,
+  },
+  ground: {
+    grass: 0.5,
+    bug: 0.5,
+    flying: 0,
+    fire: 2,
+    electric: 2,
+    poison: 2,
+    rock: 2,
+    steel: 2,
+  },
+  flying: {
+    electric: 0.5,
+    rock: 0.5,
+    steel: 0.5,
+    grass: 2,
+    fighting: 2,
+    bug: 2,
+  },
+  psychic: { psychic: 0.5, steel: 0.5, dark: 0, fighting: 2, poison: 2 },
+  bug: {
+    fire: 0.5,
+    fighting: 0.5,
+    flying: 0.5,
+    ghost: 0.5,
+    steel: 0.5,
+    fairy: 0.5,
+    grass: 2,
+    psychic: 2,
+    dark: 2,
+  },
+  rock: {
+    fighting: 0.5,
+    ground: 0.5,
+    steel: 0.5,
+    fire: 2,
+    ice: 2,
+    flying: 2,
+    bug: 2,
+  },
+  ghost: { normal: 0, psychic: 2, ghost: 2, dark: 0.5 },
+  dragon: { steel: 0.5, fairy: 0, dragon: 2 },
+  dark: { fighting: 0.5, dark: 0.5, fairy: 0.5, psychic: 2, ghost: 2 },
+  steel: {
+    fire: 0.5,
+    water: 0.5,
+    electric: 0.5,
+    steel: 0.5,
+    ice: 2,
+    rock: 2,
+    fairy: 2,
+  },
+  fairy: {
+    fire: 0.5,
+    poison: 0.5,
+    steel: 0.5,
+    fighting: 2,
+    dragon: 2,
+    dark: 2,
+  },
+};
+
+function computeTypeEffectiveness(types: string[]): Record<string, number> {
+  const result: Record<string, number> = {};
+  for (const attacker of Object.keys(TYPE_CHART)) {
+    let multiplier = 1;
+    for (const defender of types) {
+      multiplier *= TYPE_CHART[attacker]?.[defender] ?? 1;
+    }
+    if (multiplier !== 1) result[attacker] = multiplier;
+  }
+  return result;
+}
+
 const STAT_LABELS: Record<string, string> = {
   hp: "HP",
   attack: "Atk",
@@ -305,9 +444,7 @@ export function PokemonDetailModal({
   const clearShinyOwnedInGame = usePokedexStore((s) => s.clearShinyOwnedInGame);
   const availableGames = usePokedexStore((s) => s.availableGames);
   const gameDexProgress = usePokedexStore((s) => s.gameDexProgress);
-  const shinyGameDexProgress = usePokedexStore(
-    (s) => s.shinyGameDexProgress,
-  );
+  const shinyGameDexProgress = usePokedexStore((s) => s.shinyGameDexProgress);
 
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
@@ -621,8 +758,9 @@ export function PokemonDetailModal({
                     >
                       <div className="flex w-full items-stretch gap-1.5">
                         {line.map((stage, index) => {
-                          const stageEntry =
-                            livingDexEntryBySpeciesId.get(stage.id);
+                          const stageEntry = livingDexEntryBySpeciesId.get(
+                            stage.id,
+                          );
                           const isCurrentStage = stage.id === speciesId;
                           const stageType = stageEntry?.types?.[0];
                           const typeColor = stageType
@@ -662,13 +800,8 @@ export function PokemonDetailModal({
                                       <span className="h-10 w-10 rounded-full bg-gray-300 opacity-40 dark:bg-gray-600" />
                                     )}
                                   </span>
-                                  <span
-                                    className="mb-0.5 max-w-full truncate text-[11px] font-medium leading-tight text-gray-500 dark:text-gray-400"
-                                  >
-                                    {getEvolutionStageLabel(
-                                      index,
-                                      line.length,
-                                    )}
+                                  <span className="mb-0.5 max-w-full truncate text-[11px] font-medium leading-tight text-gray-500 dark:text-gray-400">
+                                    {getEvolutionStageLabel(index, line.length)}
                                   </span>
                                   <span className="max-w-full truncate text-sm font-bold leading-tight">
                                     {stageEntry?.displayName ??
@@ -731,7 +864,6 @@ export function PokemonDetailModal({
                     ))}
                   </div>
                 </div>
-
               </section>
             )}
 
@@ -883,7 +1015,10 @@ export function PokemonDetailModal({
                           }
                           style={
                             isShinyInGame
-                              ? { background: "linear-gradient(135deg, #d97706, #fbbf24)" }
+                              ? {
+                                  background:
+                                    "linear-gradient(135deg, #d97706, #fbbf24)",
+                                }
                               : undefined
                           }
                           className={`flex w-full items-center justify-center gap-1.5 rounded-xl px-4 py-2 text-sm font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-400 ${
@@ -943,7 +1078,11 @@ export function PokemonDetailModal({
                               ? clearShinyOwnedInGame(speciesId, game.id)
                               : markShinyOwnedInGame(speciesId, game.id)
                           }
-                          title={isShinyInGame ? `Remove shiny in ${game.name}` : `Mark shiny in ${game.name}`}
+                          title={
+                            isShinyInGame
+                              ? `Remove shiny in ${game.name}`
+                              : `Mark shiny in ${game.name}`
+                          }
                           className={`rounded-r-full pl-1 pr-2 py-1 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-400 ${
                             isShinyInGame
                               ? "text-yellow-300"
@@ -981,6 +1120,91 @@ export function PokemonDetailModal({
             </section>
 
             <hr className="border-gray-100 dark:border-gray-700" />
+
+            {(selectedEntry.types ?? []).length > 0 &&
+              (() => {
+                const effectiveness = computeTypeEffectiveness(
+                  selectedEntry.types ?? [],
+                );
+                const weaknesses = Object.entries(effectiveness)
+                  .filter(([, m]) => m > 1)
+                  .sort(([, a], [, b]) => b - a);
+                const resistances = Object.entries(effectiveness)
+                  .filter(([, m]) => m > 0 && m < 1)
+                  .sort(([, a], [, b]) => a - b);
+                const immunities = Object.entries(effectiveness).filter(
+                  ([, m]) => m === 0,
+                );
+                const TypePill = ({
+                  type,
+                  label,
+                }: {
+                  type: string;
+                  label?: string;
+                }) => (
+                  <span
+                    key={type}
+                    className="flex items-center gap-1 rounded px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-white"
+                    style={{ backgroundColor: TYPE_COLORS[type] ?? "#888" }}
+                  >
+                    {type}
+                    {label && <span className="opacity-80">{label}</span>}
+                  </span>
+                );
+                return (
+                  <section className="px-6 pb-4">
+                    <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                      Type matchup
+                    </h3>
+                    <div className="space-y-2.5">
+                      {weaknesses.length > 0 && (
+                        <div>
+                          <p className="mb-1.5 text-[11px] font-medium text-gray-400">
+                            Weak to
+                          </p>
+                          <div className="flex flex-wrap gap-1.5">
+                            {weaknesses.map(([type, m]) => (
+                              <TypePill
+                                key={type}
+                                type={type}
+                                label={m === 4 ? "4×" : "2×"}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {resistances.length > 0 && (
+                        <div>
+                          <p className="mb-1.5 text-[11px] font-medium text-gray-400">
+                            Resists
+                          </p>
+                          <div className="flex flex-wrap gap-1.5">
+                            {resistances.map(([type, m]) => (
+                              <TypePill
+                                key={type}
+                                type={type}
+                                label={m === 0.25 ? "¼×" : "½×"}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {immunities.length > 0 && (
+                        <div>
+                          <p className="mb-1.5 text-[11px] font-medium text-gray-400">
+                            Immune to
+                          </p>
+                          <div className="flex flex-wrap gap-1.5">
+                            {immunities.map(([type]) => (
+                              <TypePill key={type} type={type} />
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </section>
+                );
+              })()}
 
             {Object.keys(stats).length > 0 && (
               <section className="px-6 py-4">
@@ -1169,7 +1393,6 @@ export function PokemonDetailModal({
                 Encounter data can be incomplete in PokeAPI for some titles; use
                 it as guidance, not a guarantee.
               </p>
-
             </section>
           </>
         ) : null}
