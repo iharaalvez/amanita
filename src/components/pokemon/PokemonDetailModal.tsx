@@ -70,7 +70,7 @@ const GAME_COLORS: Record<string, string> = {
   bdsp: "#7c3aed",
   pla: "#15803d",
   "scarlet-violet": "#9f1239",
-  "legends-za": "#4b5563",
+  "legends-za": "#16a34a",
 };
 
 const GAME_GRADIENT: Record<string, [string, string]> = {
@@ -94,7 +94,7 @@ const GAME_GRADIENT: Record<string, [string, string]> = {
   bdsp: ["#818cf8", "#f472b6"],
   pla: ["#15803d", "#1e3a5f"],
   "scarlet-violet": ["#be123c", "#7c3aed"],
-  "legends-za": ["#4b5563", "#1e293b"],
+  "legends-za": ["#16a34a", "#0f172a"],
 };
 
 const TYPE_COLORS: Record<string, string> = {
