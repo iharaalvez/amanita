@@ -417,6 +417,11 @@ export function PokemonDetailModal({
     Record<string, boolean>
   >({});
   const [showShiny, setShowShiny] = useState(false);
+  const modalRef = useRef<HTMLDivElement>(null);
+  const onCloseRef = useRef(onClose);
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
 
   const { data: speciesForms, isLoading } = usePokemonSpecies(speciesId);
   const { data: livingDexEntries } = useLivingDexEntries();
@@ -453,6 +458,74 @@ export function PokemonDetailModal({
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
   }, [onClose]);
+
+  useEffect(() => {
+    const panel = modalRef.current;
+    if (!panel) return;
+
+    let startY: number | null = null;
+    let dragOffset = 0;
+
+    const onTouchStart = (e: TouchEvent) => {
+      if (panel.scrollTop > 0) return;
+      startY = e.touches[0].clientY;
+    };
+
+    const onTouchMove = (e: TouchEvent) => {
+      if (startY === null) return;
+      const delta = e.touches[0].clientY - startY;
+      if (delta > 0) {
+        dragOffset = delta;
+        panel.style.transform = `translateY(${delta}px)`;
+        panel.style.transition = "none";
+        e.preventDefault();
+      }
+    };
+
+    const onTouchEnd = () => {
+      if (startY === null) return;
+      if (dragOffset > 120) {
+        onCloseRef.current();
+      } else {
+        panel.style.transition = "transform 0.25s ease";
+        panel.style.transform = "";
+        panel.addEventListener(
+          "transitionend",
+          () => {
+            panel.style.transition = "";
+          },
+          { once: true },
+        );
+      }
+      startY = null;
+      dragOffset = 0;
+    };
+
+    panel.addEventListener("touchstart", onTouchStart, { passive: true });
+    panel.addEventListener("touchmove", onTouchMove, { passive: false });
+    panel.addEventListener("touchend", onTouchEnd, { passive: true });
+
+    return () => {
+      panel.removeEventListener("touchstart", onTouchStart);
+      panel.removeEventListener("touchmove", onTouchMove);
+      panel.removeEventListener("touchend", onTouchEnd);
+    };
+  }, []);
+
+  useEffect(() => {
+    const scrollY = window.scrollY;
+    document.body.style.overflow = "hidden";
+    document.body.style.position = "fixed";
+    document.body.style.top = `-${scrollY}px`;
+    document.body.style.width = "100%";
+    return () => {
+      document.body.style.overflow = "";
+      document.body.style.position = "";
+      document.body.style.top = "";
+      document.body.style.width = "";
+      window.scrollTo(0, scrollY);
+    };
+  }, []);
 
   useEffect(() => {
     setCollapsedEncounterGroups({});
@@ -526,12 +599,13 @@ export function PokemonDetailModal({
       onClick={onClose}
     >
       <div
+        ref={modalRef}
         role="dialog"
         aria-modal="true"
         aria-label={
           selectedEntry ? `${displayName} details` : "Pokemon details"
         }
-        className="relative max-h-[92vh] w-full overflow-y-auto rounded-t-2xl border-gray-100 bg-white pb-[env(safe-area-inset-bottom)] shadow-2xl dark:border-gray-700 dark:bg-gray-800 sm:h-full sm:max-h-none sm:max-w-[540px] sm:rounded-none sm:border-l sm:pb-0"
+        className="relative max-h-[92vh] w-full overflow-y-auto overscroll-contain rounded-t-2xl border-gray-100 bg-white pb-[env(safe-area-inset-bottom)] shadow-2xl dark:border-gray-700 dark:bg-gray-800 sm:h-full sm:max-h-none sm:max-w-[540px] sm:rounded-none sm:border-l sm:pb-0"
         onClick={(event) => event.stopPropagation()}
       >
         {selectedEntry?.types?.[0] && (
