@@ -781,7 +781,7 @@ export function PokemonDetailModal({
                                   }`}
                                 >
                                   <span
-                                    className="mb-1 flex h-16 w-16 items-center justify-center rounded-full border-2 bg-white/70 shadow-inner dark:bg-gray-800/70"
+                                    className="mb-1 flex h-12 w-12 items-center justify-center rounded-full border-2 bg-white/70 shadow-inner dark:bg-gray-800/70 sm:h-16 sm:w-16"
                                     style={{ borderColor: `${typeColor}80` }}
                                   >
                                     {stageEntry?.spriteUrl ? (
@@ -794,7 +794,7 @@ export function PokemonDetailModal({
                                         style={{
                                           imageRendering: "pixelated",
                                         }}
-                                        className="h-14 w-14 object-contain transition-transform group-hover:scale-105"
+                                        className="h-10 w-10 object-contain transition-transform group-hover:scale-105 sm:h-14 sm:w-14"
                                       />
                                     ) : (
                                       <span className="h-10 w-10 rounded-full bg-gray-300 opacity-40 dark:bg-gray-600" />
@@ -823,12 +823,12 @@ export function PokemonDetailModal({
                                 </button>
                               </div>
                               {index < line.length - 1 && (
-                                <div className="flex w-16 shrink-0 flex-col items-center justify-center gap-1 text-center sm:w-20">
-                                  <p className="max-w-full break-words text-[10px] font-bold leading-tight text-gray-700 dark:text-gray-200">
+                                <div className="flex w-8 shrink-0 flex-col items-center justify-center gap-1 text-center sm:w-16">
+                                  <p className="hidden max-w-full break-words text-[10px] font-bold leading-tight text-gray-700 dark:text-gray-200 sm:block">
                                     {line[index + 1]?.conditions.join(" or ") ||
                                       "Special evolution"}
                                   </p>
-                                  <ArrowRightIcon className="h-5 w-5 text-emerald-700 dark:text-emerald-300" />
+                                  <ArrowRightIcon className="h-4 w-4 text-emerald-700 dark:text-emerald-300 sm:h-5 sm:w-5" />
                                 </div>
                               )}
                             </div>
