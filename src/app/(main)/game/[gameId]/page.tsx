@@ -108,7 +108,7 @@ function HuntGuideView({ gameId, gameName, onSelect }: HuntGuideProps) {
               Hunt Guide - {gameName}
             </h2>
             <p className="mt-1 max-w-2xl text-sm text-gray-500 dark:text-gray-400">
-              Start with these missing Pokemon from this game's National Dex.
+              Start with missing Pokemon from this National Dex.
             </p>
           </div>
           {total > 0 && (
