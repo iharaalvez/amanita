@@ -41,8 +41,6 @@ type PokedexState = {
     game?: string,
   ) => void;
   clearShinyOwned: (speciesId: number, formName?: string | null) => void;
-  markInHome: (speciesId: number, formName?: string | null) => void;
-  clearInHome: (speciesId: number, formName?: string | null) => void;
   clearOwnership: (speciesId: number, formName?: string | null) => void;
   setGameAvailable: (gameId: string, available: boolean) => void;
   isGameAvailable: (gameId: string) => boolean;
@@ -163,37 +161,6 @@ export const usePokedexStore = create<PokedexState>()(
         else void deleteRecord(speciesId, formName ?? null);
       },
 
-      markInHome: (speciesId, formName) => {
-        const key = ownedKey(speciesId, formName);
-        set((state) => ({
-          owned: {
-            ...state.owned,
-            [key]: {
-              ...state.owned[key],
-              pokedex_number: speciesId,
-              form_name: formName ?? null,
-              owned: state.owned[key]?.owned ?? false,
-              shiny_owned: state.owned[key]?.shiny_owned ?? false,
-              in_home: true,
-            },
-          },
-        }));
-        void syncRecord(get().owned[key]!);
-      },
-
-      clearInHome: (speciesId, formName) => {
-        const key = ownedKey(speciesId, formName);
-        set((state) => {
-          const existing = state.owned[key];
-          if (!existing) return {};
-          return {
-            owned: { ...state.owned, [key]: { ...existing, in_home: false } },
-          };
-        });
-        const record = get().owned[key];
-        if (record) void syncRecord(record);
-      },
-
       clearOwnership: (speciesId, formName) => {
         const key = ownedKey(speciesId, formName);
         set((state) => {
@@ -298,7 +265,7 @@ export const usePokedexStore = create<PokedexState>()(
     }),
     {
       name: "living-pokedex-v1",
-      version: 5,
+      version: 6,
       migrate: (persistedState, version) => {
         if (!isRecord(persistedState)) return persistedState;
         if (version < 3) {
@@ -319,7 +286,6 @@ export const usePokedexStore = create<PokedexState>()(
           }
         }
         if (version < 4) {
-          // Strip game_dex and game_caught from owned records — now tracked separately
           const owned = persistedState.owned as
             | Record<string, unknown>
             | undefined;
@@ -328,6 +294,18 @@ export const usePokedexStore = create<PokedexState>()(
               if (isRecord(record)) {
                 delete (record as Record<string, unknown>).game_dex;
                 delete (record as Record<string, unknown>).game_caught;
+              }
+            }
+          }
+        }
+        if (version < 6) {
+          const owned = persistedState.owned as
+            | Record<string, unknown>
+            | undefined;
+          if (isRecord(owned)) {
+            for (const record of Object.values(owned)) {
+              if (isRecord(record)) {
+                delete (record as Record<string, unknown>).in_home;
               }
             }
           }

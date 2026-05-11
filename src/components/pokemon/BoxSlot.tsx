@@ -3,8 +3,7 @@
 import Image from "next/image";
 import { usePokedexStore, ownedKey } from "@/store/pokedexStore";
 import {
-  ArrowUpRightIcon,
-  HomeIcon,
+  CheckIcon,
   SparkleIcon,
   Tooltip,
 } from "@/components/ui";
@@ -21,9 +20,6 @@ export function BoxSlot({ entry, onSelect }: Props) {
   const owned = usePokedexStore((s) => (entry ? !!s.owned[key]?.owned : false));
   const shinyOwned = usePokedexStore((s) =>
     entry ? !!s.owned[key]?.shiny_owned : false,
-  );
-  const inHome = usePokedexStore((s) =>
-    entry ? !!s.owned[key]?.in_home : false,
   );
 
   if (!entry) {
@@ -47,21 +43,19 @@ export function BoxSlot({ entry, onSelect }: Props) {
 
   const statusClass = shinyOwned
     ? "border-yellow-400 bg-yellow-50 dark:bg-yellow-950/40"
-    : inHome
+    : owned
       ? "border-green-400 bg-green-50/50 dark:bg-green-950/30"
-      : owned
-        ? "border-blue-400 bg-blue-50/50 dark:bg-blue-950/20"
-        : "border-transparent bg-white/50 hover:bg-gray-100 dark:bg-gray-900/20 dark:hover:bg-gray-700/50";
+      : "border-transparent bg-white/50 hover:bg-gray-100 dark:bg-gray-900/20 dark:hover:bg-gray-700/50";
 
   const label = shinyOwned
     ? `${paddedNumber} - ${entry.displayName} - shiny owned`
-    : `${paddedNumber} - ${entry.displayName}${inHome ? " - In HOME" : owned ? " - Owned, not in HOME" : ""}`;
+    : `${paddedNumber} - ${entry.displayName}${owned ? " - Owned" : ""}`;
 
   return (
     <Tooltip content={label} className="w-full">
       <button
         onClick={() => onSelect?.(entry.speciesId, entry.formName)}
-        aria-label={`${entry.displayName}, ${inHome ? "in HOME" : owned ? "owned, not in HOME" : "not owned"}${shinyOwned ? ", shiny owned" : ""}`}
+        aria-label={`${entry.displayName}, ${owned ? "owned" : "not owned"}${shinyOwned ? ", shiny owned" : ""}`}
         aria-pressed={owned || shinyOwned}
         className={`group relative flex aspect-square w-full cursor-pointer flex-col items-center justify-center gap-0.5 rounded-lg border-2 p-1 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${statusClass}`}
       >
@@ -69,9 +63,8 @@ export function BoxSlot({ entry, onSelect }: Props) {
           {shinyOwned && (
             <SparkleIcon className="h-3.5 w-3.5 text-yellow-400" />
           )}
-          {inHome && <HomeIcon className="h-3.5 w-3.5 text-green-400" />}
-          {owned && !inHome && (
-            <ArrowUpRightIcon className="h-3.5 w-3.5 text-blue-400" />
+          {owned && !shinyOwned && (
+            <CheckIcon className="h-3.5 w-3.5 text-green-400" />
           )}
         </span>
         <Image
@@ -82,7 +75,7 @@ export function BoxSlot({ entry, onSelect }: Props) {
           unoptimized
           style={{ imageRendering: "pixelated" }}
           className={`h-14 w-14 object-contain transition-all duration-200 group-hover:scale-110 sm:h-16 sm:w-16 ${
-            owned || inHome || shinyOwned ? "" : "grayscale opacity-50"
+            owned || shinyOwned ? "" : "grayscale opacity-50"
           }`}
         />
         <span className="w-full truncate px-0.5 text-center text-[10px] font-semibold leading-tight text-gray-600 dark:text-gray-200">

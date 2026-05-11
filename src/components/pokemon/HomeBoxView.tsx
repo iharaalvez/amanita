@@ -7,17 +7,11 @@ import { BoxSlot } from "./BoxSlot";
 import type { LivingDexEntry } from "@/types/pokemon";
 
 const BOX_SIZE = 30;
-type HomeStatusFilter =
-  | "all"
-  | "in-home"
-  | "pending"
-  | "shiny"
-  | "missing";
+type HomeStatusFilter = "all" | "shiny" | "missing" | "owned";
 
 const HOME_STATUS_OPTIONS: { value: HomeStatusFilter; label: string }[] = [
   { value: "all", label: "All" },
-  { value: "pending", label: "Pending" },
-  { value: "in-home", label: "In HOME" },
+  { value: "owned", label: "Owned" },
   { value: "missing", label: "Missing" },
   { value: "shiny", label: "Shiny" },
 ];
@@ -52,11 +46,10 @@ export function HomeBoxView({ onSelect, search }: Props) {
     const owned = entries.filter(
       (e) => ownedRecords[ownedKey(e.speciesId, e.formName)]?.owned,
     ).length;
-    const inHome = entries.filter(
-      (e) => ownedRecords[ownedKey(e.speciesId, e.formName)]?.in_home,
+    const shiny = entries.filter(
+      (e) => ownedRecords[ownedKey(e.speciesId, e.formName)]?.shiny_owned,
     ).length;
-    const pending = owned - inHome;
-    return { owned, inHome, pending, total: entries.length };
+    return { owned, shiny, total: entries.length };
   }, [data, ownedRecords, showCosmeticForms]);
 
   if (error) {
@@ -99,10 +92,7 @@ export function HomeBoxView({ onSelect, search }: Props) {
     orderedEntries
       .filter((entry) => {
         const record = ownedRecords[ownedKey(entry.speciesId, entry.formName)];
-        if (statusFilter === "in-home" && !record?.in_home) return false;
-        if (statusFilter === "pending" && (!record?.owned || record.in_home)) {
-          return false;
-        }
+        if (statusFilter === "owned" && !record?.owned) return false;
         if (statusFilter === "shiny" && !record?.shiny_owned) return false;
         if (statusFilter === "missing" && record?.owned) return false;
         if (!q) return true;
@@ -167,26 +157,26 @@ export function HomeBoxView({ onSelect, search }: Props) {
         <div className="my-3 flex flex-wrap items-center gap-2">
           <div className="rounded-lg border border-green-200 bg-green-50 px-3 py-2 dark:border-green-900/60 dark:bg-green-950/30">
             <span className="text-lg font-black tabular-nums text-green-500">
-              {summary.inHome}
-            </span>
-            <span className="ml-1.5 text-xs font-semibold text-green-700 dark:text-green-300">
-              In HOME
-            </span>
-          </div>
-          <div className="rounded-lg border border-gray-200 bg-white px-3 py-2 dark:border-gray-700 dark:bg-gray-800">
-            <span className="text-lg font-black tabular-nums text-gray-700 dark:text-gray-100">
               {summary.owned}
             </span>
-            <span className="ml-1.5 text-xs font-semibold text-gray-500 dark:text-gray-300">
+            <span className="ml-1.5 text-xs font-semibold text-green-700 dark:text-green-300">
               Owned
             </span>
           </div>
-          <div className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 dark:border-blue-900/60 dark:bg-blue-950/30">
-            <span className="text-lg font-black tabular-nums text-blue-500">
-              {summary.pending}
+          <div className="rounded-lg border border-gray-200 bg-white px-3 py-2 dark:border-gray-700 dark:bg-gray-800">
+            <span className="text-lg font-black tabular-nums text-gray-400 dark:text-gray-500">
+              {summary.total - summary.owned}
             </span>
-            <span className="ml-1.5 text-xs font-semibold text-blue-700 dark:text-blue-300">
-              Pending
+            <span className="ml-1.5 text-xs font-semibold text-gray-500 dark:text-gray-300">
+              Missing
+            </span>
+          </div>
+          <div className="rounded-lg border border-yellow-200 bg-yellow-50 px-3 py-2 dark:border-yellow-900/60 dark:bg-yellow-950/30">
+            <span className="text-lg font-black tabular-nums text-yellow-500">
+              {summary.shiny}
+            </span>
+            <span className="ml-1.5 text-xs font-semibold text-yellow-700 dark:text-yellow-300">
+              Shiny
             </span>
           </div>
         </div>

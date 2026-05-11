@@ -210,7 +210,6 @@ export function GameDexView({ onSelect }: Props) {
   const availableGames = usePokedexStore((state) => state.availableGames);
   const gameDexProgress = usePokedexStore((state) => state.gameDexProgress);
   const [selectedGameId, setSelectedGameId] = useState("scarlet-violet");
-  const [showAvailableOnly, setShowAvailableOnly] = useState(true);
   const [completionFilter, setCompletionFilter] =
     useState<CompletionFilter>("all");
   const [searchQuery, setSearchQuery] = useState("");
@@ -274,14 +273,10 @@ export function GameDexView({ onSelect }: Props) {
     selectedGameId,
   ]);
 
-  const gamesByGen = useMemo(() => {
-    const hasAvailableGames = availableGameIds.length > 0;
-    const visibleGames = GAME_LIST.filter(
-      (game) =>
-        !showAvailableOnly || !hasAvailableGames || availableGames[game.id],
-    );
-    return getGamesByGeneration(visibleGames);
-  }, [availableGameIds.length, availableGames, showAvailableOnly]);
+  const gamesByGen = useMemo(
+    () => getGamesByGeneration(GAME_LIST),
+    [],
+  );
 
   const ownedInGame = registeredByGame.get(selectedGameId)?.size ?? 0;
   const totalInGame = gameDex?.filter((e) => !e.optional).length ?? 0;
@@ -301,19 +296,23 @@ export function GameDexView({ onSelect }: Props) {
   ];
 
   return (
-    <div className="mx-auto flex max-w-7xl flex-col gap-4 px-4 pb-8 lg:flex-row">
-      {/* Mobile game selector */}
-      <div className="flex items-center gap-2 lg:hidden">
+    <div className="mx-auto max-w-7xl px-4 pb-8">
+      {/* Game selector */}
+      <div className="mb-4 flex items-center gap-2">
         <select
           value={selectedGameId}
           onChange={(e) => setSelectedGameId(e.target.value)}
           className="flex-1 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200"
           aria-label="Select game"
         >
-          {GAME_LIST.map((game) => (
-            <option key={game.id} value={game.id}>
-              {game.name}
-            </option>
+          {gamesByGen.map(([generation, games]) => (
+            <optgroup key={generation} label={GEN_LABELS[generation]}>
+              {games.map((game) => (
+                <option key={game.id} value={game.id}>
+                  {game.name}{availableGames[game.id] ? " ✓" : ""}
+                </option>
+              ))}
+            </optgroup>
           ))}
         </select>
         <button
@@ -325,90 +324,7 @@ export function GameDexView({ onSelect }: Props) {
         </button>
       </div>
 
-      {/* Desktop sidebar */}
-      <div className="hidden w-56 flex-shrink-0 lg:block">
-        <div className="max-h-[80vh] overflow-y-auto rounded-lg border border-gray-100 bg-gray-50 p-3 dark:border-gray-700 dark:bg-gray-800 lg:sticky lg:top-4">
-          <div className="mb-3 flex items-center justify-between gap-2 px-1">
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
-                Games
-              </p>
-              <p className="text-[10px] tabular-nums text-gray-400">
-                {availableGameIds.length} available
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={() => setShowGamesModal(true)}
-              className="rounded-lg bg-blue-500 px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-blue-600"
-            >
-              Manage
-            </button>
-          </div>
-
-          <button
-            type="button"
-            onClick={() => setShowAvailableOnly((value) => !value)}
-            className={`mb-3 w-full rounded-lg px-2 py-1.5 text-xs font-semibold transition-colors ${
-              showAvailableOnly
-                ? "bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300"
-                : "bg-white text-gray-500 hover:bg-gray-100 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
-            }`}
-            aria-pressed={showAvailableOnly}
-          >
-            Available only
-          </button>
-
-          {gamesByGen.map(([generation, games]) => (
-            <div key={generation} className="mb-3">
-              <p className="mb-1.5 px-1 text-[10px] font-bold uppercase tracking-wider text-gray-400">
-                {GEN_LABELS[generation]}
-              </p>
-              {games.map((game) => {
-                const ownedCount = registeredByGame.get(game.id)?.size ?? 0;
-                const isSelected = game.id === selectedGameId;
-                const isAvailable = !!availableGames[game.id];
-                return (
-                  <button
-                    key={game.id}
-                    type="button"
-                    onClick={() => setSelectedGameId(game.id)}
-                    className={`mb-0.5 w-full rounded-lg px-2 py-1.5 text-left transition-colors ${
-                      isSelected
-                        ? "bg-blue-500 text-white"
-                        : "text-gray-700 hover:bg-gray-200 dark:text-gray-300 dark:hover:bg-gray-700"
-                    } ${isAvailable ? "" : "opacity-70"}`}
-                  >
-                    <span className="flex items-center gap-1 truncate text-xs font-medium leading-tight">
-                      {game.name}
-                      {game.hasShinyCharm && (
-                        <SparkleIcon
-                          className={`h-3 w-3 shrink-0 ${isSelected ? "text-yellow-300" : "text-yellow-400"}`}
-                        />
-                      )}
-                    </span>
-                    {ownedCount > 0 ? (
-                      <span
-                        className={`text-[10px] tabular-nums ${isSelected ? "text-blue-100" : "text-gray-400"}`}
-                      >
-                        {ownedCount} registered
-                      </span>
-                    ) : isAvailable ? (
-                      <span
-                        className={`text-[10px] ${isSelected ? "text-blue-100" : "text-green-500 dark:text-green-400"}`}
-                      >
-                        Available
-                      </span>
-                    ) : null}
-                  </button>
-                );
-              })}
-            </div>
-          ))}
-        </div>
-      </div>
-
-      <div className="min-w-0 flex-1">
+      <div className="min-w-0">
         <div className="mb-4 rounded-xl border border-gray-100 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-800">
           <div className="mb-3 flex items-center justify-between gap-2">
             <h2 className="text-lg font-bold dark:text-white">

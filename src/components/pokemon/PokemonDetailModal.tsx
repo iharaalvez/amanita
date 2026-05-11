@@ -20,7 +20,6 @@ import {
   ArrowRightIcon,
   CheckIcon,
   ChevronDownIcon,
-  HomeIcon,
   SparkleIcon,
   XIcon,
 } from "@/components/ui";
@@ -436,12 +435,9 @@ export function PokemonDetailModal({
   const owned = usePokedexStore((s) => !!s.owned[storeKey]?.owned);
   const shinyOwned = usePokedexStore((s) => !!s.owned[storeKey]?.shiny_owned);
   const ownedRecord = usePokedexStore((s) => s.owned[storeKey]);
-  const inHome = usePokedexStore((s) => !!s.owned[storeKey]?.in_home);
   const markOwned = usePokedexStore((s) => s.markOwned);
   const markShinyOwned = usePokedexStore((s) => s.markShinyOwned);
   const clearShinyOwned = usePokedexStore((s) => s.clearShinyOwned);
-  const markInHome = usePokedexStore((s) => s.markInHome);
-  const clearInHome = usePokedexStore((s) => s.clearInHome);
   const clearOwnership = usePokedexStore((s) => s.clearOwnership);
   const markOwnedInGame = usePokedexStore((s) => s.markOwnedInGame);
   const clearOwnedInGame = usePokedexStore((s) => s.clearOwnedInGame);
@@ -703,7 +699,7 @@ export function PokemonDetailModal({
               </div>
 
               <div>
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-2 gap-2">
                   <StatusToggle
                     active={owned}
                     label={owned ? "Owned" : "Missing"}
@@ -721,19 +717,6 @@ export function PokemonDetailModal({
                       owned
                         ? clearOwnership(speciesId, formName)
                         : markOwned(speciesId, formName)
-                    }
-                  />
-                  <StatusToggle
-                    active={inHome}
-                    disabled={!owned}
-                    label={inHome ? "In HOME" : "HOME"}
-                    helper={owned ? "In HOME" : "Own it first"}
-                    gradient={["#2563eb", "#60a5fa"]}
-                    icon={<HomeIcon className="h-5 w-5" />}
-                    onClick={() =>
-                      inHome
-                        ? clearInHome(speciesId, formName)
-                        : markInHome(speciesId, formName)
                     }
                   />
                   <StatusToggle

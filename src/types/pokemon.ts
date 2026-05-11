@@ -19,7 +19,6 @@ export type OwnedRecord = {
   form_name: string | null; // null = base form, e.g. 'vulpix-alola' for regional
   owned: boolean;
   shiny_owned: boolean;
-  in_home?: boolean;
   method?: OwnershipMethod;
   notes?: string;
   date_obtained?: string;

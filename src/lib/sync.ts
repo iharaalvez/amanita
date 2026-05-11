@@ -15,7 +15,7 @@ type SupabaseRow = {
   form_name: string | null;
   owned: boolean;
   shiny_owned: boolean;
-  in_home: boolean;
+  in_home?: boolean;
   method: string | null;
   shiny_method: string | null;
   shiny_game: string | null;
@@ -56,11 +56,22 @@ export async function loadFromSupabase(
       form_name: row.form_name,
       owned: row.owned,
       shiny_owned: row.shiny_owned,
-      in_home: row.in_home,
       method: (row.method as OwnershipMethod) ?? undefined,
       shiny_method: (row.shiny_method as ShinyHuntMethod) ?? undefined,
       shiny_game: row.shiny_game ?? undefined,
     };
+  }
+
+  // One-time cleanup: clear in_home column from all rows that still have it set
+  const dirtyIds = rows
+    .filter((r) => r.in_home)
+    .map((r) => r.species_id);
+  if (dirtyIds.length > 0) {
+    void supabase
+      .from("pokedex")
+      .update({ in_home: false })
+      .eq("user_id", resolvedUserId)
+      .eq("in_home", true);
   }
 
   // Load game dex progress from user_settings, migrating legacy per-row data if needed
@@ -112,7 +123,6 @@ export async function syncRecord(record: OwnedRecord): Promise<void> {
       form_name: record.form_name,
       owned: record.owned,
       shiny_owned: record.shiny_owned,
-      in_home: record.in_home ?? false,
       method: record.method ?? null,
       shiny_method: record.shiny_method ?? null,
       shiny_game: record.shiny_game ?? null,
@@ -205,7 +215,6 @@ export async function syncAllRecords(
     form_name: record.form_name,
     owned: record.owned,
     shiny_owned: record.shiny_owned,
-    in_home: record.in_home ?? false,
     method: record.method ?? null,
     shiny_method: record.shiny_method ?? null,
     shiny_game: record.shiny_game ?? null,
