@@ -143,7 +143,7 @@ export function Sidebar({ user }: SidebarProps) {
                 }`}
               >
                 <Icon
-                  className={`h-4.5 w-4.5 shrink-0 ${active ? "text-green-400" : ""}`}
+                  className={`h-5 w-5 shrink-0 ${active ? "text-green-400" : ""}`}
                 />
                 {label}
                 {active && (
