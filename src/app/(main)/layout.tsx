@@ -1,5 +1,6 @@
 "use client";
 
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { LandingPage } from "@/components/LandingPage";
@@ -7,8 +8,9 @@ import { AuthModal } from "@/components/auth/AuthModal";
 import { PokemonDetailModal } from "@/components/pokemon/PokemonDetailModal";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { useUIStore } from "@/store/uiStore";
-import { usePokedexStore, ownedKey } from "@/store/pokedexStore";
+import { usePokedexStore } from "@/store/pokedexStore";
 import { useLivingDexEntries } from "@/hooks/usePokemon";
+import { getOwnedEntryCount, isLivingDexSpecies } from "@/lib/livingDex";
 
 const SHOWN_MILESTONES_KEY = "living-pokedex-shown-milestones-v1";
 
@@ -42,6 +44,21 @@ export default function MainLayout({
 }: {
   children: React.ReactNode;
 }) {
+  const [queryClient] = useState(
+    () =>
+      new QueryClient({
+        defaultOptions: { queries: { staleTime: 60 * 1000 } },
+      }),
+  );
+
+  return (
+    <QueryClientProvider client={queryClient}>
+      <MainLayoutContent>{children}</MainLayoutContent>
+    </QueryClientProvider>
+  );
+}
+
+function MainLayoutContent({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
   const [authOpen, setAuthOpen] = useState(false);
 
@@ -50,7 +67,6 @@ export default function MainLayout({
   const openPokemon = useUIStore((s) => s.openPokemon);
 
   const ownedRecords = usePokedexStore((s) => s.owned);
-  const showCosmeticForms = usePokedexStore((s) => s.showCosmeticForms);
   const { data: livingDexEntries, isSuccess: livingDexLoaded } =
     useLivingDexEntries();
 
@@ -59,18 +75,12 @@ export default function MainLayout({
   const milestoneReadyRef = useRef(false);
 
   const filteredEntries = useMemo(
-    () =>
-      (livingDexEntries ?? []).filter(
-        (e) => e.formName === null || e.isRegionalForm || showCosmeticForms,
-      ),
-    [livingDexEntries, showCosmeticForms],
+    () => (livingDexEntries ?? []).filter(isLivingDexSpecies),
+    [livingDexEntries],
   );
 
   const ownedCount = useMemo(
-    () =>
-      filteredEntries.filter(
-        (e) => ownedRecords[ownedKey(e.speciesId, e.formName)]?.owned,
-      ).length,
+    () => getOwnedEntryCount(filteredEntries, ownedRecords),
     [filteredEntries, ownedRecords],
   );
 
@@ -116,10 +126,10 @@ export default function MainLayout({
   }
 
   return (
-    <div className="flex h-screen overflow-hidden bg-white dark:bg-gray-900">
+    <div className="flex h-dvh overflow-hidden bg-white dark:bg-gray-900">
       <Sidebar user={user} />
 
-      <main className="flex-1 overflow-y-auto pb-[calc(4rem+env(safe-area-inset-bottom))] sm:pb-0">
+      <main className="min-w-0 flex-1 overflow-y-auto pb-[calc(4rem+env(safe-area-inset-bottom))] sm:pb-0">
         {children}
       </main>
 

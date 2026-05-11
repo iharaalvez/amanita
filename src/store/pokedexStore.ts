@@ -18,6 +18,7 @@ export function ownedKey(speciesId: number, formName?: string | null): string {
   return `${speciesId}-${formName ?? "base"}`;
 }
 
+export type HomeBoxMode = "normal" | "shiny" | "paired";
 
 type PokedexState = {
   owned: Record<string, OwnedRecord>;
@@ -26,6 +27,10 @@ type PokedexState = {
   availableGames: Record<string, boolean>;
   showCosmeticForms: boolean;
   setShowCosmeticForms: (value: boolean) => void;
+  showShinyDex: boolean;
+  setShowShinyDex: (value: boolean) => void;
+  homeBoxMode: HomeBoxMode;
+  setHomeBoxMode: (value: HomeBoxMode) => void;
   setProgressSnapshot: (snapshot: ProgressSnapshot) => void;
   getProgressSnapshot: () => ProgressSnapshot;
   clearAll: () => void;
@@ -70,6 +75,16 @@ function normalizeBooleanRecord(value: unknown): Record<string, boolean> {
   );
 }
 
+function normalizeHomeBoxMode(
+  value: unknown,
+  oldShowShinyDex: unknown,
+): HomeBoxMode {
+  if (value === "normal" || value === "shiny" || value === "paired") {
+    return value;
+  }
+  return oldShowShinyDex === true ? "paired" : "normal";
+}
+
 export const usePokedexStore = create<PokedexState>()(
   persist(
     (set, get) => ({
@@ -79,6 +94,12 @@ export const usePokedexStore = create<PokedexState>()(
       availableGames: {},
       showCosmeticForms: false,
       setShowCosmeticForms: (value) => set({ showCosmeticForms: value }),
+      showShinyDex: false,
+      setShowShinyDex: (value) =>
+        set({ showShinyDex: value, homeBoxMode: value ? "paired" : "normal" }),
+      homeBoxMode: "normal",
+      setHomeBoxMode: (value) =>
+        set({ homeBoxMode: value, showShinyDex: value === "paired" }),
 
       setProgressSnapshot: (snapshot) => {
         set({
@@ -314,12 +335,21 @@ export const usePokedexStore = create<PokedexState>()(
       },
       merge: (persistedState, currentState) => {
         if (!isRecord(persistedState)) return currentState;
+        const homeBoxMode = normalizeHomeBoxMode(
+          persistedState.homeBoxMode,
+          persistedState.showShinyDex,
+        );
         return {
           ...currentState,
           ...persistedState,
           availableGames: normalizeBooleanRecord(persistedState.availableGames),
+          homeBoxMode,
+          showShinyDex: homeBoxMode === "paired",
           setProgressSnapshot: currentState.setProgressSnapshot,
           getProgressSnapshot: currentState.getProgressSnapshot,
+          setShowCosmeticForms: currentState.setShowCosmeticForms,
+          setShowShinyDex: currentState.setShowShinyDex,
+          setHomeBoxMode: currentState.setHomeBoxMode,
         };
       },
     },
