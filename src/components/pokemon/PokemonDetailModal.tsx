@@ -897,10 +897,10 @@ export function PokemonDetailModal({
                                 </button>
                               </div>
                               {index < line.length - 1 && (
-                                <div className="flex w-8 shrink-0 flex-col items-center justify-center gap-1 text-center sm:w-16">
-                                  <p className="hidden max-w-full break-words text-[10px] font-bold leading-tight text-gray-700 dark:text-gray-200 sm:block">
+                                <div className="flex w-12 shrink-0 flex-col items-center justify-center gap-1 text-center sm:w-16">
+                                  <p className="max-w-full break-words text-[9px] font-bold leading-tight text-gray-700 dark:text-gray-200 sm:text-[10px]">
                                     {line[index + 1]?.conditions.join(" or ") ||
-                                      "Special evolution"}
+                                      "Special"}
                                   </p>
                                   <ArrowRightIcon className="h-4 w-4 text-emerald-700 dark:text-emerald-300 sm:h-5 sm:w-5" />
                                 </div>
