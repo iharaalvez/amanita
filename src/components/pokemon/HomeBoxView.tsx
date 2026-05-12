@@ -120,7 +120,10 @@ export function HomeBoxView({ onSelect }: Props) {
   );
 
   const orderedEntries = [...filteredData].toSorted(compareLivingDexEntries);
-  const boxes = buildBoxes(orderedEntries);
+  const homeBoxEntries = isShinyOnlyMode
+    ? orderedEntries.filter(isShinyTargetEntry)
+    : orderedEntries;
+  const boxes = buildBoxes(homeBoxEntries);
 
   const q = search.trim().toLowerCase();
   const matchingKeys = new Set(
@@ -161,8 +164,8 @@ export function HomeBoxView({ onSelect }: Props) {
   const allFilterOptions: HomeFilterOption[] = [
     {
       value: "all",
-      label: isShinyOnlyMode ? "All slots" : "All species",
-      count: summary.total,
+      label: isShinyOnlyMode ? "Shiny targets" : "All species",
+      count: isShinyOnlyMode ? summary.shinyTotal : summary.total,
       activeClass:
         "bg-slate-700 text-white dark:bg-slate-200 dark:text-slate-900",
     },
