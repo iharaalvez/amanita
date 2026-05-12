@@ -10,6 +10,7 @@ import {
   type PokemonType,
 } from "@/types/pokemon";
 import { usePokedexStore } from "@/store/pokedexStore";
+import { isHomeTrackedEntry } from "@/lib/livingDex";
 import { PokemonCard } from "./PokemonCard";
 
 const GEN_LABELS: Record<(typeof GEN_FILTER_VALUES)[number], string> = {
@@ -68,9 +69,11 @@ export function PokemonGrid({ onSelect, search, filtersOpen }: Props) {
   const [sortMode, setSortMode] = useState<SortMode>("dex");
   const showCosmeticForms = usePokedexStore((s) => s.showCosmeticForms);
   const setShowCosmeticForms = usePokedexStore((s) => s.setShowCosmeticForms);
+  const showGenderForms = usePokedexStore((s) => s.showGenderForms);
+  const setShowGenderForms = usePokedexStore((s) => s.setShowGenderForms);
 
   const all = (data ?? []).filter(
-    (e) => e.formName === null || e.isRegionalForm || showCosmeticForms,
+    (e) => isHomeTrackedEntry(e, showCosmeticForms, showGenderForms),
   );
   const byGen =
     generation === "all" ? all : all.filter((e) => e.generation === generation);
@@ -112,17 +115,30 @@ export function PokemonGrid({ onSelect, search, filtersOpen }: Props) {
         <div className="-mx-4 mb-4 border-b border-gray-100 bg-white/95 px-4 pb-3 backdrop-blur-sm dark:border-gray-800 dark:bg-gray-900/95">
           <div>
             <div className="my-3 flex flex-wrap items-center justify-between gap-2">
-              <button
-                type="button"
-                onClick={() => setShowCosmeticForms(!showCosmeticForms)}
-                className={`rounded-full px-3 py-1 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${
-                  showCosmeticForms
-                    ? "bg-teal-500 text-white"
-                    : "bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
-                }`}
-              >
-                Form variants {showCosmeticForms ? "on" : "off"}
-              </button>
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowCosmeticForms(!showCosmeticForms)}
+                  className={`rounded-full px-3 py-1 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${
+                    showCosmeticForms
+                      ? "bg-teal-500 text-white"
+                      : "bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
+                  }`}
+                >
+                  Form variants {showCosmeticForms ? "on" : "off"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowGenderForms(!showGenderForms)}
+                  className={`rounded-full px-3 py-1 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${
+                    showGenderForms
+                      ? "bg-pink-500 text-white"
+                      : "bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
+                  }`}
+                >
+                  Female forms {showGenderForms ? "on" : "off"}
+                </button>
+              </div>
 
               <div className="flex items-center gap-2">
                 <label className="sr-only" htmlFor="type-filter">

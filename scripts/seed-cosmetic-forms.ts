@@ -32,6 +32,8 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 type PokéAPISprites = {
   front_default: string | null;
   front_shiny: string | null;
+  front_female?: string | null;
+  front_shiny_female?: string | null;
 };
 type PokéAPIPokemon = {
   sprites: PokéAPISprites;
@@ -52,23 +54,40 @@ async function getJson(url: string): Promise<unknown | null> {
 }
 
 type FormData = {
-  sprites: PokéAPISprites;
+  spriteUrl: string;
+  shinySpriteUrl: string;
   types: string[];
   height: number;
   weight: number;
 };
 
+function selectSprite(sprites: PokéAPISprites, gender?: "female") {
+  if (gender === "female") {
+    return {
+      spriteUrl: sprites.front_female ?? sprites.front_default ?? "",
+      shinySpriteUrl:
+        sprites.front_shiny_female ?? sprites.front_shiny ?? "",
+    };
+  }
+
+  return {
+    spriteUrl: sprites.front_default ?? "",
+    shinySpriteUrl: sprites.front_shiny ?? "",
+  };
+}
+
 /** Tries /pokemon/{name}, then /pokemon-form/{name} + base types. */
 async function fetchFormData(
   apiName: string,
   speciesId: number,
+  spriteGender?: "female",
 ): Promise<FormData | null> {
   const pokemon = (await getJson(
     `https://pokeapi.co/api/v2/pokemon/${apiName}`,
   )) as PokéAPIPokemon | null;
   if (pokemon) {
     return {
-      sprites: pokemon.sprites,
+      ...selectSprite(pokemon.sprites, spriteGender),
       types: pokemon.types
         .sort((a, b) => a.slot - b.slot)
         .map((t) => t.type.name),
@@ -92,7 +111,7 @@ async function fetchFormData(
     : [];
 
   return {
-    sprites: form.sprites,
+    ...selectSprite(form.sprites, spriteGender),
     types,
     height: base?.height ?? 0,
     weight: base?.weight ?? 0,
@@ -120,7 +139,11 @@ async function main() {
 
       await sleep(400); // ~2.5 req/s
 
-      const data = await fetchFormData(form.apiName, speciesId);
+      const data = await fetchFormData(
+        form.dataName ?? form.apiName,
+        speciesId,
+        form.spriteGender,
+      );
       if (!data) {
         console.log("⚠️  not found in PokéAPI, skipping");
         skipped++;
@@ -131,10 +154,10 @@ async function main() {
         species_id: speciesId,
         form_name: form.apiName,
         display_name: form.displayName,
-        sprite_url: data.sprites.front_default ?? "",
-        shiny_sprite_url: data.sprites.front_shiny ?? "",
-        is_regional_form: false,
-        region_label: null,
+        sprite_url: data.spriteUrl,
+        shiny_sprite_url: data.shinySpriteUrl,
+        is_regional_form: form.isRegionalForm ?? false,
+        region_label: form.regionLabel ?? null,
         sort_order: speciesId * 1000 + i + 1,
         types: data.types,
         height: data.height,

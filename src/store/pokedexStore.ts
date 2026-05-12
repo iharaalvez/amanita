@@ -27,6 +27,8 @@ type PokedexState = {
   availableGames: Record<string, boolean>;
   showCosmeticForms: boolean;
   setShowCosmeticForms: (value: boolean) => void;
+  showGenderForms: boolean;
+  setShowGenderForms: (value: boolean) => void;
   showShinyDex: boolean;
   setShowShinyDex: (value: boolean) => void;
   homeBoxMode: HomeBoxMode;
@@ -94,6 +96,8 @@ export const usePokedexStore = create<PokedexState>()(
       availableGames: {},
       showCosmeticForms: false,
       setShowCosmeticForms: (value) => set({ showCosmeticForms: value }),
+      showGenderForms: false,
+      setShowGenderForms: (value) => set({ showGenderForms: value }),
       showShinyDex: false,
       setShowShinyDex: (value) =>
         set({ showShinyDex: value, homeBoxMode: value ? "paired" : "normal" }),
@@ -348,6 +352,7 @@ export const usePokedexStore = create<PokedexState>()(
           setProgressSnapshot: currentState.setProgressSnapshot,
           getProgressSnapshot: currentState.getProgressSnapshot,
           setShowCosmeticForms: currentState.setShowCosmeticForms,
+          setShowGenderForms: currentState.setShowGenderForms,
           setShowShinyDex: currentState.setShowShinyDex,
           setHomeBoxMode: currentState.setHomeBoxMode,
         };

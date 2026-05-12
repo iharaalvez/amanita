@@ -14,7 +14,7 @@ import {
   isLivingDexSpecies,
 } from "@/lib/livingDex";
 import { BoxSlot } from "./BoxSlot";
-import { XIcon } from "@/components/ui";
+import { HomeIcon, SparkleIcon, XIcon } from "@/components/ui";
 import type { LivingDexEntry } from "@/types/pokemon";
 
 const BOX_SIZE = 30;
@@ -55,6 +55,8 @@ export function HomeBoxView({ onSelect }: Props) {
   const ownedRecords = usePokedexStore((s) => s.owned);
   const showCosmeticForms = usePokedexStore((s) => s.showCosmeticForms);
   const setShowCosmeticForms = usePokedexStore((s) => s.setShowCosmeticForms);
+  const showGenderForms = usePokedexStore((s) => s.showGenderForms);
+  const setShowGenderForms = usePokedexStore((s) => s.setShowGenderForms);
   const homeBoxMode = usePokedexStore((s) => s.homeBoxMode);
   const setHomeBoxMode = usePokedexStore((s) => s.setHomeBoxMode);
   const isShinyOnlyMode = homeBoxMode === "shiny";
@@ -68,7 +70,7 @@ export function HomeBoxView({ onSelect }: Props) {
 
   const summary = useMemo(() => {
     const entries = (data ?? []).filter((entry) =>
-      isHomeTrackedEntry(entry, showCosmeticForms),
+      isHomeTrackedEntry(entry, showCosmeticForms, showGenderForms),
     );
     const baseEntries = (data ?? []).filter(isLivingDexSpecies);
     const owned = getOwnedEntryCount(entries, ownedRecords);
@@ -83,7 +85,7 @@ export function HomeBoxView({ onSelect }: Props) {
       baseTotal: baseEntries.length,
       includesForms: entries.length !== baseEntries.length,
     };
-  }, [data, ownedRecords, showCosmeticForms]);
+  }, [data, ownedRecords, showCosmeticForms, showGenderForms]);
 
   if (error) {
     return (
@@ -109,7 +111,7 @@ export function HomeBoxView({ onSelect }: Props) {
   }
 
   const filteredData = (data ?? []).filter((entry) =>
-    isHomeTrackedEntry(entry, showCosmeticForms),
+    isHomeTrackedEntry(entry, showCosmeticForms, showGenderForms),
   );
 
   const orderedEntries = [...filteredData].toSorted((a, b) => {
@@ -186,11 +188,65 @@ export function HomeBoxView({ onSelect }: Props) {
   const filterOptions = allFilterOptions.filter(
     ({ value }) => !(isShinyOnlyMode && value === "shiny"),
   );
+  const completionPct =
+    summary.total > 0 ? Math.min(100, (summary.owned / summary.total) * 100) : 0;
 
   return (
     <div className="mx-auto max-w-7xl px-2 pb-8 sm:px-4">
+      <header className="py-4 sm:py-5">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-green-50 text-green-500 dark:bg-green-950/40 dark:text-green-300">
+              <HomeIcon className="h-6 w-6" />
+            </div>
+            <div className="min-w-0">
+              <h1 className="text-2xl font-black tracking-tight text-gray-950 dark:text-white">
+                HOME Boxes
+              </h1>
+              <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                Your Living Dex arranged in 30-slot boxes.
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-3 gap-2 sm:min-w-80">
+            <div className="rounded-lg border border-green-100 bg-green-50 px-3 py-2 dark:border-green-900/40 dark:bg-green-950/30">
+              <p className="text-lg font-black tabular-nums text-green-600 dark:text-green-400">
+                {summary.owned}
+              </p>
+              <p className="text-[10px] font-bold uppercase tracking-wide text-green-700/70 dark:text-green-300/70">
+                Owned
+              </p>
+            </div>
+            <div className="rounded-lg border border-gray-100 bg-gray-50 px-3 py-2 dark:border-gray-800 dark:bg-gray-900">
+              <p className="text-lg font-black tabular-nums text-gray-950 dark:text-white">
+                {summary.total}
+              </p>
+              <p className="text-[10px] font-bold uppercase tracking-wide text-gray-400">
+                Slots
+              </p>
+            </div>
+            <div className="rounded-lg border border-yellow-100 bg-yellow-50 px-3 py-2 dark:border-yellow-900/40 dark:bg-yellow-950/30">
+              <p className="flex items-center gap-1 text-lg font-black tabular-nums text-yellow-600 dark:text-yellow-400">
+                <SparkleIcon className="h-4 w-4" />
+                {summary.shiny}
+              </p>
+              <p className="text-[10px] font-bold uppercase tracking-wide text-yellow-700/70 dark:text-yellow-300/70">
+                Shiny
+              </p>
+            </div>
+          </div>
+        </div>
+        <div className="mt-3 h-2 overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800">
+          <div
+            className="h-full rounded-full bg-green-400 transition-all duration-700"
+            style={{ width: `${completionPct}%` }}
+          />
+        </div>
+      </header>
+
       {/* Controls */}
-      <div className="sticky top-0 z-20 -mx-2 my-3 space-y-2.5 rounded-b-lg border-b border-gray-100 bg-white/95 p-3 backdrop-blur dark:border-gray-800 dark:bg-[#0f172a]/95 sm:-mx-4 sm:px-4">
+      <div className="sticky top-0 z-20 -mx-2 mb-3 space-y-2.5 rounded-b-lg border-b border-gray-100 bg-white/95 p-3 backdrop-blur dark:border-gray-800 dark:bg-[#0f172a]/95 sm:-mx-4 sm:px-4">
         {/* Row 1: filters left, search + forms right */}
         <div className="flex flex-wrap items-center justify-between gap-2 sm:gap-2">
           <div className="grid w-full grid-cols-2 gap-1.5 min-[430px]:flex min-[430px]:w-auto min-[430px]:flex-wrap min-[430px]:items-center sm:gap-1.5">
@@ -216,7 +272,7 @@ export function HomeBoxView({ onSelect }: Props) {
             ))}
           </div>
 
-          <div className="mt-1 grid w-full grid-cols-[auto_minmax(0,1fr)] items-center gap-1.5 min-[430px]:mt-0 min-[430px]:flex min-[430px]:w-auto min-[430px]:gap-2">
+          <div className="mt-1 grid w-full grid-cols-[auto_auto_minmax(0,1fr)] items-center gap-1.5 min-[520px]:mt-0 min-[520px]:flex min-[520px]:w-auto min-[520px]:gap-2">
             {/* Forms toggle */}
             <button
               type="button"
@@ -234,6 +290,26 @@ export function HomeBoxView({ onSelect }: Props) {
                 Forms
                 <br />
                 {showCosmeticForms ? "on" : "off"}
+              </span>
+            </button>
+
+            {/* Gender toggle */}
+            <button
+              type="button"
+              onClick={() => setShowGenderForms(!showGenderForms)}
+              className={`rounded-full px-3 py-1.5 text-[11px] font-semibold leading-tight transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 sm:text-xs ${
+                showGenderForms
+                  ? "bg-pink-500 text-white"
+                  : "bg-gray-100 text-gray-500 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700"
+              }`}
+            >
+              <span className="hidden sm:inline">
+                Female {showGenderForms ? "on" : "off"}
+              </span>
+              <span className="sm:hidden">
+                Female
+                <br />
+                {showGenderForms ? "on" : "off"}
               </span>
             </button>
 
