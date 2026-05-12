@@ -17,6 +17,8 @@ type Props = {
   params: { gameId: string };
 };
 
+const EMPTY_PROGRESS: readonly number[] = [];
+
 type HuntGuideProps = {
   gameId: string;
   gameName: string;
@@ -70,7 +72,7 @@ function HuntTargetCard({
 function HuntGuideView({ gameId, gameName, onSelect }: HuntGuideProps) {
   const { data: gameDex, isLoading, error } = useGamePokedex(gameId);
   const registeredIds = usePokedexStore(
-    (state) => state.gameDexProgress[gameId] ?? [],
+    (state) => state.gameDexProgress[gameId] ?? EMPTY_PROGRESS,
   );
   const registeredSet = useMemo(() => new Set(registeredIds), [registeredIds]);
 

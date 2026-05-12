@@ -43,10 +43,14 @@ const GEN_LABELS: Record<number, string> = {
 
 type GenerationFilter = "all" | number;
 
+const EMPTY_PROGRESS: readonly number[] = [];
+
 function GameCard({ game }: { game: GameEntry }) {
   const available = usePokedexStore((s) => !!s.availableGames[game.id]);
   const setGameAvailable = usePokedexStore((s) => s.setGameAvailable);
-  const registeredIds = usePokedexStore((s) => s.gameDexProgress[game.id] ?? []);
+  const registeredIds = usePokedexStore(
+    (s) => s.gameDexProgress[game.id] ?? EMPTY_PROGRESS,
+  );
   const shinyRegistered = usePokedexStore(
     (s) => s.shinyGameDexProgress[game.id]?.length ?? 0,
   );
