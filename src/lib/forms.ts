@@ -9,6 +9,27 @@ export function getCosmeticFormLabel(formName: string): string | null {
   return COSMETIC_LABEL_MAP.get(formName) ?? null;
 }
 
+export function getDisplayNameWithoutFormLabel(
+  displayName: string,
+  formLabel: string | null,
+): string {
+  if (!formLabel) return displayName;
+  const escapedLabel = escapeRegExp(formLabel);
+  const withoutTrailingLabel = displayName
+    .replace(new RegExp(`\\s+${escapedLabel}$`), "")
+    .trim();
+  if (withoutTrailingLabel !== displayName) return withoutTrailingLabel;
+
+  return (
+    displayName.replace(new RegExp(`\\s+${escapedLabel}(?=\\s|$)`), "").trim() ||
+    displayName
+  );
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 const REGIONAL_KEYWORDS = ["alola", "galar", "hisui", "paldea"] as const;
 type RegionalKeyword = (typeof REGIONAL_KEYWORDS)[number];
 

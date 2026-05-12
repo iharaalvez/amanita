@@ -4,7 +4,11 @@ import Image from "next/image";
 import { usePokedexStore, ownedKey } from "@/store/pokedexStore";
 import { CheckIcon, SparkleIcon, Tooltip, XIcon } from "@/components/ui";
 import { isShinyLocked } from "@/config/pokemon-flags";
-import { getCosmeticFormLabel, getFormLabel } from "@/lib/forms";
+import {
+  getCosmeticFormLabel,
+  getDisplayNameWithoutFormLabel,
+  getFormLabel,
+} from "@/lib/forms";
 import type { LivingDexEntry } from "@/types/pokemon";
 
 type Props = {
@@ -39,11 +43,10 @@ export function BoxSlot({
   const cosmeticLabel =
     entry.formName && !regionLabel ? getCosmeticFormLabel(entry.formName) : null;
   const formPill = regionLabel || cosmeticLabel;
-  const slotName = entry.formName
-    ? cosmeticLabel
-      ? entry.displayName.split(" ")[0]!
-      : entry.displayName.split(" ").slice(1).join(" ") || entry.displayName
-    : entry.displayName;
+  const slotName = getDisplayNameWithoutFormLabel(
+    entry.displayName,
+    formPill,
+  );
   const shinyLocked = isShinyLocked(entry.speciesId, entry.formName);
 
   const spriteUrl = isShinySlot && !shinyLocked

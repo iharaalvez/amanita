@@ -1,7 +1,11 @@
 "use client";
 
 import Image from "next/image";
-import { getCosmeticFormLabel, getFormLabel } from "@/lib/forms";
+import {
+  getCosmeticFormLabel,
+  getDisplayNameWithoutFormLabel,
+  getFormLabel,
+} from "@/lib/forms";
 import type { LivingDexEntry } from "@/types/pokemon";
 
 const REGION_TAG_CLASSES: Record<string, string> = {
@@ -23,6 +27,7 @@ export function PokemonCard({ entry, onSelect }: Props) {
   const formLabel = formName ? getFormLabel(formName) : null;
   const cosmeticLabel =
     formName && !formLabel ? getCosmeticFormLabel(formName) : null;
+  const formPill = formLabel || cosmeticLabel;
 
   return (
     <div className="relative flex flex-col">
@@ -47,11 +52,7 @@ export function PokemonCard({ entry, onSelect }: Props) {
         </span>
 
         <span className="w-full truncate px-1 text-center text-[11px] font-medium leading-tight">
-          {formName
-            ? cosmeticLabel
-              ? displayName.split(" ")[0]
-              : displayName.split(" ").slice(1).join(" ") || displayName
-            : displayName}
+          {getDisplayNameWithoutFormLabel(displayName, formPill)}
         </span>
 
         {formLabel && (
