@@ -8,6 +8,7 @@ import {
   getOwnedEntryCount,
   getShinyEntryCount,
   isLivingDexSpecies,
+  isShinyTargetEntry,
 } from "@/lib/livingDex";
 import { SparkleIcon } from "@/components/ui";
 import type {
@@ -168,30 +169,43 @@ export function StatsView() {
 
   const stats = useMemo(() => {
     const livingDexEntries = (entries ?? []).filter(isLivingDexSpecies);
+    const shinyTargetEntries = livingDexEntries.filter(isShinyTargetEntry);
     const livingDexKeys = new Set(
       livingDexEntries.map((entry) =>
         ownedKey(entry.speciesId, entry.formName),
       ),
     );
+    const shinyTargetKeys = new Set(
+      shinyTargetEntries.map((entry) =>
+        ownedKey(entry.speciesId, entry.formName),
+      ),
+    );
     const records = Object.entries(ownedRecords)
       .filter(([key]) => livingDexKeys.has(key))
-      .map(([, record]) => record);
+      .map(([key, record]) => ({ key, record }));
     const total = livingDexEntries.length;
+    const shinyTotal = shinyTargetEntries.length;
 
     const ownedCount = getOwnedEntryCount(livingDexEntries, ownedRecords);
-    const shinyCount = getShinyEntryCount(livingDexEntries, ownedRecords);
+    const shinyCount = getShinyEntryCount(shinyTargetEntries, ownedRecords);
 
     const genData = GENERATIONS.map((gen) => {
       const genEntries = livingDexEntries.filter(
         (entry) => entry.generation === gen,
       );
+      const genShinyTargetEntries = genEntries.filter(isShinyTargetEntry);
       const genTotal = genEntries.length;
       const genOwned = getOwnedEntryCount(genEntries, ownedRecords);
-      const genShiny = getShinyEntryCount(genEntries, ownedRecords);
+      const genShinyTotal = genShinyTargetEntries.length;
+      const genShiny = getShinyEntryCount(
+        genShinyTargetEntries,
+        ownedRecords,
+      );
       return {
         gen,
         label: GEN_LABELS[gen],
         total: genTotal,
+        shinyTotal: genShinyTotal,
         owned: genOwned,
         shiny: genShiny,
       };
@@ -204,7 +218,7 @@ export function StatsView() {
       transferred: 0,
       event: 0,
     };
-    for (const record of records) {
+    for (const { record } of records) {
       if (record.owned && record.method) methodCounts[record.method]++;
     }
     const taggedOwned = Object.values(methodCounts).reduce(
@@ -215,7 +229,8 @@ export function StatsView() {
     const maxMethodCount = Math.max(1, ownedCount);
 
     const shinyMethodCounts: Partial<Record<ShinyHuntMethod, number>> = {};
-    for (const record of records) {
+    for (const { key, record } of records) {
+      if (!shinyTargetKeys.has(key)) continue;
       if (record.shiny_owned && record.shiny_method) {
         shinyMethodCounts[record.shiny_method] =
           (shinyMethodCounts[record.shiny_method] ?? 0) + 1;
@@ -229,6 +244,7 @@ export function StatsView() {
 
     return {
       total,
+      shinyTotal,
       ownedCount,
       shinyCount,
       genData,
@@ -241,7 +257,8 @@ export function StatsView() {
   }, [ownedRecords, entries]);
 
   const ownedPct = stats.total > 0 ? (stats.ownedCount / stats.total) * 100 : 0;
-  const shinyPct = stats.total > 0 ? (stats.shinyCount / stats.total) * 100 : 0;
+  const shinyPct =
+    stats.shinyTotal > 0 ? (stats.shinyCount / stats.shinyTotal) * 100 : 0;
 
   async function handleImport(file: File | undefined) {
     if (!file) return;
@@ -437,14 +454,16 @@ export function StatsView() {
                 </p>
               </div>
               <div>
-                <p className="text-xl font-black tabular-nums">{stats.total}</p>
+                <p className="text-xl font-black tabular-nums">
+                  {stats.shinyTotal}
+                </p>
                 <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                   total
                 </p>
               </div>
               <div>
                 <p className="text-xl font-black tabular-nums text-slate-500 dark:text-slate-300">
-                  {stats.total - stats.shinyCount}
+                  {stats.shinyTotal - stats.shinyCount}
                 </p>
                 <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                   needed
@@ -464,8 +483,9 @@ export function StatsView() {
               <div className="mb-6 divide-y divide-slate-100 overflow-hidden rounded-lg border border-slate-200 dark:divide-slate-700 dark:border-slate-700">
                 {stats.genData
                   .filter(({ shiny }) => shiny > 0)
-                  .map(({ gen, label, total, shiny }) => {
-                    const pct = total > 0 ? (shiny / total) * 100 : 0;
+                  .map(({ gen, label, shinyTotal, shiny }) => {
+                    const pct =
+                      shinyTotal > 0 ? (shiny / shinyTotal) * 100 : 0;
                     return (
                       <div
                         key={gen}
@@ -481,7 +501,7 @@ export function StatsView() {
                             /
                           </span>
                           <span className="text-slate-500 dark:text-slate-400">
-                            {total}
+                            {shinyTotal}
                           </span>
                         </span>
                       </div>

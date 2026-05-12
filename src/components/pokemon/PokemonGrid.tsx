@@ -6,11 +6,10 @@ import { useGenerationFilter } from "@/hooks/useGeneration";
 import {
   GEN_FILTER_VALUES,
   type GenerationFilter,
-  type LivingDexEntry,
   type PokemonType,
 } from "@/types/pokemon";
 import { usePokedexStore } from "@/store/pokedexStore";
-import { isHomeTrackedEntry } from "@/lib/livingDex";
+import { compareLivingDexEntries, isHomeTrackedEntry } from "@/lib/livingDex";
 import { PokemonCard } from "./PokemonCard";
 
 const GEN_LABELS: Record<(typeof GEN_FILTER_VALUES)[number], string> = {
@@ -55,13 +54,6 @@ type Props = {
   filtersOpen: boolean;
 };
 
-function dexCompare(a: LivingDexEntry, b: LivingDexEntry) {
-  if (a.speciesId !== b.speciesId) return a.speciesId - b.speciesId;
-  if (a.formName === null) return -1;
-  if (b.formName === null) return 1;
-  return a.displayName.localeCompare(b.displayName);
-}
-
 export function PokemonGrid({ onSelect, search, filtersOpen }: Props) {
   const { data, isLoading, error } = useLivingDexEntries();
   const { generation, setGeneration } = useGenerationFilter();
@@ -80,8 +72,11 @@ export function PokemonGrid({ onSelect, search, filtersOpen }: Props) {
 
   const sorted = byGen.toSorted((a, b) => {
     if (sortMode === "name")
-      return a.displayName.localeCompare(b.displayName) || dexCompare(a, b);
-    return dexCompare(a, b);
+      return (
+        a.displayName.localeCompare(b.displayName) ||
+        compareLivingDexEntries(a, b)
+      );
+    return compareLivingDexEntries(a, b);
   });
 
   const q = search.trim().toLowerCase();
@@ -136,7 +131,7 @@ export function PokemonGrid({ onSelect, search, filtersOpen }: Props) {
                       : "bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
                   }`}
                 >
-                  Female forms {showGenderForms ? "on" : "off"}
+                  Gender forms {showGenderForms ? "on" : "off"}
                 </button>
               </div>
 

@@ -2,7 +2,8 @@
 
 import Image from "next/image";
 import { usePokedexStore, ownedKey } from "@/store/pokedexStore";
-import { CheckIcon, SparkleIcon, Tooltip } from "@/components/ui";
+import { CheckIcon, SparkleIcon, Tooltip, XIcon } from "@/components/ui";
+import { isShinyLocked } from "@/config/pokemon-flags";
 import { getCosmeticFormLabel, getFormLabel } from "@/lib/forms";
 import type { LivingDexEntry } from "@/types/pokemon";
 
@@ -43,19 +44,25 @@ export function BoxSlot({
       ? entry.displayName.split(" ")[0]!
       : entry.displayName.split(" ").slice(1).join(" ") || entry.displayName
     : entry.displayName;
+  const shinyLocked = isShinyLocked(entry.speciesId, entry.formName);
 
-  const spriteUrl = isShinySlot
+  const spriteUrl = isShinySlot && !shinyLocked
     ? (entry.shinySpriteUrl ?? entry.spriteUrl)
     : entry.spriteUrl;
 
-  const isActive = isShinySlot
+  const isActive = isShinySlot && shinyLocked
+    ? false
+    : isShinySlot
     ? shinyOwned
     : hasShinyPair
       ? owned
       : owned || shinyOwned;
 
   let statusClass: string;
-  if (isShinySlot) {
+  if (isShinySlot && shinyLocked) {
+    statusClass =
+      "border-slate-200 bg-slate-100/70 dark:border-slate-700 dark:bg-slate-900/30";
+  } else if (isShinySlot) {
     statusClass = shinyOwned
       ? "border-yellow-400 bg-yellow-50 dark:bg-yellow-950/40"
       : "border-transparent bg-white/30 hover:bg-yellow-50/30 dark:bg-gray-900/10 dark:hover:bg-yellow-950/20";
@@ -73,7 +80,13 @@ export function BoxSlot({
   }
 
   const label = isShinySlot
-    ? `${paddedNumber} - ✦ ${entry.displayName}${shinyOwned ? " - shiny owned" : ""}`
+    ? `${paddedNumber} - ✦ ${entry.displayName}${
+        shinyLocked
+          ? " - shiny unavailable"
+          : shinyOwned
+            ? " - shiny owned"
+            : ""
+      }`
     : shinyOwned
       ? `${paddedNumber} - ${entry.displayName} - shiny owned`
       : `${paddedNumber} - ${entry.displayName}${owned ? " - Owned" : ""}`;
@@ -84,7 +97,13 @@ export function BoxSlot({
         onClick={() => onSelect?.(entry.speciesId, entry.formName)}
         aria-label={
           isShinySlot
-            ? `Shiny ${entry.displayName}, ${shinyOwned ? "shiny owned" : "not shiny owned"}`
+            ? `Shiny ${entry.displayName}, ${
+                shinyLocked
+                  ? "shiny unavailable"
+                  : shinyOwned
+                    ? "shiny owned"
+                    : "not shiny owned"
+              }`
             : `${entry.displayName}, ${owned ? "owned" : "not owned"}${shinyOwned ? ", shiny owned" : ""}`
         }
         aria-pressed={isActive}
@@ -100,7 +119,15 @@ export function BoxSlot({
           aria-hidden
         >
           {isShinySlot ? (
-            shinyOwned && (
+            shinyLocked ? (
+              <XIcon
+                className={
+                  compact
+                    ? "h-2.5 w-2.5 text-slate-400"
+                    : "h-3 w-3 text-slate-400 sm:h-3.5 sm:w-3.5"
+                }
+              />
+            ) : shinyOwned && (
               <SparkleIcon
                 className={
                   compact
@@ -149,7 +176,13 @@ export function BoxSlot({
             compact
               ? "h-8 w-8"
               : "h-9 w-9 min-[390px]:h-10 min-[390px]:w-10 sm:h-16 sm:w-16"
-          } ${isActive ? "" : "grayscale opacity-50"}`}
+          } ${
+            shinyLocked && isShinySlot
+              ? "grayscale opacity-30"
+              : isActive
+                ? ""
+                : "grayscale opacity-50"
+          }`}
         />
         {!compact && (
           <>

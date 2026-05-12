@@ -8,10 +8,12 @@ import {
   type HomeBoxMode,
 } from "@/store/pokedexStore";
 import {
+  compareLivingDexEntries,
   getOwnedEntryCount,
   getShinyEntryCount,
   isHomeTrackedEntry,
   isLivingDexSpecies,
+  isShinyTargetEntry,
 } from "@/lib/livingDex";
 import { BoxSlot } from "./BoxSlot";
 import { HomeIcon, SparkleIcon, XIcon } from "@/components/ui";
@@ -72,15 +74,18 @@ export function HomeBoxView({ onSelect }: Props) {
     const entries = (data ?? []).filter((entry) =>
       isHomeTrackedEntry(entry, showCosmeticForms, showGenderForms),
     );
+    const shinyTargetEntries = entries.filter(isShinyTargetEntry);
     const baseEntries = (data ?? []).filter(isLivingDexSpecies);
     const owned = getOwnedEntryCount(entries, ownedRecords);
-    const shiny = getShinyEntryCount(entries, ownedRecords);
+    const shiny = getShinyEntryCount(shinyTargetEntries, ownedRecords);
     const baseOwned = getOwnedEntryCount(baseEntries, ownedRecords);
 
     return {
       owned,
       shiny,
       total: entries.length,
+      shinyTotal: shinyTargetEntries.length,
+      shinyLocked: entries.length - shinyTargetEntries.length,
       baseOwned,
       baseTotal: baseEntries.length,
       includesForms: entries.length !== baseEntries.length,
@@ -114,12 +119,7 @@ export function HomeBoxView({ onSelect }: Props) {
     isHomeTrackedEntry(entry, showCosmeticForms, showGenderForms),
   );
 
-  const orderedEntries = [...filteredData].toSorted((a, b) => {
-    if (a.speciesId !== b.speciesId) return a.speciesId - b.speciesId;
-    if (a.formName === null) return -1;
-    if (b.formName === null) return 1;
-    return a.displayName.localeCompare(b.displayName);
-  });
+  const orderedEntries = [...filteredData].toSorted(compareLivingDexEntries);
   const boxes = buildBoxes(orderedEntries);
 
   const q = search.trim().toLowerCase();
@@ -127,8 +127,13 @@ export function HomeBoxView({ onSelect }: Props) {
     orderedEntries
       .filter((entry) => {
         const record = ownedRecords[ownedKey(entry.speciesId, entry.formName)];
+        const shinyTarget = isShinyTargetEntry(entry);
         const modeOwned = isShinyOnlyMode ? record?.shiny_owned : record?.owned;
-        if (statusFilter === "shiny" && !record?.shiny_owned) return false;
+        if (isShinyOnlyMode && !shinyTarget && statusFilter !== "all") {
+          return false;
+        }
+        if (statusFilter === "shiny" && (!shinyTarget || !record?.shiny_owned))
+          return false;
         if (statusFilter === "owned" && !modeOwned) return false;
         if (statusFilter === "missing" && modeOwned) return false;
         if (!q) return true;
@@ -156,7 +161,7 @@ export function HomeBoxView({ onSelect }: Props) {
   const allFilterOptions: HomeFilterOption[] = [
     {
       value: "all",
-      label: "All species",
+      label: isShinyOnlyMode ? "All slots" : "All species",
       count: summary.total,
       activeClass:
         "bg-slate-700 text-white dark:bg-slate-200 dark:text-slate-900",
@@ -173,7 +178,7 @@ export function HomeBoxView({ onSelect }: Props) {
       value: "missing",
       label: isShinyOnlyMode ? "Missing shiny" : "Missing",
       count: isShinyOnlyMode
-        ? summary.total - summary.shiny
+        ? summary.shinyTotal - summary.shiny
         : summary.total - summary.owned,
       activeClass:
         "bg-slate-600 text-white dark:bg-slate-300 dark:text-slate-900",
@@ -189,7 +194,9 @@ export function HomeBoxView({ onSelect }: Props) {
     ({ value }) => !(isShinyOnlyMode && value === "shiny"),
   );
   const completionPct =
-    summary.total > 0 ? Math.min(100, (summary.owned / summary.total) * 100) : 0;
+    summary.total > 0
+      ? Math.min(100, (summary.owned / summary.total) * 100)
+      : 0;
 
   return (
     <div className="mx-auto max-w-7xl px-2 pb-8 sm:px-4">
@@ -299,15 +306,15 @@ export function HomeBoxView({ onSelect }: Props) {
               onClick={() => setShowGenderForms(!showGenderForms)}
               className={`rounded-full px-3 py-1.5 text-[11px] font-semibold leading-tight transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 sm:text-xs ${
                 showGenderForms
-                  ? "bg-pink-500 text-white"
+                  ? "bg-purple-500 text-white"
                   : "bg-gray-100 text-gray-500 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700"
               }`}
             >
               <span className="hidden sm:inline">
-                Female {showGenderForms ? "on" : "off"}
+                Gender {showGenderForms ? "on" : "off"}
               </span>
               <span className="sm:hidden">
-                Female
+                Gender
                 <br />
                 {showGenderForms ? "on" : "off"}
               </span>
@@ -347,6 +354,16 @@ export function HomeBoxView({ onSelect }: Props) {
               <span className="tabular-nums text-green-500">
                 {summary.baseOwned}/{summary.baseTotal}
               </span>
+              {isShinyOnlyMode && summary.shinyLocked > 0 ? (
+                <>
+                  {" "}
+                  - Shiny targets exclude{" "}
+                  <span className="tabular-nums text-slate-400">
+                    {summary.shinyLocked}
+                  </span>{" "}
+                  locked forms.
+                </>
+              ) : null}
             </p>
           ) : (
             <span aria-hidden className="min-w-0 flex-1" />
