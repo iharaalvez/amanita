@@ -9,9 +9,12 @@
   regionLabel?: string | null;
 };
 
+import { HOME_BATTLE_FORMS } from "./battle-forms";
+
 // Generated from Austin Johns Pokemon HOME Organizer LivingForm sheet.
 // It includes alternate forms and visible gender differences tracked by Pokemon HOME.
 export const COSMETIC_FORMS: CosmeticFormConfig[] = [
+  ...HOME_BATTLE_FORMS,
   { speciesId: 3, apiName: "venusaur-female", displayName: "Venusaur Female", label: "Female", dataName: "venusaur", spriteGender: "female" },
   { speciesId: 12, apiName: "butterfree-female", displayName: "Butterfree Female", label: "Female", dataName: "butterfree", spriteGender: "female" },
   { speciesId: 19, apiName: "rattata-female", displayName: "Rattata Female", label: "Female", dataName: "rattata", spriteGender: "female" },
