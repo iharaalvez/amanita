@@ -3,7 +3,14 @@
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 import { useEffect, useMemo } from "react";
-import { MapContainer, Polygon, Popup, Tooltip, useMap } from "react-leaflet";
+import {
+  ImageOverlay,
+  MapContainer,
+  Polygon,
+  Popup,
+  Tooltip,
+  useMap,
+} from "react-leaflet";
 import { PokemonSprite } from "@/components/pokemon/PokemonSprite";
 import type { GameLocationGroup, MapLocationOutline } from "@/types/pokemon";
 
@@ -19,6 +26,80 @@ type Props = {
     gameId: string,
   ) => void;
 };
+
+type RasterMapConfig = {
+  gameId: string;
+  regionAreaIdentifier: string;
+  directory: string;
+  filePrefix: string;
+  rows: number;
+  columns: number;
+  coordinateSize: number;
+};
+
+const RASTER_MAPS: RasterMapConfig[] = [
+  {
+    gameId: "scarlet-violet",
+    regionAreaIdentifier: "paldea",
+    directory: "/maps/scarlet-violet/paldea-m",
+    filePrefix: "ymap_ter",
+    rows: 10,
+    columns: 10,
+    coordinateSize: 14400,
+  },
+  {
+    gameId: "scarlet-violet",
+    regionAreaIdentifier: "kitakami",
+    directory: "/maps/scarlet-violet/kitakami-m",
+    filePrefix: "ymap_ter_dlc1",
+    rows: 4,
+    columns: 4,
+    coordinateSize: 6600,
+  },
+  {
+    gameId: "scarlet-violet",
+    regionAreaIdentifier: "blueberry-academy",
+    directory: "/maps/scarlet-violet/blueberry-academy-m",
+    filePrefix: "ymap_ter_dlc2",
+    rows: 4,
+    columns: 4,
+    coordinateSize: 6600,
+  },
+];
+
+function getRasterMapConfig(
+  gameId: string,
+  regionAreaIdentifier: string | null,
+) {
+  return RASTER_MAPS.find(
+    (config) =>
+      config.gameId === gameId &&
+      config.regionAreaIdentifier === regionAreaIdentifier,
+  );
+}
+
+function tileFileName(config: RasterMapConfig, row: number, column: number) {
+  return `${config.filePrefix}_${String(row).padStart(2, "0")}_${String(
+    column,
+  ).padStart(2, "0")}.png`;
+}
+
+function tileBounds(
+  config: RasterMapConfig,
+  row: number,
+  column: number,
+): L.LatLngBoundsExpression {
+  const rowSpan = config.coordinateSize / config.rows;
+  const columnSpan = config.coordinateSize / config.columns;
+  return [
+    [row * rowSpan, column * columnSpan],
+    [(row + 1) * rowSpan, (column + 1) * columnSpan],
+  ];
+}
+
+function toMapPoint([x, y]: [number, number]): [number, number] {
+  return [-y, x];
+}
 
 function computeBounds(
   points: [number, number][],
@@ -65,11 +146,12 @@ export default function GameMapLeaflet({
   );
 
   const allPoints = useMemo(
-    () => visibleOutlines.flatMap((o) => o.points),
+    () => visibleOutlines.flatMap((o) => o.points.map(toMapPoint)),
     [visibleOutlines],
   );
 
   const bounds = useMemo(() => computeBounds(allPoints), [allPoints]);
+  const rasterMapConfig = getRasterMapConfig(gameId, selectedRegion);
 
   const outlinesByLocation = useMemo(() => {
     const map = new Map<string, MapLocationOutline[]>();
@@ -101,6 +183,23 @@ export default function GameMapLeaflet({
       zoomControl={true}
     >
       <BoundsController bounds={bounds} />
+      {rasterMapConfig &&
+        Array.from({ length: rasterMapConfig.rows }).flatMap((_, row) =>
+          Array.from({ length: rasterMapConfig.columns }).map((__, column) => (
+            <ImageOverlay
+              key={`${rasterMapConfig.regionAreaIdentifier}-${row}-${column}`}
+              url={`${rasterMapConfig.directory}/${tileFileName(
+                rasterMapConfig,
+                row,
+                column,
+              )}`}
+              bounds={tileBounds(rasterMapConfig, row, column)}
+              opacity={0.9}
+              zIndex={1}
+              interactive={false}
+            />
+          )),
+        )}
       {Array.from(outlinesByLocation.entries()).map(
         ([locationId, locationOutlines]) => {
           const firstOutline = locationOutlines[0];
@@ -119,9 +218,7 @@ export default function GameMapLeaflet({
           return locationOutlines.map((outline, idx) => (
             <Polygon
               key={`${locationId}-${idx}`}
-              // PokeDB exports Leaflet coordinates as [lat, lng].
-              // If polygons appear vertically mirrored, negate the lat values here.
-              positions={outline.points as L.LatLngExpression[]}
+              positions={outline.points.map(toMapPoint) as L.LatLngExpression[]}
               pathOptions={{
                 color,
                 weight: 1.5,

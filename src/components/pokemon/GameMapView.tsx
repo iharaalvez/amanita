@@ -33,6 +33,10 @@ type Props = {
   onSelect: (speciesId: number, formName: string | null, gameId: string) => void;
 };
 
+const GAME_REGION_ORDER: Record<string, string[]> = {
+  "scarlet-violet": ["paldea", "kitakami", "blueberry-academy"],
+};
+
 function formatRegionLabel(identifier: string): string {
   return identifier
     .split("-")
@@ -61,8 +65,19 @@ export function GameMapView({
         list.push(outline.regionAreaIdentifier);
       }
     }
-    return list.sort();
-  }, [outlines]);
+    const preferredOrder = GAME_REGION_ORDER[gameId] ?? [];
+    return list.sort((a, b) => {
+      const aIndex = preferredOrder.indexOf(a);
+      const bIndex = preferredOrder.indexOf(b);
+      if (aIndex !== -1 || bIndex !== -1) {
+        return (
+          (aIndex === -1 ? Number.MAX_SAFE_INTEGER : aIndex) -
+          (bIndex === -1 ? Number.MAX_SAFE_INTEGER : bIndex)
+        );
+      }
+      return a.localeCompare(b);
+    });
+  }, [gameId, outlines]);
 
   const activeRegion = selectedRegion ?? regions[0] ?? null;
 
