@@ -65,8 +65,7 @@ function selectSprite(sprites: PokéAPISprites, gender?: "female") {
   if (gender === "female") {
     return {
       spriteUrl: sprites.front_female ?? sprites.front_default ?? "",
-      shinySpriteUrl:
-        sprites.front_shiny_female ?? sprites.front_shiny ?? "",
+      shinySpriteUrl: sprites.front_shiny_female ?? sprites.front_shiny ?? "",
     };
   }
 

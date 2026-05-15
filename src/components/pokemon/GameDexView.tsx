@@ -1,12 +1,12 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import Image from "next/image";
 import { useGamePokedex } from "@/hooks/useGamePokedex";
 import { usePokedexStore } from "@/store/pokedexStore";
 import { getGameById } from "@/config/games";
 import { getExclusiveVersion } from "@/config/version-exclusives";
 import { CheckIcon, SparkleIcon } from "@/components/ui";
+import { PokemonSprite } from "@/components/pokemon/PokemonSprite";
 import type { GameDexEntry } from "@/types/pokemon";
 
 type GameSlotProps = {
@@ -60,12 +60,11 @@ function GameSlot({ entry, gameId, onSelect }: GameSlotProps) {
             {exclusiveVersion.split(" ")[0]}
           </span>
         )}
-        <Image
+        <PokemonSprite
           src={entry.spriteUrl}
           alt={entry.displayName}
           width={88}
           height={88}
-          unoptimized
           style={{ imageRendering: "pixelated" }}
           className={`h-20 w-20 object-contain transition-all duration-200 ${
             owned ? "" : "grayscale opacity-55"
@@ -109,15 +108,24 @@ type CompletionFilter = "all" | "missing" | "registered";
 
 type Props = {
   gameId: string;
-  onSelect: (speciesId: number, formName: string | null, contextGameId: string) => void;
+  onSelect: (
+    speciesId: number,
+    formName: string | null,
+    contextGameId: string,
+  ) => void;
 };
 
 export function GameDexView({ gameId, onSelect }: Props) {
   const gameDexProgress = usePokedexStore((state) => state.gameDexProgress);
-  const [completionFilter, setCompletionFilter] = useState<CompletionFilter>("all");
+  const [completionFilter, setCompletionFilter] =
+    useState<CompletionFilter>("all");
   const [searchQuery, setSearchQuery] = useState("");
 
-  const { data: gameDex, isLoading: dexLoading, error: dexError } = useGamePokedex(gameId);
+  const {
+    data: gameDex,
+    isLoading: dexLoading,
+    error: dexError,
+  } = useGamePokedex(gameId);
   const selectedGame = getGameById(gameId);
 
   const registeredByGame = useMemo(() => {
@@ -131,7 +139,8 @@ export function GameDexView({ gameId, onSelect }: Props) {
     const entries = gameDex ?? [];
     const numericQuery = normalizedQuery.replace(/^#/, "").replace(/^0+/, "");
     return entries.filter((entry) => {
-      const registered = registeredByGame.get(gameId)?.has(entry.speciesId) ?? false;
+      const registered =
+        registeredByGame.get(gameId)?.has(entry.speciesId) ?? false;
       if (completionFilter === "missing" && registered) return false;
       if (completionFilter === "registered" && !registered) return false;
       if (!normalizedQuery) return true;
@@ -150,7 +159,9 @@ export function GameDexView({ gameId, onSelect }: Props) {
   const totalInGame = gameDex?.filter((e) => !e.optional).length ?? 0;
   const progressPct = totalInGame > 0 ? (ownedInGame / totalInGame) * 100 : 0;
   const shinyCharmReady =
-    selectedGame?.hasShinyCharm && ownedInGame >= totalInGame && totalInGame > 0;
+    selectedGame?.hasShinyCharm &&
+    ownedInGame >= totalInGame &&
+    totalInGame > 0;
   const missingInGame = Math.max(0, totalInGame - ownedInGame);
   const hasShinyCharmTarget = !!selectedGame?.hasShinyCharm;
   const charmStatusLabel = shinyCharmReady
@@ -158,7 +169,11 @@ export function GameDexView({ gameId, onSelect }: Props) {
     : "Shiny Charm target";
   const progressLabel = hasShinyCharmTarget ? "remaining to charm" : "missing";
 
-  const completionFilters: { value: CompletionFilter; label: string; count: number }[] = [
+  const completionFilters: {
+    value: CompletionFilter;
+    label: string;
+    count: number;
+  }[] = [
     { value: "all", label: "All", count: totalInGame },
     { value: "missing", label: "Missing", count: missingInGame },
     { value: "registered", label: "Registered", count: ownedInGame },
@@ -292,7 +307,9 @@ export function GameDexView({ gameId, onSelect }: Props) {
               key={`${entry.speciesId}-${entry.formName ?? "base"}`}
               entry={entry}
               gameId={gameId}
-              onSelect={(speciesId, formName) => onSelect(speciesId, formName, gameId)}
+              onSelect={(speciesId, formName) =>
+                onSelect(speciesId, formName, gameId)
+              }
             />
           ))}
           {filteredGamePokemon.length === 0 && (

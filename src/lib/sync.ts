@@ -63,9 +63,7 @@ export async function loadFromSupabase(
   }
 
   // One-time cleanup: clear in_home column from all rows that still have it set
-  const dirtyIds = rows
-    .filter((r) => r.in_home)
-    .map((r) => r.species_id);
+  const dirtyIds = rows.filter((r) => r.in_home).map((r) => r.species_id);
   if (dirtyIds.length > 0) {
     void supabase
       .from("pokedex")
@@ -102,7 +100,8 @@ export async function loadFromSupabase(
   return {
     owned,
     gameDexProgress,
-    shinyGameDexProgress: (settingsResult.data?.shiny_game_dex_progress ?? {}) as Record<string, number[]>,
+    shinyGameDexProgress: (settingsResult.data?.shiny_game_dex_progress ??
+      {}) as Record<string, number[]>,
     availableGames: (settingsResult.data?.available_games ?? {}) as Record<
       string,
       boolean

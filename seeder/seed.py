@@ -411,6 +411,11 @@ async def seed_game_dexes(
 # Each entry is a list of species IDs in game Pokédex order.
 # Source: Bulbapedia, verified 2026-05-06.
 MANUAL_GAME_DEXES: dict[str, list[int]] = {
+    "lgpe": [
+        *range(1, 152),
+        808,
+        809,
+    ],
     "legends-za": [
         152, 153, 154, 498, 499, 500, 158, 159, 160,
         661, 662, 663, 659, 660, 664, 665, 666,

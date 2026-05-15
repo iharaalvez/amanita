@@ -10,6 +10,7 @@ import {
   isLivingDexSpecies,
   isShinyTargetEntry,
 } from "@/lib/livingDex";
+import { isProgressSnapshot } from "@/lib/progressSnapshot";
 import { SparkleIcon } from "@/components/ui";
 import type {
   LivingDexEntry,
@@ -63,19 +64,6 @@ function downloadCSV(
   a.download = `living-pokedex-${new Date().toISOString().slice(0, 10)}.csv`;
   a.click();
   URL.revokeObjectURL(url);
-}
-
-function isProgressSnapshot(value: unknown): value is ProgressSnapshot {
-  if (typeof value !== "object" || value === null) return false;
-  const snapshot = value as Partial<ProgressSnapshot>;
-  return (
-    typeof snapshot.owned === "object" &&
-    snapshot.owned !== null &&
-    typeof snapshot.gameDexProgress === "object" &&
-    snapshot.gameDexProgress !== null &&
-    typeof snapshot.availableGames === "object" &&
-    snapshot.availableGames !== null
-  );
 }
 
 const GENERATIONS = [1, 2, 3, 4, 5, 6, 7, 8, 9] as const;
@@ -197,10 +185,7 @@ export function StatsView() {
       const genTotal = genEntries.length;
       const genOwned = getOwnedEntryCount(genEntries, ownedRecords);
       const genShinyTotal = genShinyTargetEntries.length;
-      const genShiny = getShinyEntryCount(
-        genShinyTargetEntries,
-        ownedRecords,
-      );
+      const genShiny = getShinyEntryCount(genShinyTargetEntries, ownedRecords);
       return {
         gen,
         label: GEN_LABELS[gen],
@@ -311,11 +296,7 @@ export function StatsView() {
             detail={`${stats.ownedCount}/${stats.total} species`}
           />
           <MetricCard label="owned" value={stats.ownedCount} tone="green" />
-          <MetricCard
-            label="species total"
-            value={stats.total}
-            tone="slate"
-          />
+          <MetricCard label="species total" value={stats.total} tone="slate" />
           <MetricCard
             label="missing"
             value={stats.total - stats.ownedCount}
@@ -484,8 +465,7 @@ export function StatsView() {
                 {stats.genData
                   .filter(({ shiny }) => shiny > 0)
                   .map(({ gen, label, shinyTotal, shiny }) => {
-                    const pct =
-                      shinyTotal > 0 ? (shiny / shinyTotal) * 100 : 0;
+                    const pct = shinyTotal > 0 ? (shiny / shinyTotal) * 100 : 0;
                     return (
                       <div
                         key={gen}

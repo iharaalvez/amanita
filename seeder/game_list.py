@@ -17,6 +17,7 @@ GAME_LIST: list[dict[str, object]] = [
     {"id": "oras", "name": "Omega Ruby / Alpha Sapphire", "version_group": "omega-ruby-alpha-sapphire", "generation": 6, "pokedex_id": "updated-hoenn", "has_shiny_charm": True, "pokeapi_ready": True},
     {"id": "sun-moon", "name": "Sun / Moon", "version_group": "sun-moon", "generation": 7, "pokedex_id": "original-alola", "has_shiny_charm": True, "pokeapi_ready": True},
     {"id": "usum", "name": "Ultra Sun / Ultra Moon", "version_group": "ultra-sun-ultra-moon", "generation": 7, "pokedex_id": "updated-alola", "has_shiny_charm": True, "pokeapi_ready": True},
+    {"id": "lgpe", "name": "Let's Go Pikachu / Eevee", "version_group": "lets-go-pikachu-lets-go-eevee", "generation": 7, "pokedex_id": None, "has_shiny_charm": True, "pokeapi_ready": False},
     {"id": "swsh", "name": "Sword / Shield", "version_group": "sword-shield", "generation": 8, "pokedex_id": "galar", "has_shiny_charm": True, "pokeapi_ready": True},
     {"id": "bdsp", "name": "Brilliant Diamond / Shining Pearl", "version_group": "brilliant-diamond-shining-pearl", "generation": 8, "pokedex_id": "original-sinnoh", "has_shiny_charm": True, "pokeapi_ready": True},
     {"id": "pla", "name": "Legends: Arceus", "version_group": "legends-arceus", "generation": 8, "pokedex_id": "hisui", "has_shiny_charm": True, "pokeapi_ready": True},

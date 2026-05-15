@@ -78,6 +78,38 @@ export type GameDexEntry = {
   optional: boolean;
 };
 
+export type GameLocationPokemon = {
+  speciesId: number;
+  formName: string | null;
+  displayName: string;
+  spriteUrl: string;
+  optional: boolean;
+  methods?: string[];
+  levels?: string[];
+  versions?: string[];
+  source?: "pokeapi" | "pokedb" | "manual";
+  confidence?: "high" | "medium" | "low";
+};
+
+export type GameLocationGroup = {
+  location: string;
+  source?: "pokeapi" | "pokedb" | "manual";
+  confidence?: "high" | "medium" | "low";
+  areaCount?: number;
+  pokemon: GameLocationPokemon[];
+};
+
+export type MapLocationOutline = {
+  locationIdentifier: string;
+  locationName: string;
+  regionAreaIdentifier: string | null;
+  layer: number | null;
+  outlineType: string;
+  points: [number, number][];
+  source: "pokedb" | "manual";
+  confidence: "high" | "medium" | "low";
+};
+
 export type ApiHealth = {
   status: string;
   seeded: boolean;

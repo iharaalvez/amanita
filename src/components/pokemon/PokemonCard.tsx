@@ -1,6 +1,6 @@
 "use client";
 
-import Image from "next/image";
+import { PokemonSprite } from "@/components/pokemon/PokemonSprite";
 import {
   getCosmeticFormLabel,
   getDisplayNameWithoutFormLabel,
@@ -37,12 +37,11 @@ export function PokemonCard({ entry, onSelect }: Props) {
         aria-label={`Open ${displayName} Pokedex entry`}
         className="group relative flex w-full cursor-pointer flex-col items-center gap-1 rounded-xl border-2 border-transparent p-2 transition-all hover:bg-gray-100 focus-visible:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 dark:hover:bg-gray-800 dark:focus-visible:bg-gray-800"
       >
-        <Image
+        <PokemonSprite
           src={spriteUrl}
           alt={displayName}
           width={64}
           height={64}
-          unoptimized
           style={{ imageRendering: "pixelated" }}
           className="h-16 w-16 object-contain transition-all duration-200 group-hover:scale-110"
         />

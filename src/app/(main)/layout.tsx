@@ -95,9 +95,16 @@ function MainLayoutContent({ children }: { children: React.ReactNode }) {
     if (prev === null || ownedCount <= prev) return;
     const shown = getShownMilestones();
     for (const [threshold, message] of MILESTONES) {
-      if (prev < threshold && ownedCount >= threshold && !shown.has(threshold)) {
+      if (
+        prev < threshold &&
+        ownedCount >= threshold &&
+        !shown.has(threshold)
+      ) {
         shown.add(threshold);
-        localStorage.setItem(SHOWN_MILESTONES_KEY, JSON.stringify(Array.from(shown)));
+        localStorage.setItem(
+          SHOWN_MILESTONES_KEY,
+          JSON.stringify(Array.from(shown)),
+        );
         setMilestoneMessage(message);
         const timer = setTimeout(() => setMilestoneMessage(null), 4500);
         return () => clearTimeout(timer);

@@ -1,9 +1,10 @@
 "use client";
 
-import Image from "next/image";
 import { useMemo, useState } from "react";
-import { notFound } from "next/navigation";
+import { notFound, useParams } from "next/navigation";
 import { GameDexView } from "@/components/pokemon/GameDexView";
+import { GameLocationView } from "@/components/pokemon/GameLocationView";
+import { PokemonSprite } from "@/components/pokemon/PokemonSprite";
 import { CheckIcon, CompassIcon } from "@/components/ui";
 import { getGameById } from "@/config/games";
 import { useGamePokedex } from "@/hooks/useGamePokedex";
@@ -11,11 +12,7 @@ import { useOpenPokemon } from "@/hooks/useOpenPokemon";
 import { usePokedexStore } from "@/store/pokedexStore";
 import type { GameDexEntry } from "@/types/pokemon";
 
-type Tab = "dex" | "guide";
-
-type Props = {
-  params: { gameId: string };
-};
+type Tab = "dex" | "guide" | "locations";
 
 const EMPTY_PROGRESS: readonly number[] = [];
 
@@ -44,12 +41,11 @@ function HuntTargetCard({
       onClick={() => onSelect(entry.speciesId, entry.formName, gameId)}
       className="flex items-center gap-3 rounded-lg border border-gray-200 bg-white p-3 text-left transition-colors hover:border-blue-300 hover:bg-blue-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 dark:border-gray-800 dark:bg-gray-900 dark:hover:border-blue-900 dark:hover:bg-blue-950/30"
     >
-      <Image
+      <PokemonSprite
         src={entry.spriteUrl}
         alt={entry.displayName}
         width={56}
         height={56}
-        unoptimized
         style={{ imageRendering: "pixelated" }}
         className="h-14 w-14 shrink-0 object-contain"
       />
@@ -189,8 +185,9 @@ function HuntGuideView({ gameId, gameName, onSelect }: HuntGuideProps) {
   );
 }
 
-export default function GamePage({ params }: Props) {
-  const { gameId } = params;
+export default function GamePage() {
+  const params = useParams<{ gameId: string }>();
+  const gameId = params.gameId;
   const [activeTab, setActiveTab] = useState<Tab>("dex");
   const openPokemon = useOpenPokemon();
 
@@ -201,7 +198,7 @@ export default function GamePage({ params }: Props) {
     <div>
       <div className="sticky top-0 z-10 border-b border-gray-100 bg-white/95 px-4 backdrop-blur dark:border-gray-800 dark:bg-gray-950/95">
         <div className="flex gap-1 pt-2">
-          {(["dex", "guide"] as Tab[]).map((tab) => (
+          {(["dex", "guide", "locations"] as Tab[]).map((tab) => (
             <button
               key={tab}
               type="button"
@@ -212,7 +209,11 @@ export default function GamePage({ params }: Props) {
                   : "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
               }`}
             >
-              {tab === "dex" ? "National Dex" : "Hunt Guide"}
+              {tab === "dex"
+                ? "National Dex"
+                : tab === "guide"
+                  ? "Hunt Guide"
+                  : "Locations"}
             </button>
           ))}
         </div>
@@ -226,8 +227,16 @@ export default function GamePage({ params }: Props) {
               openPokemon(speciesId, formName, contextGameId)
             }
           />
-        ) : (
+        ) : activeTab === "guide" ? (
           <HuntGuideView
+            gameId={gameId}
+            gameName={game.name}
+            onSelect={(speciesId, formName, contextGameId) =>
+              openPokemon(speciesId, formName, contextGameId)
+            }
+          />
+        ) : (
+          <GameLocationView
             gameId={gameId}
             gameName={game.name}
             onSelect={(speciesId, formName, contextGameId) =>

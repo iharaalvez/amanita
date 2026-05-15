@@ -122,7 +122,12 @@ export const usePokedexStore = create<PokedexState>()(
       }),
 
       clearAll: () =>
-        set({ owned: {}, gameDexProgress: {}, shinyGameDexProgress: {}, availableGames: {} }),
+        set({
+          owned: {},
+          gameDexProgress: {},
+          shinyGameDexProgress: {},
+          availableGames: {},
+        }),
 
       markOwned: (speciesId, formName, method) => {
         const key = ownedKey(speciesId, formName);
@@ -254,7 +259,10 @@ export const usePokedexStore = create<PokedexState>()(
           const newProgress = {
             ...state.shinyGameDexProgress,
             [gameId]: Array.from(
-              new Set([...(state.shinyGameDexProgress[gameId] ?? []), speciesId]),
+              new Set([
+                ...(state.shinyGameDexProgress[gameId] ?? []),
+                speciesId,
+              ]),
             ),
           };
           void syncShinyGameDexProgress(newProgress);

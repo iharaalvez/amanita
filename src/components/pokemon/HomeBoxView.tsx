@@ -21,6 +21,10 @@ import type { LivingDexEntry } from "@/types/pokemon";
 
 const BOX_SIZE = 30;
 type HomeStatusFilter = "all" | "shiny" | "missing" | "owned";
+type HomeBoxSlot = {
+  entry: LivingDexEntry;
+  isShiny: boolean;
+};
 type HomeFilterOption = {
   value: HomeStatusFilter;
   label: string;
@@ -44,6 +48,26 @@ function buildBoxes(entries: LivingDexEntry[]): (LivingDexEntry | null)[][] {
     while (chunk.length < BOX_SIZE) chunk.push(null);
     return chunk;
   });
+}
+
+function buildSlotBoxes(slots: HomeBoxSlot[]): (HomeBoxSlot | null)[][] {
+  const totalBoxes = Math.ceil(slots.length / BOX_SIZE);
+  return Array.from({ length: totalBoxes }, (_, index) => {
+    const chunk: (HomeBoxSlot | null)[] = slots.slice(
+      index * BOX_SIZE,
+      (index + 1) * BOX_SIZE,
+    );
+    while (chunk.length < BOX_SIZE) chunk.push(null);
+    return chunk;
+  });
+}
+
+function getEntryKey(entry: LivingDexEntry): string {
+  return `${entry.speciesId}-${entry.formName ?? "base"}`;
+}
+
+function getSlotKey(slot: HomeBoxSlot): string {
+  return `${getEntryKey(slot.entry)}-${slot.isShiny ? "shiny" : "normal"}`;
 }
 
 type Props = {
@@ -123,7 +147,16 @@ export function HomeBoxView({ onSelect }: Props) {
   const homeBoxEntries = isShinyOnlyMode
     ? orderedEntries.filter(isShinyTargetEntry)
     : orderedEntries;
+  const pairedSlots: HomeBoxSlot[] = orderedEntries.flatMap((entry) =>
+    isShinyTargetEntry(entry)
+      ? [
+          { entry, isShiny: false },
+          { entry, isShiny: true },
+        ]
+      : [{ entry, isShiny: false }],
+  );
   const boxes = buildBoxes(homeBoxEntries);
+  const pairedBoxes = buildSlotBoxes(pairedSlots);
 
   const q = search.trim().toLowerCase();
   const matchingKeys = new Set(
@@ -146,7 +179,28 @@ export function HomeBoxView({ onSelect }: Props) {
         );
         return nameMatch || numMatch;
       })
-      .map((entry) => `${entry.speciesId}-${entry.formName ?? "base"}`),
+      .map(getEntryKey),
+  );
+  const matchingSlotKeys = new Set(
+    pairedSlots
+      .filter((slot) => {
+        const record =
+          ownedRecords[ownedKey(slot.entry.speciesId, slot.entry.formName)];
+        const entryMatchesQuery =
+          !q || matchingKeys.has(getEntryKey(slot.entry));
+        if (!entryMatchesQuery) return false;
+        if (statusFilter === "shiny") {
+          return slot.isShiny && !!record?.shiny_owned;
+        }
+        if (statusFilter === "owned") {
+          return slot.isShiny ? !!record?.shiny_owned : !!record?.owned;
+        }
+        if (statusFilter === "missing") {
+          return slot.isShiny ? !record?.shiny_owned : !record?.owned;
+        }
+        return true;
+      })
+      .map(getSlotKey),
   );
   const hasActiveFilter = q.length > 0 || statusFilter !== "all";
   const visibleBoxes = !hasActiveFilter
@@ -160,19 +214,40 @@ export function HomeBoxView({ onSelect }: Props) {
           ? [{ box, boxIndex }]
           : [],
       );
+  const visiblePairedBoxes = !hasActiveFilter
+    ? pairedBoxes.map((box, boxIndex) => ({ box, boxIndex }))
+    : pairedBoxes.flatMap((box, boxIndex) =>
+        box.some((slot) =>
+          slot ? matchingSlotKeys.has(getSlotKey(slot)) : false,
+        )
+          ? [{ box, boxIndex }]
+          : [],
+      );
 
   const allFilterOptions: HomeFilterOption[] = [
     {
       value: "all",
-      label: isShinyOnlyMode ? "Shiny targets" : "All species",
-      count: isShinyOnlyMode ? summary.shinyTotal : summary.total,
+      label: isShinyOnlyMode
+        ? "Shiny targets"
+        : isPairedMode
+          ? "All slots"
+          : "All species",
+      count: isShinyOnlyMode
+        ? summary.shinyTotal
+        : isPairedMode
+          ? summary.total + summary.shinyTotal
+          : summary.total,
       activeClass:
         "bg-slate-700 text-white dark:bg-slate-200 dark:text-slate-900",
     },
     {
       value: "owned",
       label: isShinyOnlyMode ? "Shiny owned" : "Owned",
-      count: isShinyOnlyMode ? summary.shiny : summary.owned,
+      count: isShinyOnlyMode
+        ? summary.shiny
+        : isPairedMode
+          ? summary.owned + summary.shiny
+          : summary.owned,
       activeClass: isShinyOnlyMode
         ? "bg-yellow-400 text-white"
         : "bg-green-500 text-white",
@@ -182,7 +257,9 @@ export function HomeBoxView({ onSelect }: Props) {
       label: isShinyOnlyMode ? "Missing shiny" : "Missing",
       count: isShinyOnlyMode
         ? summary.shinyTotal - summary.shiny
-        : summary.total - summary.owned,
+        : isPairedMode
+          ? summary.total + summary.shinyTotal - summary.owned - summary.shiny
+          : summary.total - summary.owned,
       activeClass:
         "bg-slate-600 text-white dark:bg-slate-300 dark:text-slate-900",
     },
@@ -196,9 +273,19 @@ export function HomeBoxView({ onSelect }: Props) {
   const filterOptions = allFilterOptions.filter(
     ({ value }) => !(isShinyOnlyMode && value === "shiny"),
   );
+  const displayedSlotTotal = isShinyOnlyMode
+    ? summary.shinyTotal
+    : isPairedMode
+      ? summary.total + summary.shinyTotal
+      : summary.total;
+  const displayedOwnedTotal = isShinyOnlyMode
+    ? summary.shiny
+    : isPairedMode
+      ? summary.owned + summary.shiny
+      : summary.owned;
   const completionPct =
-    summary.total > 0
-      ? Math.min(100, (summary.owned / summary.total) * 100)
+    displayedSlotTotal > 0
+      ? Math.min(100, (displayedOwnedTotal / displayedSlotTotal) * 100)
       : 0;
 
   return (
@@ -230,7 +317,7 @@ export function HomeBoxView({ onSelect }: Props) {
             </div>
             <div className="rounded-lg border border-gray-100 bg-gray-50 px-3 py-2 dark:border-gray-800 dark:bg-gray-900">
               <p className="text-lg font-black tabular-nums text-gray-950 dark:text-white">
-                {summary.total}
+                {displayedSlotTotal}
               </p>
               <p className="text-[10px] font-bold uppercase tracking-wide text-gray-400">
                 Slots
@@ -404,66 +491,98 @@ export function HomeBoxView({ onSelect }: Props) {
 
       {/* Box grid */}
       <div className="grid grid-cols-1 gap-2 sm:gap-3 lg:grid-cols-2">
-        {visibleBoxes.flatMap(({ box, boxIndex }) => {
-          const renderGrid = (isShiny: boolean) =>
-            box.map((entry, slotIndex) => {
-              const slotKey = entry
-                ? `${entry.speciesId}-${entry.formName ?? "base"}`
-                : null;
-              const dimmed =
-                hasActiveFilter &&
-                slotKey !== null &&
-                !matchingKeys.has(slotKey);
-              return (
-                <div
-                  key={slotIndex}
-                  className={`transition-opacity duration-150 ${dimmed ? "opacity-20" : ""}`}
-                >
-                  <BoxSlot
-                    entry={entry}
-                    onSelect={onSelect}
-                    isShinySlot={isShiny}
-                    hasShinyPair={!isShiny && isPairedMode}
-                  />
+        {isPairedMode &&
+          visiblePairedBoxes.map(({ box, boxIndex }) => (
+            <section
+              key={`p-${boxIndex}`}
+              className="scroll-mt-14 rounded-lg border border-blue-100 bg-blue-50/40 p-1.5 dark:border-blue-900/40 dark:bg-blue-950/20 sm:rounded-xl sm:p-3"
+            >
+              <p className="mb-1.5 text-[10px] font-bold uppercase tracking-widest text-blue-500 dark:text-blue-400 sm:mb-2">
+                Pair Box {boxIndex + 1}
+              </p>
+              <div className="grid grid-cols-6 gap-0.5 sm:gap-1">
+                {box.map((slot, slotIndex) => {
+                  const dimmed =
+                    hasActiveFilter &&
+                    slot !== null &&
+                    !matchingSlotKeys.has(getSlotKey(slot));
+                  return (
+                    <div
+                      key={slotIndex}
+                      className={`transition-opacity duration-150 ${dimmed ? "opacity-20" : ""}`}
+                    >
+                      <BoxSlot
+                        entry={slot?.entry ?? null}
+                        onSelect={onSelect}
+                        isShinySlot={slot?.isShiny ?? false}
+                        hasShinyPair={slot ? !slot.isShiny : false}
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+          ))}
+        {!isPairedMode &&
+          visibleBoxes.flatMap(({ box, boxIndex }) => {
+            const renderGrid = (isShiny: boolean) =>
+              box.map((entry, slotIndex) => {
+                const slotKey = entry ? getEntryKey(entry) : null;
+                const dimmed =
+                  hasActiveFilter &&
+                  slotKey !== null &&
+                  !matchingKeys.has(slotKey);
+                return (
+                  <div
+                    key={slotIndex}
+                    className={`transition-opacity duration-150 ${dimmed ? "opacity-20" : ""}`}
+                  >
+                    <BoxSlot
+                      entry={entry}
+                      onSelect={onSelect}
+                      isShinySlot={isShiny}
+                      hasShinyPair={!isShiny && isPairedMode}
+                    />
+                  </div>
+                );
+              });
+
+            const normalBox = (
+              <section
+                key={`n-${boxIndex}`}
+                className="scroll-mt-14 rounded-lg border border-gray-100 bg-gray-50 p-1.5 dark:border-gray-700/50 dark:bg-gray-800/60 sm:rounded-xl sm:p-3"
+              >
+                <p className="mb-1.5 text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500 sm:mb-2">
+                  Box {boxIndex + 1}
+                </p>
+                <div className="grid grid-cols-6 gap-0.5 sm:gap-1">
+                  {renderGrid(false)}
                 </div>
-              );
-            });
+              </section>
+            );
 
-          const normalBox = (
-            <section
-              key={`n-${boxIndex}`}
-              className="scroll-mt-14 rounded-lg border border-gray-100 bg-gray-50 p-1.5 dark:border-gray-700/50 dark:bg-gray-800/60 sm:rounded-xl sm:p-3"
-            >
-              <p className="mb-1.5 text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500 sm:mb-2">
-                Box {boxIndex + 1}
-              </p>
-              <div className="grid grid-cols-6 gap-0.5 sm:gap-1">
-                {renderGrid(false)}
-              </div>
-            </section>
-          );
+            if (homeBoxMode === "normal") return [normalBox];
 
-          if (homeBoxMode === "normal") return [normalBox];
+            const shinyBox = (
+              <section
+                key={`s-${boxIndex}`}
+                className="scroll-mt-14 rounded-lg border border-yellow-200/60 bg-yellow-50/30 p-1.5 dark:border-yellow-900/40 dark:bg-yellow-950/20 sm:rounded-xl sm:p-3"
+              >
+                <p className="mb-1.5 text-[10px] font-bold uppercase tracking-widest text-yellow-500 dark:text-yellow-600 sm:mb-2">
+                  Shiny Box {boxIndex + 1}
+                </p>
+                <div className="grid grid-cols-6 gap-0.5 sm:gap-1">
+                  {renderGrid(true)}
+                </div>
+              </section>
+            );
 
-          const shinyBox = (
-            <section
-              key={`s-${boxIndex}`}
-              className="scroll-mt-14 rounded-lg border border-yellow-200/60 bg-yellow-50/30 p-1.5 dark:border-yellow-900/40 dark:bg-yellow-950/20 sm:rounded-xl sm:p-3"
-            >
-              <p className="mb-1.5 text-[10px] font-bold uppercase tracking-widest text-yellow-500 dark:text-yellow-600 sm:mb-2">
-                Shiny Box {boxIndex + 1}
-              </p>
-              <div className="grid grid-cols-6 gap-0.5 sm:gap-1">
-                {renderGrid(true)}
-              </div>
-            </section>
-          );
+            if (homeBoxMode === "shiny") return [shinyBox];
 
-          if (homeBoxMode === "shiny") return [shinyBox];
-
-          return [normalBox, shinyBox];
-        })}
-        {visibleBoxes.length === 0 && (
+            return [normalBox, shinyBox];
+          })}
+        {(isPairedMode ? visiblePairedBoxes.length : visibleBoxes.length) ===
+          0 && (
           <div className="col-span-full py-12 text-center text-sm text-gray-400">
             No Pokémon match this HOME view.
           </div>

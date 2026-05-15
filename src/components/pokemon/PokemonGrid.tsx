@@ -64,8 +64,8 @@ export function PokemonGrid({ onSelect, search, filtersOpen }: Props) {
   const showGenderForms = usePokedexStore((s) => s.showGenderForms);
   const setShowGenderForms = usePokedexStore((s) => s.setShowGenderForms);
 
-  const all = (data ?? []).filter(
-    (e) => isHomeTrackedEntry(e, showCosmeticForms, showGenderForms),
+  const all = (data ?? []).filter((e) =>
+    isHomeTrackedEntry(e, showCosmeticForms, showGenderForms),
   );
   const byGen =
     generation === "all" ? all : all.filter((e) => e.generation === generation);

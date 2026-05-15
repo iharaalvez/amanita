@@ -38,6 +38,7 @@ GAME_REGION: dict[str, str | None] = {
     "oras": None,
     "sun-moon": "alola",
     "usum": "alola",
+    "lgpe": None,
     "swsh": "galar",
     "bdsp": None,
     "pla": "hisui",

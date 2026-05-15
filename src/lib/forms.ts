@@ -21,8 +21,9 @@ export function getDisplayNameWithoutFormLabel(
   if (withoutTrailingLabel !== displayName) return withoutTrailingLabel;
 
   return (
-    displayName.replace(new RegExp(`\\s+${escapedLabel}(?=\\s|$)`), "").trim() ||
     displayName
+      .replace(new RegExp(`\\s+${escapedLabel}(?=\\s|$)`), "")
+      .trim() || displayName
   );
 }
 
@@ -83,6 +84,7 @@ export const GAME_REGION: Record<string, string | null> = {
   oras: null,
   "sun-moon": "alola",
   usum: "alola",
+  lgpe: null,
   swsh: "galar",
   bdsp: null,
   pla: "hisui",

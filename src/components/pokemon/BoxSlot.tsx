@@ -1,8 +1,8 @@
 "use client";
 
-import Image from "next/image";
 import { usePokedexStore, ownedKey } from "@/store/pokedexStore";
 import { CheckIcon, SparkleIcon, Tooltip, XIcon } from "@/components/ui";
+import { PokemonSprite } from "@/components/pokemon/PokemonSprite";
 import { isShinyLocked } from "@/config/pokemon-flags";
 import {
   getCosmeticFormLabel,
@@ -41,25 +41,26 @@ export function BoxSlot({
   const paddedNumber = `#${String(entry.speciesId).padStart(4, "0")}`;
   const regionLabel = entry.formName ? getFormLabel(entry.formName) : null;
   const cosmeticLabel =
-    entry.formName && !regionLabel ? getCosmeticFormLabel(entry.formName) : null;
+    entry.formName && !regionLabel
+      ? getCosmeticFormLabel(entry.formName)
+      : null;
   const formPill = regionLabel || cosmeticLabel;
-  const slotName = getDisplayNameWithoutFormLabel(
-    entry.displayName,
-    formPill,
-  );
+  const slotName = getDisplayNameWithoutFormLabel(entry.displayName, formPill);
   const shinyLocked = isShinyLocked(entry.speciesId, entry.formName);
 
-  const spriteUrl = isShinySlot && !shinyLocked
-    ? (entry.shinySpriteUrl ?? entry.spriteUrl)
-    : entry.spriteUrl;
+  const spriteUrl =
+    isShinySlot && !shinyLocked
+      ? (entry.shinySpriteUrl ?? entry.spriteUrl)
+      : entry.spriteUrl;
 
-  const isActive = isShinySlot && shinyLocked
-    ? false
-    : isShinySlot
-    ? shinyOwned
-    : hasShinyPair
-      ? owned
-      : owned || shinyOwned;
+  const isActive =
+    isShinySlot && shinyLocked
+      ? false
+      : isShinySlot
+        ? shinyOwned
+        : hasShinyPair
+          ? owned
+          : owned || shinyOwned;
 
   let statusClass: string;
   if (isShinySlot && shinyLocked) {
@@ -130,14 +131,16 @@ export function BoxSlot({
                     : "h-3 w-3 text-slate-400 sm:h-3.5 sm:w-3.5"
                 }
               />
-            ) : shinyOwned && (
-              <SparkleIcon
-                className={
-                  compact
-                    ? "h-2.5 w-2.5 text-yellow-400"
-                    : "h-3 w-3 text-yellow-400 sm:h-3.5 sm:w-3.5"
-                }
-              />
+            ) : (
+              shinyOwned && (
+                <SparkleIcon
+                  className={
+                    compact
+                      ? "h-2.5 w-2.5 text-yellow-400"
+                      : "h-3 w-3 text-yellow-400 sm:h-3.5 sm:w-3.5"
+                  }
+                />
+              )
             )
           ) : hasShinyPair ? (
             owned && (
@@ -163,17 +166,19 @@ export function BoxSlot({
 
         {/* Shiny slot marker */}
         {isShinySlot && (
-          <span className={`absolute left-0.5 top-0.5 font-bold leading-none text-yellow-400 ${compact ? "text-[6px]" : "text-[8px]"}`} aria-hidden>
+          <span
+            className={`absolute left-0.5 top-0.5 font-bold leading-none text-yellow-400 ${compact ? "text-[6px]" : "text-[8px]"}`}
+            aria-hidden
+          >
             ✦
           </span>
         )}
 
-        <Image
+        <PokemonSprite
           src={spriteUrl}
           alt={isShinySlot ? `Shiny ${entry.displayName}` : entry.displayName}
           width={72}
           height={72}
-          unoptimized
           style={{ imageRendering: "pixelated" }}
           className={`object-contain transition-all duration-200 group-hover:scale-110 ${
             compact

@@ -12,6 +12,8 @@ export {
   GamepadIcon,
   GridIcon,
   HomeIcon,
+  ListIcon,
+  MapIcon,
   SparkleIcon,
   XIcon,
 } from "./Icons";

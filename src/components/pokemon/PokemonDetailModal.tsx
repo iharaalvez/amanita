@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import Image from "next/image";
 import type { ReactNode } from "react";
+import { PokemonSprite } from "@/components/pokemon/PokemonSprite";
 import { usePokedexStore, ownedKey } from "@/store/pokedexStore";
 import {
   useLivingDexEntries,
@@ -29,6 +29,7 @@ import {
   isShinyLocked,
   requiresTrade,
 } from "@/config/pokemon-flags";
+import { isBattleOnlyForm } from "@/lib/livingDex";
 
 const METHODS: OwnershipMethod[] = [
   "caught",
@@ -532,7 +533,7 @@ export function PokemonDetailModal({
   const paddedNumber = `#${String(speciesId).padStart(4, "0")}`;
   const spriteUrl = selectedEntry?.spriteUrl ?? "";
   const livingDexForms = (speciesForms ?? []).filter(
-    (entry) => entry.formName !== null,
+    (entry) => entry.formName !== null && !isBattleOnlyForm(entry),
   );
   const shinyLocked = isShinyLocked(speciesId, formName);
   const selectedEvolutionLines = (evolutionLines ?? []).filter((line) =>
@@ -636,7 +637,7 @@ export function PokemonDetailModal({
             <div className="px-6 pb-5">
               <div className="mb-5 flex items-start gap-5">
                 <div className="relative shrink-0">
-                  <Image
+                  <PokemonSprite
                     src={
                       showShiny && selectedEntry.shinySpriteUrl
                         ? selectedEntry.shinySpriteUrl
@@ -645,7 +646,6 @@ export function PokemonDetailModal({
                     alt={displayName}
                     width={112}
                     height={112}
-                    unoptimized
                     style={{ imageRendering: "pixelated" }}
                     className="h-28 w-28 object-contain"
                   />
@@ -841,21 +841,19 @@ export function PokemonDetailModal({
                                     className="mb-1 flex h-12 w-12 items-center justify-center rounded-full border-2 bg-white/70 shadow-inner dark:bg-gray-800/70 sm:h-16 sm:w-16"
                                     style={{ borderColor: `${typeColor}80` }}
                                   >
-                                    {stageEntry?.spriteUrl ? (
-                                      <Image
-                                        src={stageEntry.spriteUrl}
-                                        alt={stageEntry.displayName}
-                                        width={76}
-                                        height={76}
-                                        unoptimized
-                                        style={{
-                                          imageRendering: "pixelated",
-                                        }}
-                                        className="h-10 w-10 object-contain transition-transform group-hover:scale-105 sm:h-14 sm:w-14"
-                                      />
-                                    ) : (
-                                      <span className="h-10 w-10 rounded-full bg-gray-300 opacity-40 dark:bg-gray-600" />
-                                    )}
+                                    <PokemonSprite
+                                      src={stageEntry?.spriteUrl}
+                                      alt={
+                                        stageEntry?.displayName ??
+                                        titleCasePokemonName(stage.name)
+                                      }
+                                      width={76}
+                                      height={76}
+                                      style={{
+                                        imageRendering: "pixelated",
+                                      }}
+                                      className="h-10 w-10 object-contain transition-transform group-hover:scale-105 sm:h-14 sm:w-14"
+                                    />
                                   </span>
                                   <span className="mb-0.5 max-w-full truncate text-[11px] font-medium leading-tight text-gray-500 dark:text-gray-400">
                                     {getEvolutionStageLabel(index, line.length)}

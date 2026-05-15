@@ -41,22 +41,22 @@ A web app to track progress toward a Living Pokédex (one of every species, pers
 ```ts
 type OwnedRecord = {
   pokedex_number: number;
-  owned: boolean;           // Living Dex
-  shiny_owned: boolean;     // Shiny Living Dex
+  owned: boolean; // Living Dex
+  shiny_owned: boolean; // Shiny Living Dex
   game_dex: Record; // e.g. { "scarlet": true }
   notes?: string;
-}
+};
 ```
 
 ## Component map
 
-PokemonGrid          — filterable grid (by gen, type, owned status)
-PokemonCard        — sprite, name, owned badge
-HomeBoxView          — 30-slot boxes, paginated
-BoxSlot            — single slot: sprite or gray silhouette
-PokemonDetailModal   — stats, type, catch locations per game
-GameDexView          — per-game National Dex progress
-ProgressBar          — X/total with per-gen breakdown
+PokemonGrid — filterable grid (by gen, type, owned status)
+PokemonCard — sprite, name, owned badge
+HomeBoxView — 30-slot boxes, paginated
+BoxSlot — single slot: sprite or gray silhouette
+PokemonDetailModal — stats, type, catch locations per game
+GameDexView — per-game National Dex progress
+ProgressBar — X/total with per-gen breakdown
 
 ## Design principles
 

@@ -1,3 +1,4 @@
+import { BATTLE_ONLY_FORM_NAMES } from "@/config/battle-forms";
 import { GENDER_DIFFERENCE_FORM_KEYS } from "@/config/cosmetic-forms";
 import { isShinyLocked } from "@/config/pokemon-flags";
 import { ownedKey } from "@/store/pokedexStore";
@@ -12,14 +13,21 @@ export function isHomeTrackedEntry(
   includeCosmeticForms: boolean,
   includeGenderDifferences: boolean,
 ): boolean {
+  if (isBattleOnlyForm(entry)) return false;
   if (isLivingDexSpecies(entry)) return true;
   if (isGenderDifferenceForm(entry)) return includeGenderDifferences;
   return entry.isRegionalForm || includeCosmeticForms;
 }
 
+export function isBattleOnlyForm(entry: LivingDexEntry): boolean {
+  return !!entry.formName && BATTLE_ONLY_FORM_NAMES.has(entry.formName);
+}
+
 export function isGenderDifferenceForm(entry: LivingDexEntry): boolean {
   if (!entry.formName) return false;
-  return GENDER_DIFFERENCE_FORM_KEYS.has(`${entry.speciesId}-${entry.formName}`);
+  return GENDER_DIFFERENCE_FORM_KEYS.has(
+    `${entry.speciesId}-${entry.formName}`,
+  );
 }
 
 function formSortRank(entry: LivingDexEntry): number {
