@@ -91,14 +91,19 @@ function tileBounds(
 ): L.LatLngBoundsExpression {
   const rowSpan = config.coordinateSize / config.rows;
   const columnSpan = config.coordinateSize / config.columns;
+  const top = config.coordinateSize - row * rowSpan;
+  const bottom = config.coordinateSize - (row + 1) * rowSpan;
   return [
-    [row * rowSpan, column * columnSpan],
-    [(row + 1) * rowSpan, (column + 1) * columnSpan],
+    [bottom, column * columnSpan],
+    [top, (column + 1) * columnSpan],
   ];
 }
 
-function toMapPoint([x, y]: [number, number]): [number, number] {
-  return [-y, x];
+function toMapPoint(
+  [x, y]: [number, number],
+  rasterMapConfig: RasterMapConfig | undefined,
+): [number, number] {
+  return rasterMapConfig ? [rasterMapConfig.coordinateSize + y, x] : [-y, x];
 }
 
 function computeBounds(
@@ -145,13 +150,16 @@ export default function GameMapLeaflet({
     [outlines, selectedRegion],
   );
 
+  const rasterMapConfig = getRasterMapConfig(gameId, selectedRegion);
   const allPoints = useMemo(
-    () => visibleOutlines.flatMap((o) => o.points.map(toMapPoint)),
-    [visibleOutlines],
+    () =>
+      visibleOutlines.flatMap((o) =>
+        o.points.map((point) => toMapPoint(point, rasterMapConfig)),
+      ),
+    [rasterMapConfig, visibleOutlines],
   );
 
   const bounds = useMemo(() => computeBounds(allPoints), [allPoints]);
-  const rasterMapConfig = getRasterMapConfig(gameId, selectedRegion);
 
   const outlinesByLocation = useMemo(() => {
     const map = new Map<string, MapLocationOutline[]>();
@@ -218,7 +226,11 @@ export default function GameMapLeaflet({
           return locationOutlines.map((outline, idx) => (
             <Polygon
               key={`${locationId}-${idx}`}
-              positions={outline.points.map(toMapPoint) as L.LatLngExpression[]}
+              positions={
+                outline.points.map((point) =>
+                  toMapPoint(point, rasterMapConfig),
+                ) as L.LatLngExpression[]
+              }
               pathOptions={{
                 color,
                 weight: 1.5,
