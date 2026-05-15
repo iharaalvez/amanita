@@ -3,6 +3,7 @@
 import dynamic from "next/dynamic";
 import { useMemo, useState } from "react";
 import { useMapOutlines } from "@/hooks/useMapOutlines";
+import { PokemonSprite } from "@/components/pokemon/PokemonSprite";
 import type { GameLocationGroup, MapLocationOutline } from "@/types/pokemon";
 
 type LeafletProps = {
@@ -11,7 +12,7 @@ type LeafletProps = {
   locations: GameLocationGroup[];
   registeredIds: readonly number[];
   selectedRegion: string | null;
-  onSelect: (speciesId: number, formName: string | null, gameId: string) => void;
+  onZoneClick: (location: GameLocationGroup) => void;
 };
 
 const LeafletMap = dynamic<LeafletProps>(
@@ -52,6 +53,10 @@ export function GameMapView({
 }: Props) {
   const { data: outlines, isLoading, error } = useMapOutlines(gameId);
   const [selectedRegion, setSelectedRegion] = useState<string | null>(null);
+  const [activeLocation, setActiveLocation] =
+    useState<GameLocationGroup | null>(null);
+
+  const registeredSet = useMemo(() => new Set(registeredIds), [registeredIds]);
 
   const regions = useMemo(() => {
     const seen = new Set<string>();
@@ -116,6 +121,11 @@ export function GameMapView({
     );
   }
 
+  const missing = activeLocation
+    ? activeLocation.pokemon.filter((p) => !registeredSet.has(p.speciesId))
+        .length
+    : 0;
+
   return (
     <div className="overflow-hidden rounded-xl border border-gray-200 dark:border-gray-800">
       {regions.length > 1 && (
@@ -141,15 +151,78 @@ export function GameMapView({
         </div>
       )}
 
-      <div className="h-[520px] lg:h-[640px]">
-        <LeafletMap
-          gameId={gameId}
-          outlines={outlines}
-          locations={locations}
-          registeredIds={registeredIds}
-          selectedRegion={activeRegion}
-          onSelect={onSelect}
-        />
+      <div className="relative isolate h-[520px] overflow-hidden bg-[radial-gradient(circle_at_center,_#0f1b2f_0%,_#07111f_72%)] lg:h-[640px]">
+        <div className="absolute inset-0 z-0">
+          <LeafletMap
+            gameId={gameId}
+            outlines={outlines}
+            locations={locations}
+            registeredIds={registeredIds}
+            selectedRegion={activeRegion}
+            onZoneClick={setActiveLocation}
+          />
+        </div>
+
+        {activeLocation && (
+          <div className="absolute right-0 top-0 z-20 flex h-full w-72 max-w-[85%] flex-col bg-slate-900/95 shadow-xl backdrop-blur-sm">
+            <div className="flex items-start justify-between border-b border-slate-700 px-4 py-3">
+              <div>
+                <h3 className="text-sm font-semibold text-white">
+                  {activeLocation.location}
+                </h3>
+                {missing > 0 && (
+                  <p className="mt-0.5 text-xs text-amber-400">
+                    {missing} missing
+                  </p>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={() => setActiveLocation(null)}
+                className="ml-2 mt-0.5 text-slate-400 hover:text-white"
+                aria-label="Close"
+              >
+                X
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-3">
+              <div className="grid grid-cols-4 gap-1">
+                {activeLocation.pokemon.map((pokemon) => {
+                  const isRegistered = registeredSet.has(pokemon.speciesId);
+                  return (
+                    <button
+                      key={`${pokemon.speciesId}-${pokemon.formName ?? "base"}`}
+                      type="button"
+                      onClick={() =>
+                        onSelect(
+                          pokemon.speciesId,
+                          pokemon.formName ?? null,
+                          gameId,
+                        )
+                      }
+                      title={pokemon.displayName}
+                      className="flex flex-col items-center gap-0.5 rounded-lg p-1.5 transition-colors hover:bg-slate-700"
+                      style={{ opacity: isRegistered ? 1 : 0.4 }}
+                    >
+                      <PokemonSprite
+                        src={pokemon.spriteUrl}
+                        alt={pokemon.displayName}
+                        width={40}
+                        height={40}
+                        className="h-10 w-10"
+                        style={{ imageRendering: "pixelated" }}
+                      />
+                      <span className="w-full truncate text-center text-[10px] text-slate-300">
+                        {pokemon.displayName}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="flex flex-wrap items-center gap-4 border-t border-gray-200 bg-white px-4 py-2 dark:border-gray-800 dark:bg-gray-900">
@@ -172,3 +245,4 @@ export function GameMapView({
     </div>
   );
 }
+

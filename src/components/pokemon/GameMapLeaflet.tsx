@@ -7,11 +7,9 @@ import {
   ImageOverlay,
   MapContainer,
   Polygon,
-  Popup,
   Tooltip,
   useMap,
 } from "react-leaflet";
-import { PokemonSprite } from "@/components/pokemon/PokemonSprite";
 import type { GameLocationGroup, MapLocationOutline } from "@/types/pokemon";
 
 type Props = {
@@ -20,11 +18,7 @@ type Props = {
   locations: GameLocationGroup[];
   registeredIds: readonly number[];
   selectedRegion: string | null;
-  onSelect: (
-    speciesId: number,
-    formName: string | null,
-    gameId: string,
-  ) => void;
+  onZoneClick: (location: GameLocationGroup) => void;
 };
 
 type RasterMapConfig = {
@@ -35,6 +29,17 @@ type RasterMapConfig = {
   rows: number;
   columns: number;
   coordinateSize: number;
+  normalizeOutlines?: boolean;
+  outlineOffsetY?: number;
+  tileOrder?: "row-column" | "column-bottom-up";
+  viewPadding?: number;
+};
+
+type CoordinateBounds = {
+  minX: number;
+  maxX: number;
+  minY: number;
+  maxY: number;
 };
 
 const RASTER_MAPS: RasterMapConfig[] = [
@@ -46,6 +51,10 @@ const RASTER_MAPS: RasterMapConfig[] = [
     rows: 10,
     columns: 10,
     coordinateSize: 14400,
+    normalizeOutlines: true,
+    outlineOffsetY: 0,
+    tileOrder: "column-bottom-up",
+    viewPadding: 1800,
   },
   {
     gameId: "scarlet-violet",
@@ -55,6 +64,7 @@ const RASTER_MAPS: RasterMapConfig[] = [
     rows: 4,
     columns: 4,
     coordinateSize: 6600,
+    viewPadding: 800,
   },
   {
     gameId: "scarlet-violet",
@@ -64,6 +74,7 @@ const RASTER_MAPS: RasterMapConfig[] = [
     rows: 4,
     columns: 4,
     coordinateSize: 6600,
+    viewPadding: 800,
   },
 ];
 
@@ -79,8 +90,16 @@ function getRasterMapConfig(
 }
 
 function tileFileName(config: RasterMapConfig, row: number, column: number) {
-  return `${config.filePrefix}_${String(row).padStart(2, "0")}_${String(
-    column,
+  if (config.tileOrder !== "column-bottom-up") {
+    return `${config.filePrefix}_${String(row).padStart(2, "0")}_${String(
+      column,
+    ).padStart(2, "0")}.png`;
+  }
+
+  const sourceColumn = column;
+  const sourceRow = config.rows - row;
+  return `${config.filePrefix}_${String(sourceColumn).padStart(2, "0")}_${String(
+    sourceRow,
   ).padStart(2, "0")}.png`;
 }
 
@@ -99,11 +118,40 @@ function tileBounds(
   ];
 }
 
+function viewBounds(config: RasterMapConfig): L.LatLngBoundsExpression {
+  const padding = config.viewPadding ?? 0;
+  return [
+    [-padding, -padding],
+    [config.coordinateSize + padding, config.coordinateSize + padding],
+  ];
+}
+
 function toMapPoint(
   [x, y]: [number, number],
   rasterMapConfig: RasterMapConfig | undefined,
+  coordinateBounds: CoordinateBounds | null,
+  outlineOffsetY: number,
 ): [number, number] {
-  return rasterMapConfig ? [rasterMapConfig.coordinateSize + y, x] : [-y, x];
+  if (!rasterMapConfig) return [-y, x];
+
+  const yAbs = -y;
+  if (!coordinateBounds) return [rasterMapConfig.coordinateSize - yAbs, x];
+
+  const width = coordinateBounds.maxX - coordinateBounds.minX;
+  const height = coordinateBounds.maxY - coordinateBounds.minY;
+  if (width <= 0 || height <= 0) {
+    return [rasterMapConfig.coordinateSize - yAbs, x];
+  }
+
+  const normalizedX =
+    ((x - coordinateBounds.minX) / width) * rasterMapConfig.coordinateSize;
+  const normalizedY =
+    ((yAbs - coordinateBounds.minY) / height) * rasterMapConfig.coordinateSize;
+
+  return [
+    rasterMapConfig.coordinateSize - normalizedY + outlineOffsetY,
+    normalizedX,
+  ];
 }
 
 function computeBounds(
@@ -118,12 +166,61 @@ function computeBounds(
   ];
 }
 
-function BoundsController({ bounds }: { bounds: L.LatLngBoundsExpression }) {
+function BoundsController({
+  bounds,
+  fullExtent,
+}: {
+  bounds: L.LatLngBoundsExpression;
+  fullExtent?: L.LatLngBoundsExpression;
+}) {
   const map = useMap();
   useEffect(() => {
     map.fitBounds(bounds, { padding: [24, 24] });
-  }, [map, bounds]);
+
+    const updateMinZoom = () => {
+      const ext = fullExtent ?? bounds;
+      const size = map.getSize();
+      if (size.x <= 0 || size.y <= 0) return;
+      const lb = L.latLngBounds(ext as L.LatLngBoundsLiteral);
+      const lngSpan = lb.getEast() - lb.getWest();
+      const latSpan = lb.getNorth() - lb.getSouth();
+      const scale = Math.min(size.x / lngSpan, size.y / latSpan);
+      map.setMinZoom(Math.log2(scale));
+    };
+
+    if (fullExtent) {
+      map.setMaxBounds(fullExtent as L.LatLngBoundsExpression);
+    }
+
+    updateMinZoom();
+    map.on("resize", updateMinZoom);
+    return () => {
+      map.off("resize", updateMinZoom);
+    };
+  }, [map, bounds, fullExtent]);
   return null;
+}
+
+function computeCoordinateBounds(
+  outlines: MapLocationOutline[],
+): CoordinateBounds | null {
+  const points = outlines.flatMap((outline) => outline.points);
+  if (points.length === 0) return null;
+
+  const xs = points.map(([x]) => x);
+  const ys = points.map(([, y]) => -y);
+
+  return {
+    minX: Math.min(...xs),
+    maxX: Math.max(...xs),
+    minY: Math.min(...ys),
+    maxY: Math.max(...ys),
+  };
+}
+
+function getOutlineOffsetY(rasterMapConfig: RasterMapConfig | undefined) {
+  if (!rasterMapConfig?.normalizeOutlines) return 0;
+  return rasterMapConfig.outlineOffsetY ?? 0;
 }
 
 export default function GameMapLeaflet({
@@ -132,7 +229,7 @@ export default function GameMapLeaflet({
   locations,
   registeredIds,
   selectedRegion,
-  onSelect,
+  onZoneClick,
 }: Props) {
   const registeredSet = useMemo(() => new Set(registeredIds), [registeredIds]);
 
@@ -151,25 +248,46 @@ export default function GameMapLeaflet({
   );
 
   const rasterMapConfig = getRasterMapConfig(gameId, selectedRegion);
+  const mapViewBounds = useMemo(
+    () => (rasterMapConfig ? viewBounds(rasterMapConfig) : undefined),
+    [rasterMapConfig],
+  );
+  const coordinateBounds = useMemo(
+    () =>
+      rasterMapConfig?.normalizeOutlines
+        ? computeCoordinateBounds(visibleOutlines)
+        : null,
+    [rasterMapConfig, visibleOutlines],
+  );
+  const renderableOutlines = visibleOutlines;
+
   const allPoints = useMemo(
     () =>
-      visibleOutlines.flatMap((o) =>
-        o.points.map((point) => toMapPoint(point, rasterMapConfig)),
+      renderableOutlines.flatMap((o) =>
+        o.points.map((point) => {
+          const outlineOffsetY = getOutlineOffsetY(rasterMapConfig);
+          return toMapPoint(
+            point,
+            rasterMapConfig,
+            coordinateBounds,
+            outlineOffsetY,
+          );
+        }),
       ),
-    [rasterMapConfig, visibleOutlines],
+    [coordinateBounds, rasterMapConfig, renderableOutlines],
   );
 
   const bounds = useMemo(() => computeBounds(allPoints), [allPoints]);
 
   const outlinesByLocation = useMemo(() => {
     const map = new Map<string, MapLocationOutline[]>();
-    for (const outline of visibleOutlines) {
+    for (const outline of renderableOutlines) {
       const existing = map.get(outline.locationIdentifier) ?? [];
       existing.push(outline);
       map.set(outline.locationIdentifier, existing);
     }
     return map;
-  }, [visibleOutlines]);
+  }, [renderableOutlines]);
 
   if (!bounds) {
     return (
@@ -185,12 +303,15 @@ export default function GameMapLeaflet({
       bounds={bounds}
       style={{ height: "100%", width: "100%", background: "#0f172a" }}
       maxZoom={5}
-      minZoom={-5}
       zoomSnap={0.25}
       attributionControl={false}
       zoomControl={true}
+      maxBoundsViscosity={1.0}
     >
-      <BoundsController bounds={bounds} />
+      <BoundsController
+        bounds={bounds}
+        fullExtent={mapViewBounds}
+      />
       {rasterMapConfig &&
         Array.from({ length: rasterMapConfig.rows }).flatMap((_, row) =>
           Array.from({ length: rasterMapConfig.columns }).map((__, column) => (
@@ -223,139 +344,63 @@ export default function GameMapLeaflet({
             total === 0 ? "#475569" : missing > 0 ? "#f59e0b" : "#22c55e";
           const fillOpacity = missing > 0 ? 0.35 : total > 0 ? 0.2 : 0.15;
 
-          return locationOutlines.map((outline, idx) => (
-            <Polygon
-              key={`${locationId}-${idx}`}
-              positions={
-                outline.points.map((point) =>
-                  toMapPoint(point, rasterMapConfig),
-                ) as L.LatLngExpression[]
-              }
-              pathOptions={{
-                color,
-                weight: 1.5,
-                fillColor: color,
-                fillOpacity,
-              }}
-              eventHandlers={{
-                mouseover: (e) => {
-                  (e.target as L.Polygon).setStyle({
-                    fillOpacity: 0.6,
-                    weight: 2.5,
-                  });
-                },
-                mouseout: (e) => {
-                  (e.target as L.Polygon).setStyle({
-                    fillOpacity,
-                    weight: 1.5,
-                  });
-                },
-              }}
-            >
-              <Tooltip sticky direction="top" offset={[0, -4]}>
-                <div style={{ lineHeight: 1.4 }}>
-                  <strong style={{ fontSize: 12 }}>
-                    {firstOutline.locationName}
-                  </strong>
-                  {total > 0 && (
-                    <div
-                      style={{ fontSize: 11, color: "#94a3b8", marginTop: 2 }}
-                    >
-                      {registered}/{total} registered
-                    </div>
-                  )}
-                </div>
-              </Tooltip>
-              {total > 0 && (
-                <Popup maxWidth={300} minWidth={220}>
-                  <div style={{ fontFamily: "inherit", padding: "2px 0" }}>
-                    <div
-                      style={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        alignItems: "baseline",
-                        marginBottom: 8,
-                      }}
-                    >
-                      <strong style={{ fontSize: 13 }}>
-                        {firstOutline.locationName}
-                      </strong>
-                      {missing > 0 && (
-                        <span
-                          style={{
-                            fontSize: 11,
-                            color: "#d97706",
-                            marginLeft: 8,
-                          }}
-                        >
-                          {missing} missing
-                        </span>
-                      )}
-                    </div>
-                    <div
-                      style={{
-                        display: "grid",
-                        gridTemplateColumns: "repeat(5, 1fr)",
-                        gap: 4,
-                      }}
-                    >
-                      {pokemonList.slice(0, 20).map((pokemon) => {
-                        const isRegistered = registeredSet.has(
-                          pokemon.speciesId,
-                        );
-                        return (
-                          <button
-                            key={`${pokemon.speciesId}-${pokemon.formName ?? "base"}`}
-                            type="button"
-                            onClick={() =>
-                              onSelect(
-                                pokemon.speciesId,
-                                pokemon.formName ?? null,
-                                gameId,
-                              )
-                            }
-                            title={pokemon.displayName}
-                            style={{
-                              background: "none",
-                              border: "none",
-                              padding: 2,
-                              cursor: "pointer",
-                              borderRadius: 4,
-                              opacity: isRegistered ? 1 : 0.4,
-                            }}
-                          >
-                            <PokemonSprite
-                              src={pokemon.spriteUrl}
-                              alt={pokemon.displayName}
-                              width={36}
-                              height={36}
-                              className="h-9 w-9"
-                              style={{
-                                imageRendering: "pixelated",
-                                display: "block",
-                              }}
-                            />
-                          </button>
-                        );
-                      })}
-                    </div>
-                    {pokemonList.length > 20 && (
+          return locationOutlines.map((outline, idx) => {
+            const outlineOffsetY = getOutlineOffsetY(rasterMapConfig);
+
+            return (
+              <Polygon
+                key={`${locationId}-${idx}`}
+                positions={
+                  outline.points.map((point) =>
+                    toMapPoint(
+                      point,
+                      rasterMapConfig,
+                      coordinateBounds,
+                      outlineOffsetY,
+                    ),
+                  ) as L.LatLngExpression[]
+                }
+                pathOptions={{
+                  color,
+                  weight: 1.5,
+                  fillColor: color,
+                  fillOpacity,
+                }}
+                eventHandlers={{
+                  mouseover: (e) => {
+                    (e.target as L.Polygon).setStyle({
+                      fillOpacity: 0.6,
+                      weight: 2.5,
+                    });
+                  },
+                  mouseout: (e) => {
+                    (e.target as L.Polygon).setStyle({
+                      fillOpacity,
+                      weight: 1.5,
+                    });
+                  },
+                  click: () => {
+                    if (locationGroup) onZoneClick(locationGroup);
+                  },
+                }}
+              >
+                <Tooltip sticky direction="top" offset={[0, -4]}>
+                  <div style={{ lineHeight: 1.4 }}>
+                    <strong style={{ fontSize: 12 }}>
+                      {firstOutline.locationName}
+                    </strong>
+                    {total > 0 && (
                       <div
-                        style={{
-                          marginTop: 6,
-                          fontSize: 11,
-                          color: "#94a3b8",
-                          textAlign: "center",
-                        }}
+                        style={{ fontSize: 11, color: "#94a3b8", marginTop: 2 }}
                       >
-                        +{pokemonList.length - 20} more
+                        {registered}/{total} registered
                       </div>
                     )}
                   </div>
-                </Popup>
-              )}
-            </Polygon>
-          ));
+                </Tooltip>
+              </Polygon>
+            );
+          });
         },
       )}
     </MapContainer>

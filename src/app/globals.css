@@ -62,6 +62,31 @@ body {
   overflow: hidden;
 }
 
+/* Leaflet popup dark theme */
+.leaflet-popup-content-wrapper {
+  background: #1e293b;
+  color: #e2e8f0;
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+}
+
+.leaflet-popup-tip {
+  background: #1e293b;
+}
+
+.leaflet-popup-close-button {
+  color: #94a3b8 !important;
+}
+
+.leaflet-popup-close-button:hover {
+  color: #e2e8f0 !important;
+}
+
+/* Remove focus outline on clicked polygons */
+.leaflet-interactive:focus {
+  outline: none !important;
+}
+
 @keyframes sprite-pop {
   0% {
     transform: scale(1);
