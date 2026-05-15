@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useLivingDexEntries } from "@/hooks/usePokemon";
 import {
   usePokedexStore,
@@ -87,12 +87,8 @@ export function HomeBoxView({ onSelect }: Props) {
   const setHomeBoxMode = usePokedexStore((s) => s.setHomeBoxMode);
   const isShinyOnlyMode = homeBoxMode === "shiny";
   const isPairedMode = homeBoxMode === "paired";
-
-  useEffect(() => {
-    if (isShinyOnlyMode && statusFilter === "shiny") {
-      setStatusFilter("owned");
-    }
-  }, [isShinyOnlyMode, statusFilter]);
+  const activeStatusFilter =
+    isShinyOnlyMode && statusFilter === "shiny" ? "owned" : statusFilter;
 
   const summary = useMemo(() => {
     const entries = (data ?? []).filter((entry) =>
@@ -165,13 +161,16 @@ export function HomeBoxView({ onSelect }: Props) {
         const record = ownedRecords[ownedKey(entry.speciesId, entry.formName)];
         const shinyTarget = isShinyTargetEntry(entry);
         const modeOwned = isShinyOnlyMode ? record?.shiny_owned : record?.owned;
-        if (isShinyOnlyMode && !shinyTarget && statusFilter !== "all") {
+        if (isShinyOnlyMode && !shinyTarget && activeStatusFilter !== "all") {
           return false;
         }
-        if (statusFilter === "shiny" && (!shinyTarget || !record?.shiny_owned))
+        if (
+          activeStatusFilter === "shiny" &&
+          (!shinyTarget || !record?.shiny_owned)
+        )
           return false;
-        if (statusFilter === "owned" && !modeOwned) return false;
-        if (statusFilter === "missing" && modeOwned) return false;
+        if (activeStatusFilter === "owned" && !modeOwned) return false;
+        if (activeStatusFilter === "missing" && modeOwned) return false;
         if (!q) return true;
         const nameMatch = entry.displayName.toLowerCase().includes(q);
         const numMatch = String(entry.speciesId).startsWith(
@@ -189,20 +188,20 @@ export function HomeBoxView({ onSelect }: Props) {
         const entryMatchesQuery =
           !q || matchingKeys.has(getEntryKey(slot.entry));
         if (!entryMatchesQuery) return false;
-        if (statusFilter === "shiny") {
+        if (activeStatusFilter === "shiny") {
           return slot.isShiny && !!record?.shiny_owned;
         }
-        if (statusFilter === "owned") {
+        if (activeStatusFilter === "owned") {
           return slot.isShiny ? !!record?.shiny_owned : !!record?.owned;
         }
-        if (statusFilter === "missing") {
+        if (activeStatusFilter === "missing") {
           return slot.isShiny ? !record?.shiny_owned : !record?.owned;
         }
         return true;
       })
       .map(getSlotKey),
   );
-  const hasActiveFilter = q.length > 0 || statusFilter !== "all";
+  const hasActiveFilter = q.length > 0 || activeStatusFilter !== "all";
   const visibleBoxes = !hasActiveFilter
     ? boxes.map((box, boxIndex) => ({ box, boxIndex }))
     : boxes.flatMap((box, boxIndex) =>
@@ -352,16 +351,16 @@ export function HomeBoxView({ onSelect }: Props) {
                 key={value}
                 type="button"
                 onClick={() => setStatusFilter(value)}
-                aria-pressed={statusFilter === value}
+                aria-pressed={activeStatusFilter === value}
                 className={`flex min-w-0 items-center justify-center gap-1 rounded-full px-2.5 py-1.5 text-[11px] font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 sm:gap-1.5 sm:px-3 sm:text-xs ${
-                  statusFilter === value
+                  activeStatusFilter === value
                     ? activeClass
                     : "bg-gray-100 text-gray-500 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700"
                 }`}
               >
                 <span className="truncate">{label}</span>
                 <span
-                  className={`shrink-0 tabular-nums text-[10px] ${statusFilter === value ? "opacity-80" : "opacity-60"}`}
+                  className={`shrink-0 tabular-nums text-[10px] ${activeStatusFilter === value ? "opacity-80" : "opacity-60"}`}
                 >
                   {count}
                 </span>

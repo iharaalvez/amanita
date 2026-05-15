@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { ReactNode } from "react";
+import type { ReactNode, SetStateAction } from "react";
 import { PokemonSprite } from "@/components/pokemon/PokemonSprite";
 import { usePokedexStore, ownedKey } from "@/store/pokedexStore";
 import {
@@ -413,10 +413,44 @@ export function PokemonDetailModal({
   onClose,
   onNavigate,
 }: Props) {
-  const [collapsedEncounterGroups, setCollapsedEncounterGroups] = useState<
-    Record<string, boolean>
-  >({});
-  const [showShiny, setShowShiny] = useState(false);
+  const [collapsedEncounterState, setCollapsedEncounterState] = useState<{
+    pokemonId: number;
+    groups: Record<string, boolean>;
+  }>({ pokemonId, groups: {} });
+  const [showShinyState, setShowShinyState] = useState({
+    pokemonId,
+    value: false,
+  });
+  const collapsedEncounterGroups =
+    collapsedEncounterState.pokemonId === pokemonId
+      ? collapsedEncounterState.groups
+      : {};
+  const showShiny =
+    showShinyState.pokemonId === pokemonId ? showShinyState.value : false;
+  const setCollapsedEncounterGroups = (
+    nextGroups: SetStateAction<Record<string, boolean>>,
+  ) => {
+    setCollapsedEncounterState((state) => {
+      const currentGroups = state.pokemonId === pokemonId ? state.groups : {};
+      return {
+        pokemonId,
+        groups:
+          typeof nextGroups === "function"
+            ? nextGroups(currentGroups)
+            : nextGroups,
+      };
+    });
+  };
+  const setShowShiny = (nextValue: SetStateAction<boolean>) => {
+    setShowShinyState((state) => {
+      const currentValue = state.pokemonId === pokemonId ? state.value : false;
+      return {
+        pokemonId,
+        value:
+          typeof nextValue === "function" ? nextValue(currentValue) : nextValue,
+      };
+    });
+  };
   const modalRef = useRef<HTMLDivElement>(null);
   const onCloseRef = useRef(onClose);
   useEffect(() => {
@@ -523,11 +557,6 @@ export function PokemonDetailModal({
       window.scrollTo(0, scrollY);
     };
   }, []);
-
-  useEffect(() => {
-    setCollapsedEncounterGroups({});
-    setShowShiny(false);
-  }, [pokemonId]);
 
   const displayName = selectedEntry?.displayName ?? "";
   const paddedNumber = `#${String(speciesId).padStart(4, "0")}`;
