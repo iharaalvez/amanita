@@ -30,8 +30,22 @@ type RasterMapConfig = {
   columns: number;
   coordinateSize: number;
   normalizeOutlines?: boolean;
+  outlineTarget?: "full" | "core";
+  outlineScaleX?: number;
+  outlineScaleY?: number;
+  outlineOffsetX?: number;
   outlineOffsetY?: number;
-  tileOrder?: "row-column" | "column-bottom-up";
+  tileOrder?:
+    | "row-column"
+    | "column-row-zero"
+    | "column-bottom-up"
+    | "column-bottom-up-zero";
+  sourceRowByRenderedRow?: Record<number, number>;
+  edgeRows?: number;
+  edgeColumns?: number;
+  edgeTileOrder?: "column-bottom-up-one";
+  coreRowOffset?: number;
+  coreColumnOffset?: number;
   viewPadding?: number;
 };
 
@@ -42,6 +56,15 @@ type CoordinateBounds = {
   maxY: number;
 };
 
+type TargetBounds = {
+  minX: number;
+  maxX: number;
+  minY: number;
+  maxY: number;
+};
+
+const TILE_OVERLAP = 2;
+
 const RASTER_MAPS: RasterMapConfig[] = [
   {
     gameId: "scarlet-violet",
@@ -50,10 +73,19 @@ const RASTER_MAPS: RasterMapConfig[] = [
     filePrefix: "ymap_ter",
     rows: 10,
     columns: 10,
-    coordinateSize: 14400,
+    coordinateSize: 15616,
     normalizeOutlines: true,
+    outlineTarget: "core",
+    outlineScaleX: 1,
+    outlineScaleY: 1,
+    outlineOffsetX: 0,
     outlineOffsetY: 0,
     tileOrder: "column-bottom-up",
+    edgeRows: 12,
+    edgeColumns: 12,
+    edgeTileOrder: "column-bottom-up-one",
+    coreRowOffset: 1,
+    coreColumnOffset: 1,
     viewPadding: 1800,
   },
   {
@@ -64,6 +96,18 @@ const RASTER_MAPS: RasterMapConfig[] = [
     rows: 4,
     columns: 4,
     coordinateSize: 6600,
+    normalizeOutlines: true,
+    outlineTarget: "core",
+    outlineScaleX: 0.77,
+    outlineScaleY: 0.75,
+    outlineOffsetX: 50,
+    outlineOffsetY: -50,
+    tileOrder: "column-bottom-up-zero",
+    edgeRows: 6,
+    edgeColumns: 6,
+    edgeTileOrder: "column-bottom-up-one",
+    coreRowOffset: 1,
+    coreColumnOffset: 1,
     viewPadding: 800,
   },
   {
@@ -74,6 +118,18 @@ const RASTER_MAPS: RasterMapConfig[] = [
     rows: 4,
     columns: 4,
     coordinateSize: 6600,
+    normalizeOutlines: true,
+    outlineTarget: "core",
+    outlineScaleX: 0.87,
+    outlineScaleY: 0.87,
+    outlineOffsetX: -8,
+    outlineOffsetY: -8,
+    tileOrder: "column-bottom-up-zero",
+    edgeRows: 6,
+    edgeColumns: 6,
+    edgeTileOrder: "column-bottom-up-one",
+    coreRowOffset: 1,
+    coreColumnOffset: 1,
     viewPadding: 800,
   },
 ];
@@ -90,32 +146,115 @@ function getRasterMapConfig(
 }
 
 function tileFileName(config: RasterMapConfig, row: number, column: number) {
-  if (config.tileOrder !== "column-bottom-up") {
-    return `${config.filePrefix}_${String(row).padStart(2, "0")}_${String(
-      column,
+  if (config.tileOrder === "column-bottom-up") {
+    const sourceColumn = column;
+    const sourceRow = config.sourceRowByRenderedRow?.[row] ?? config.rows - row;
+    return `${config.filePrefix}_${String(sourceColumn).padStart(
+      2,
+      "0",
+    )}_${String(sourceRow).padStart(2, "0")}.png`;
+  }
+
+  if (config.tileOrder === "column-bottom-up-zero") {
+    const sourceColumn = column;
+    const sourceRow =
+      config.sourceRowByRenderedRow?.[row] ?? config.rows - row - 1;
+    return `${config.filePrefix}_${String(sourceColumn).padStart(
+      2,
+      "0",
+    )}_${String(sourceRow).padStart(2, "0")}.png`;
+  }
+
+  if (config.tileOrder === "column-row-zero") {
+    const sourceRow = config.sourceRowByRenderedRow?.[row] ?? row;
+    return `${config.filePrefix}_${String(column).padStart(2, "0")}_${String(
+      sourceRow,
     ).padStart(2, "0")}.png`;
   }
 
-  const sourceColumn = column;
-  const sourceRow = config.rows - row;
-  return `${config.filePrefix}_${String(sourceColumn).padStart(2, "0")}_${String(
-    sourceRow,
+  const sourceRow = config.sourceRowByRenderedRow?.[row] ?? row;
+  return `${config.filePrefix}_${String(sourceRow).padStart(2, "0")}_${String(
+    column,
   ).padStart(2, "0")}.png`;
+}
+
+function edgeTileFileName(
+  config: RasterMapConfig,
+  row: number,
+  column: number,
+) {
+  if (config.edgeTileOrder === "column-bottom-up-one") {
+    const sourceColumn = column + 1;
+    const sourceRow = (config.edgeRows ?? 0) - row;
+    return `${config.filePrefix}_${String(sourceColumn).padStart(
+      3,
+      "0",
+    )}_${String(sourceRow).padStart(3, "0")}.png`;
+  }
+
+  return `${config.filePrefix}_${String(row + 1).padStart(3, "0")}_${String(
+    column + 1,
+  ).padStart(3, "0")}.png`;
 }
 
 function tileBounds(
   config: RasterMapConfig,
   row: number,
   column: number,
+  gridRows = config.rows,
+  gridColumns = config.columns,
+  rowOffset = 0,
+  columnOffset = 0,
+  overlap = 0,
 ): L.LatLngBoundsExpression {
-  const rowSpan = config.coordinateSize / config.rows;
-  const columnSpan = config.coordinateSize / config.columns;
-  const top = config.coordinateSize - row * rowSpan;
-  const bottom = config.coordinateSize - (row + 1) * rowSpan;
+  const rowSpan = config.coordinateSize / gridRows;
+  const columnSpan = config.coordinateSize / gridColumns;
+  const mapRow = row + rowOffset;
+  const mapColumn = column + columnOffset;
+  const top = config.coordinateSize - mapRow * rowSpan + overlap;
+  const bottom = config.coordinateSize - (mapRow + 1) * rowSpan - overlap;
   return [
-    [bottom, column * columnSpan],
-    [top, (column + 1) * columnSpan],
+    [bottom, mapColumn * columnSpan - overlap],
+    [top, (mapColumn + 1) * columnSpan + overlap],
   ];
+}
+
+function isEdgeTile(
+  row: number,
+  column: number,
+  rows: number,
+  columns: number,
+) {
+  return (
+    row === 0 || column === 0 || row === rows - 1 || column === columns - 1
+  );
+}
+
+function coreTargetBounds(config: RasterMapConfig): TargetBounds {
+  const gridRows = config.edgeRows ?? config.rows;
+  const gridColumns = config.edgeColumns ?? config.columns;
+  const rowSpan = config.coordinateSize / gridRows;
+  const columnSpan = config.coordinateSize / gridColumns;
+  const rowOffset = config.coreRowOffset ?? 0;
+  const columnOffset = config.coreColumnOffset ?? 0;
+
+  return {
+    minX: columnOffset * columnSpan,
+    maxX: (columnOffset + config.columns) * columnSpan,
+    minY: rowOffset * rowSpan,
+    maxY: (rowOffset + config.rows) * rowSpan,
+  };
+}
+
+function outlineTargetBounds(config: RasterMapConfig): TargetBounds {
+  if (config.outlineTarget === "core") return coreTargetBounds(config);
+
+  return {
+    minX: 0,
+    maxX: config.coordinateSize,
+    minY: 0,
+    maxY: config.coordinateSize,
+  };
 }
 
 function viewBounds(config: RasterMapConfig): L.LatLngBoundsExpression {
@@ -143,15 +282,24 @@ function toMapPoint(
     return [rasterMapConfig.coordinateSize - yAbs, x];
   }
 
+  const targetBounds = outlineTargetBounds(rasterMapConfig);
+  const targetWidth = targetBounds.maxX - targetBounds.minX;
+  const targetHeight = targetBounds.maxY - targetBounds.minY;
   const normalizedX =
-    ((x - coordinateBounds.minX) / width) * rasterMapConfig.coordinateSize;
+    targetBounds.minX + ((x - coordinateBounds.minX) / width) * targetWidth;
   const normalizedY =
-    ((yAbs - coordinateBounds.minY) / height) * rasterMapConfig.coordinateSize;
+    targetBounds.minY +
+    ((yAbs - coordinateBounds.minY) / height) * targetHeight;
+  const centerX = (targetBounds.minX + targetBounds.maxX) / 2;
+  const centerY = (targetBounds.minY + targetBounds.maxY) / 2;
+  const scaledX =
+    centerX +
+    (normalizedX - centerX) * (rasterMapConfig.outlineScaleX ?? 1) +
+    (rasterMapConfig.outlineOffsetX ?? 0);
+  const scaledY =
+    centerY + (normalizedY - centerY) * (rasterMapConfig.outlineScaleY ?? 1);
 
-  return [
-    rasterMapConfig.coordinateSize - normalizedY + outlineOffsetY,
-    normalizedX,
-  ];
+  return [rasterMapConfig.coordinateSize - scaledY + outlineOffsetY, scaledX];
 }
 
 function computeBounds(
@@ -248,36 +396,29 @@ export default function GameMapLeaflet({
   );
 
   const rasterMapConfig = getRasterMapConfig(gameId, selectedRegion);
-  const mapViewBounds = useMemo(
-    () => (rasterMapConfig ? viewBounds(rasterMapConfig) : undefined),
-    [rasterMapConfig],
-  );
-  const coordinateBounds = useMemo(
-    () =>
-      rasterMapConfig?.normalizeOutlines
-        ? computeCoordinateBounds(visibleOutlines)
-        : null,
-    [rasterMapConfig, visibleOutlines],
-  );
+  const edgeRows = rasterMapConfig?.edgeRows ?? 0;
+  const edgeColumns = rasterMapConfig?.edgeColumns ?? 0;
+  const mapViewBounds = rasterMapConfig
+    ? viewBounds(rasterMapConfig)
+    : undefined;
+  const coordinateBounds = rasterMapConfig?.normalizeOutlines
+    ? computeCoordinateBounds(visibleOutlines)
+    : null;
   const renderableOutlines = visibleOutlines;
 
-  const allPoints = useMemo(
-    () =>
-      renderableOutlines.flatMap((o) =>
-        o.points.map((point) => {
-          const outlineOffsetY = getOutlineOffsetY(rasterMapConfig);
-          return toMapPoint(
-            point,
-            rasterMapConfig,
-            coordinateBounds,
-            outlineOffsetY,
-          );
-        }),
-      ),
-    [coordinateBounds, rasterMapConfig, renderableOutlines],
+  const allPoints = renderableOutlines.flatMap((o) =>
+    o.points.map((point) => {
+      const outlineOffsetY = getOutlineOffsetY(rasterMapConfig);
+      return toMapPoint(
+        point,
+        rasterMapConfig,
+        coordinateBounds,
+        outlineOffsetY,
+      );
+    }),
   );
 
-  const bounds = useMemo(() => computeBounds(allPoints), [allPoints]);
+  const bounds = computeBounds(allPoints);
 
   const outlinesByLocation = useMemo(() => {
     const map = new Map<string, MapLocationOutline[]>();
@@ -308,10 +449,40 @@ export default function GameMapLeaflet({
       zoomControl={true}
       maxBoundsViscosity={1.0}
     >
-      <BoundsController
-        bounds={bounds}
-        fullExtent={mapViewBounds}
-      />
+      <BoundsController bounds={bounds} fullExtent={mapViewBounds} />
+      {rasterMapConfig &&
+        edgeRows > 0 &&
+        edgeColumns > 0 &&
+        Array.from({ length: edgeRows }).flatMap((_, row) =>
+          Array.from({ length: edgeColumns })
+            .map((__, column) => ({ row, column }))
+            .filter(({ row, column }) =>
+              isEdgeTile(row, column, edgeRows, edgeColumns),
+            )
+            .map(({ row, column }) => (
+              <ImageOverlay
+                key={`${rasterMapConfig.regionAreaIdentifier}-edge-${row}-${column}`}
+                url={`${rasterMapConfig.directory}/${edgeTileFileName(
+                  rasterMapConfig,
+                  row,
+                  column,
+                )}`}
+                bounds={tileBounds(
+                  rasterMapConfig,
+                  row,
+                  column,
+                  edgeRows,
+                  edgeColumns,
+                  0,
+                  0,
+                  TILE_OVERLAP,
+                )}
+                opacity={1}
+                zIndex={1}
+                interactive={false}
+              />
+            )),
+        )}
       {rasterMapConfig &&
         Array.from({ length: rasterMapConfig.rows }).flatMap((_, row) =>
           Array.from({ length: rasterMapConfig.columns }).map((__, column) => (
@@ -322,9 +493,18 @@ export default function GameMapLeaflet({
                 row,
                 column,
               )}`}
-              bounds={tileBounds(rasterMapConfig, row, column)}
-              opacity={0.9}
-              zIndex={1}
+              bounds={tileBounds(
+                rasterMapConfig,
+                row,
+                column,
+                rasterMapConfig.edgeRows ?? rasterMapConfig.rows,
+                rasterMapConfig.edgeColumns ?? rasterMapConfig.columns,
+                rasterMapConfig.coreRowOffset,
+                rasterMapConfig.coreColumnOffset,
+                TILE_OVERLAP,
+              )}
+              opacity={1}
+              zIndex={2}
               interactive={false}
             />
           )),
