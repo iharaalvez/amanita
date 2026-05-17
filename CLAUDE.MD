@@ -73,6 +73,10 @@ ProgressBar — X/total with per-gen breakdown
 3. **Game intelligence** — catch locations, per-game dex, Shiny Charm tracker
 4. **Shiny Living Dex** — dual tracking, hunt method tags, stats dashboard
 
+## Git
+
+- Never add `Co-Authored-By` or any self-attribution to commit messages
+
 ## Conventions
 
 - API calls in custom hooks: `usePokemon(id)`, `useGeneration(genId)`, `useEncounters(id)`
