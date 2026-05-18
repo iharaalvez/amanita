@@ -25,7 +25,9 @@ __pycache__/
 .venv/
 client_secret_*.json
 data/pokedb/
-resources/maps/
+resources
+public/icons/gallery-dl/
+public/icons/*.zip
 
 # debug
 npm-debug.log*

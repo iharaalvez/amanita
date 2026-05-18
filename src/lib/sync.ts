@@ -4,6 +4,7 @@ import type {
   OwnershipMethod,
   ProgressSnapshot,
   ShinyHuntMethod,
+  GameDexFlags,
 } from "@/types/pokemon";
 
 function ownedKey(speciesId: number, formName: string | null): string {
@@ -15,11 +16,13 @@ type SupabaseRow = {
   form_name: string | null;
   owned: boolean;
   shiny_owned: boolean;
-  in_home?: boolean;
   method: string | null;
   shiny_method: string | null;
   shiny_game: string | null;
-  // Legacy column kept for one-time migration only — no longer written
+  // Legacy columns — read-only for one-time migration
+  in_home?: boolean;
+  alpha_owned?: boolean;
+  shiny_alpha_owned?: boolean;
   game_dex?: Record<string, boolean>;
 };
 
@@ -39,7 +42,9 @@ export async function loadFromSupabase(
     supabase.from("pokedex").select("*").eq("user_id", resolvedUserId),
     supabase
       .from("user_settings")
-      .select("available_games, game_dex_progress, shiny_game_dex_progress")
+      .select(
+        "available_games, game_dex, game_dex_progress, shiny_game_dex_progress, pinned_game_id",
+      )
       .eq("user_id", resolvedUserId)
       .maybeSingle(),
   ]);
@@ -62,9 +67,9 @@ export async function loadFromSupabase(
     };
   }
 
-  // One-time cleanup: clear in_home column from all rows that still have it set
-  const dirtyIds = rows.filter((r) => r.in_home).map((r) => r.species_id);
-  if (dirtyIds.length > 0) {
+  // One-time cleanup: clear in_home column
+  const dirtyInHome = rows.filter((r) => r.in_home).map((r) => r.species_id);
+  if (dirtyInHome.length > 0) {
     void supabase
       .from("pokedex")
       .update({ in_home: false })
@@ -72,40 +77,76 @@ export async function loadFromSupabase(
       .eq("in_home", true);
   }
 
-  // Load game dex progress from user_settings, migrating legacy per-row data if needed
-  const storedProgress = settingsResult.data?.game_dex_progress as Record<
-    string,
-    number[]
-  > | null;
-  let gameDexProgress: Record<string, number[]>;
+  // Load gameDex — prefer new unified column, fall back to legacy arrays + alpha
+  let gameDex: Record<string, Record<string, GameDexFlags>>;
 
-  if (storedProgress && Object.keys(storedProgress).length > 0) {
-    gameDexProgress = storedProgress;
+  const storedGameDex = settingsResult.data?.game_dex as Record<
+    string,
+    Record<string, GameDexFlags>
+  > | null;
+
+  if (storedGameDex && Object.keys(storedGameDex).length > 0) {
+    gameDex = storedGameDex;
   } else {
-    // One-time migration: rebuild from legacy game_dex column on pokedex rows
-    gameDexProgress = {};
+    // One-time migration from legacy user_settings arrays and per-row
+    // pokedex.game_dex boolean maps.
+    const legacyProgress = {
+      ...((settingsResult.data?.game_dex_progress ?? {}) as Record<
+        string,
+        number[]
+      >),
+    };
+    const legacyShinyProgress = {
+      ...((settingsResult.data?.shiny_game_dex_progress ?? {}) as Record<
+        string,
+        number[]
+      >),
+    };
     for (const row of rows) {
       if (!row.game_dex) continue;
-      for (const [gameId, registered] of Object.entries(row.game_dex)) {
+      for (const [gameId, registered] of Object.entries(
+        row.game_dex as Record<string, boolean>,
+      )) {
         if (!registered) continue;
-        if (!gameDexProgress[gameId]) gameDexProgress[gameId] = [];
-        gameDexProgress[gameId].push(row.species_id);
+        if (!legacyProgress[gameId]) legacyProgress[gameId] = [];
+        legacyProgress[gameId].push(row.species_id);
       }
     }
-    if (Object.keys(gameDexProgress).length > 0) {
-      void syncGameDexProgress(gameDexProgress);
+
+    gameDex = {};
+    const legacyGameIds = new Set([
+      ...Object.keys(legacyProgress),
+      ...Object.keys(legacyShinyProgress),
+    ]);
+    for (const gameId of legacyGameIds) {
+      const ownedIds = new Set(legacyProgress[gameId] ?? []);
+      const shinyIds = new Set(legacyShinyProgress[gameId] ?? []);
+      const speciesIds = new Set([...ownedIds, ...shinyIds]);
+      gameDex[gameId] = {};
+      for (const speciesId of speciesIds) {
+        gameDex[gameId][ownedKey(speciesId, null)] = {
+          owned: ownedIds.has(speciesId) || shinyIds.has(speciesId),
+          shiny: shinyIds.has(speciesId),
+        };
+      }
+    }
+
+    if (Object.keys(gameDex).length > 0) {
+      void syncGameDex(gameDex);
     }
   }
 
   return {
     owned,
-    gameDexProgress,
-    shinyGameDexProgress: (settingsResult.data?.shiny_game_dex_progress ??
-      {}) as Record<string, number[]>,
+    gameDex,
     availableGames: (settingsResult.data?.available_games ?? {}) as Record<
       string,
       boolean
     >,
+    pinnedGameId:
+      typeof settingsResult.data?.pinned_game_id === "string"
+        ? settingsResult.data.pinned_game_id
+        : null,
   };
 }
 
@@ -152,8 +193,8 @@ export async function deleteRecord(
   }
 }
 
-export async function syncGameDexProgress(
-  progress: Record<string, number[]>,
+export async function syncGameDex(
+  gameDex: Record<string, Record<string, GameDexFlags>>,
 ): Promise<void> {
   const {
     data: { user },
@@ -162,26 +203,7 @@ export async function syncGameDexProgress(
 
   await supabase
     .from("user_settings")
-    .upsert(
-      { user_id: user.id, game_dex_progress: progress },
-      { onConflict: "user_id" },
-    );
-}
-
-export async function syncShinyGameDexProgress(
-  progress: Record<string, number[]>,
-): Promise<void> {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return;
-
-  await supabase
-    .from("user_settings")
-    .upsert(
-      { user_id: user.id, shiny_game_dex_progress: progress },
-      { onConflict: "user_id" },
-    );
+    .upsert({ user_id: user.id, game_dex: gameDex }, { onConflict: "user_id" });
 }
 
 export async function syncAvailableGames(
@@ -196,6 +218,20 @@ export async function syncAvailableGames(
     .from("user_settings")
     .upsert(
       { user_id: user.id, available_games: games },
+      { onConflict: "user_id" },
+    );
+}
+
+export async function syncPinnedGameId(gameId: string | null): Promise<void> {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return;
+
+  await supabase
+    .from("user_settings")
+    .upsert(
+      { user_id: user.id, pinned_game_id: gameId },
       { onConflict: "user_id" },
     );
 }
@@ -227,7 +263,7 @@ export async function syncAllRecords(
   }
   await Promise.all([
     syncAvailableGames(snapshot.availableGames),
-    syncGameDexProgress(snapshot.gameDexProgress),
-    syncShinyGameDexProgress(snapshot.shinyGameDexProgress),
+    syncGameDex(snapshot.gameDex),
+    syncPinnedGameId(snapshot.pinnedGameId ?? null),
   ]);
 }

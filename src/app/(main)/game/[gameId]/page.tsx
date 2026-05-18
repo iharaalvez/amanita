@@ -10,11 +10,11 @@ import { getGameById } from "@/config/games";
 import { useGamePokedex } from "@/hooks/useGamePokedex";
 import { useOpenPokemon } from "@/hooks/useOpenPokemon";
 import { usePokedexStore } from "@/store/pokedexStore";
-import type { GameDexEntry } from "@/types/pokemon";
+import type { GameDexEntry, GameDexFlags } from "@/types/pokemon";
 
 type Tab = "dex" | "guide" | "locations";
 
-const EMPTY_PROGRESS: readonly number[] = [];
+const EMPTY_GAME_FLAGS: Record<string, GameDexFlags> = {};
 
 type HuntGuideProps = {
   gameId: string;
@@ -67,10 +67,11 @@ function HuntTargetCard({
 
 function HuntGuideView({ gameId, gameName, onSelect }: HuntGuideProps) {
   const { data: gameDex, isLoading, error } = useGamePokedex(gameId);
-  const registeredIds = usePokedexStore(
-    (state) => state.gameDexProgress[gameId] ?? EMPTY_PROGRESS,
+  const gameFlags = usePokedexStore((state) => state.gameDex[gameId] ?? EMPTY_GAME_FLAGS);
+  const registeredSet = useMemo(
+    () => new Set(Object.entries(gameFlags).filter(([, f]) => f.owned).map(([k]) => Number(k.split("-")[0]))),
+    [gameFlags],
   );
-  const registeredSet = useMemo(() => new Set(registeredIds), [registeredIds]);
 
   const targets = useMemo(
     () =>

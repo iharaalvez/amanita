@@ -66,6 +66,13 @@ ProgressBar — X/total with per-gen breakdown
 - HOME box view should feel like opening the real app
 - Shiny variants toggle via a ✦ button on cards
 
+## Asset conventions
+
+- Raw downloaded icon/logo archives can live under `public/icons/gallery-dl/` for reference.
+- Any asset used by the app should be copied into a curated folder such as `public/icons/pokemon/`.
+- Rename curated assets with short, friendly, kebab-case names, e.g. `alpha-symbol.png`, `shiny-symbol-home.png`, `tm-machine.png`.
+- Do not import app assets from long source/archive paths like `deviantart_1011676462_TM Machine Logo.jpg`.
+
 ## Phases
 
 1. **MVP** — grid, ownership toggle, progress stats, local persistence

@@ -9,8 +9,8 @@ export const viewport: Viewport = {
   initialScale: 1,
   viewportFit: "cover",
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
-    { media: "(prefers-color-scheme: dark)", color: "#111827" },
+    { media: "(prefers-color-scheme: light)", color: "#f4f0e8" },
+    { media: "(prefers-color-scheme: dark)", color: "#0d0f18" },
   ],
 };
 
@@ -26,12 +26,12 @@ const geistMono = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "Gotta Catch 'Em All!",
-  description: "Track your Living Dex and National Dex progress",
+  title: "Amanita",
+  description: "Your Living Dex, organized.",
   icons: {
-    icon: "/icon.svg",
-    shortcut: "/icon.svg",
-    apple: "/icon.svg",
+    icon: "/amanita_favicon.png",
+    shortcut: "/amanita_favicon.png",
+    apple: "/app-icon-180x180.png",
   },
 };
 

@@ -409,7 +409,7 @@ async def seed_game_dexes(
 
 # Games whose Pokédex data is not yet in PokéAPI are seeded here manually.
 # Each entry is a list of species IDs in game Pokédex order.
-# Source: Bulbapedia, verified 2026-05-06.
+# Source: PokemonDB, verified 2026-05-18.
 MANUAL_GAME_DEXES: dict[str, list[int]] = {
     "lgpe": [
         *range(1, 152),
@@ -443,9 +443,9 @@ MANUAL_GAME_DEXES: dict[str, list[int]] = {
         142, 696, 697, 698, 699, 95, 208, 304, 305, 306,
         694, 695, 710, 711, 246, 247, 248, 656, 657, 658,
         870, 650, 651, 652, 227, 653, 654, 655,
-        371, 372, 373, 115, 780, 374, 375, 376, 377, 378, 379,
+        371, 372, 373, 115, 780, 374, 375, 376, 716, 717, 718,
         # Optional entries (#231–232): appear in dex but not required for Shiny Charm
-        150, 719,
+        719, 150,
     ],
 }
 

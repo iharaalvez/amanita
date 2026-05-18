@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import { Pin, PinOff } from "lucide-react";
 import { AvailableGamesModal } from "@/components/pokemon/AvailableGamesModal";
 import {
   ArrowRightIcon,
@@ -16,6 +17,9 @@ import {
 } from "@/config/games";
 import { useGamePokedex } from "@/hooks/useGamePokedex";
 import { usePokedexStore } from "@/store/pokedexStore";
+import type { GameDexFlags } from "@/types/pokemon";
+
+const EMPTY_GAME_FLAGS: Record<string, GameDexFlags> = {};
 
 const GEN_STYLES: Record<number, string> = {
   1: "border-red-200 bg-red-50 text-red-700 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-300",
@@ -43,25 +47,28 @@ const GEN_LABELS: Record<number, string> = {
 
 type GenerationFilter = "all" | number;
 
-const EMPTY_PROGRESS: readonly number[] = [];
-
 function GameCard({ game }: { game: GameEntry }) {
   const available = usePokedexStore((s) => !!s.availableGames[game.id]);
   const setGameAvailable = usePokedexStore((s) => s.setGameAvailable);
-  const registeredIds = usePokedexStore(
-    (s) => s.gameDexProgress[game.id] ?? EMPTY_PROGRESS,
+  const pinnedGameId = usePokedexStore((s) => s.pinnedGameId);
+  const setPinnedGameId = usePokedexStore((s) => s.setPinnedGameId);
+  const gameFlags = usePokedexStore((s) => s.gameDex[game.id] ?? EMPTY_GAME_FLAGS);
+  const registered = useMemo(
+    () => Object.values(gameFlags).filter((f) => f.owned).length,
+    [gameFlags],
   );
-  const shinyRegistered = usePokedexStore(
-    (s) => s.shinyGameDexProgress[game.id]?.length ?? 0,
+  const shinyRegistered = useMemo(
+    () => Object.values(gameFlags).filter((f) => f.shiny).length,
+    [gameFlags],
   );
   const { data: gameDex } = useGamePokedex(game.id);
   const genStyle = GEN_STYLES[game.generation] ?? GEN_STYLES[1];
-  const registered = new Set(registeredIds).size;
   const total = gameDex?.filter((entry) => !entry.optional).length;
   const hasTotal = typeof total === "number" && total > 0;
   const missing = hasTotal ? Math.max(0, total - registered) : 0;
   const percent = hasTotal ? Math.min(100, (registered / total) * 100) : 0;
   const charmReady = game.hasShinyCharm && hasTotal && missing === 0;
+  const pinned = pinnedGameId === game.id;
 
   return (
     <article
@@ -78,12 +85,35 @@ function GameCard({ game }: { game: GameEntry }) {
           >
             Gen {game.generation}
           </span>
-          {available && (
-            <span className="flex items-center gap-1 rounded-full bg-green-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-green-700 dark:bg-green-950/40 dark:text-green-300">
-              <CheckIcon className="h-3 w-3" />
-              Added
-            </span>
-          )}
+          <div className="flex items-center gap-1.5">
+            {available && (
+              <button
+                type="button"
+                onClick={() => setPinnedGameId(pinned ? null : game.id)}
+                aria-pressed={pinned}
+                aria-label={
+                  pinned ? `Unpin ${game.name}` : `Pin ${game.name} to sidebar`
+                }
+                className={`grid h-7 w-7 place-items-center rounded-md border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${
+                  pinned
+                    ? "border-violet-200 bg-violet-50 text-violet-600 dark:border-violet-900/70 dark:bg-violet-950/40 dark:text-violet-300"
+                    : "border-gray-200 text-gray-400 hover:bg-gray-50 hover:text-gray-700 dark:border-gray-700 dark:text-gray-500 dark:hover:bg-gray-800 dark:hover:text-gray-200"
+                }`}
+              >
+                {pinned ? (
+                  <PinOff className="h-3.5 w-3.5" />
+                ) : (
+                  <Pin className="h-3.5 w-3.5" />
+                )}
+              </button>
+            )}
+            {available && (
+              <span className="flex items-center gap-1 rounded-full bg-green-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-green-700 dark:bg-green-950/40 dark:text-green-300">
+                <CheckIcon className="h-3 w-3" />
+                Added
+              </span>
+            )}
+          </div>
         </div>
 
         <h2 className="text-base font-bold leading-snug text-gray-950 dark:text-white">

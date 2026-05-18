@@ -3,11 +3,11 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
-import { loadFromSupabase } from "@/lib/sync";
+import { loadFromSupabase, syncAllRecords } from "@/lib/sync";
 import { usePokedexStore } from "@/store/pokedexStore";
 
 function AuthSync() {
-  const setProgressSnapshot = usePokedexStore((s) => s.setProgressSnapshot);
+  const mergeProgressSnapshot = usePokedexStore((s) => s.mergeProgressSnapshot);
   const clearAll = usePokedexStore((s) => s.clearAll);
 
   useEffect(() => {
@@ -15,7 +15,10 @@ function AuthSync() {
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user) {
         loadFromSupabase(session.user.id).then((snapshot) => {
-          if (snapshot) setProgressSnapshot(snapshot);
+          if (snapshot) {
+            const merged = mergeProgressSnapshot(snapshot);
+            void syncAllRecords(merged);
+          }
         });
       }
     });
@@ -25,7 +28,10 @@ function AuthSync() {
     } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === "SIGNED_IN" && session?.user) {
         loadFromSupabase(session.user.id).then((snapshot) => {
-          if (snapshot) setProgressSnapshot(snapshot);
+          if (snapshot) {
+            const merged = mergeProgressSnapshot(snapshot);
+            void syncAllRecords(merged);
+          }
         });
       }
       if (event === "SIGNED_OUT") {
@@ -34,7 +40,7 @@ function AuthSync() {
     });
 
     return () => subscription.unsubscribe();
-  }, [setProgressSnapshot, clearAll]);
+  }, [mergeProgressSnapshot, clearAll]);
 
   return null;
 }

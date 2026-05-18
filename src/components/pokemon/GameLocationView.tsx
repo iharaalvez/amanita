@@ -6,12 +6,12 @@ import { usePokedexStore } from "@/store/pokedexStore";
 import { CompassIcon, ListIcon, MapIcon, XIcon } from "@/components/ui";
 import { GameMapView } from "@/components/pokemon/GameMapView";
 import { PokemonSprite } from "@/components/pokemon/PokemonSprite";
-import type { GameLocationPokemon } from "@/types/pokemon";
+import type { GameDexFlags, GameLocationPokemon } from "@/types/pokemon";
+
+const EMPTY_GAME_FLAGS: Record<string, GameDexFlags> = {};
 
 type LocationFilter = "all" | "missing" | "registered";
 type MethodCategory = "all" | "wild" | "raids" | "gift";
-
-const EMPTY_PROGRESS: readonly number[] = [];
 
 const METHOD_CATEGORY_OPTIONS: {
   value: MethodCategory;
@@ -210,8 +210,10 @@ function LocationPokemonButton({
 
 export function GameLocationView({ gameId, gameName, onSelect }: Props) {
   const { data: locations, isLoading, error } = useGameLocations(gameId);
-  const registeredIds = usePokedexStore(
-    (state) => state.gameDexProgress[gameId] ?? EMPTY_PROGRESS,
+  const gameFlags = usePokedexStore((state) => state.gameDex[gameId] ?? EMPTY_GAME_FLAGS);
+  const registeredIds = useMemo(
+    () => Object.entries(gameFlags).filter(([, f]) => f.owned).map(([k]) => Number(k.split("-")[0])),
+    [gameFlags],
   );
   const registeredSet = useMemo(() => new Set(registeredIds), [registeredIds]);
   const [viewMode, setViewMode] = useState<ViewMode>("list");

@@ -1,230 +1,358 @@
 "use client";
 
 import Image from "next/image";
+import type { LucideIcon } from "lucide-react";
 import {
-  ArrowRightIcon,
-  ArrowUpRightIcon,
-  CheckIcon,
-  HomeIcon,
-  SparkleIcon,
-} from "@/components/ui";
+  ArrowRight,
+  Box,
+  Boxes,
+  Gamepad2,
+  Grid3X3,
+  LayoutDashboard,
+  LogOut,
+  Medal,
+  Search,
+  Settings,
+  Sparkles,
+  Wrench,
+} from "lucide-react";
 
 type LandingPageProps = {
   onSignIn: () => void;
 };
 
+type Feature = {
+  title: string;
+  body: string;
+  Icon: LucideIcon;
+};
+
 const previewPokemon = [
   {
-    id: 1,
-    name: "Bulbasaur",
-    color: "border-blue-400 bg-blue-950/60 text-blue-200",
+    id: 906,
+    name: "Sprigatito",
+    level: 12,
+    status: "Today",
     owned: true,
-    inHome: false,
-    shiny: true,
+    sprite:
+      "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/906.png",
   },
   {
-    id: 2,
-    name: "Ivysaur",
-    color: "border-green-400 bg-green-950/60 text-green-200",
+    id: 661,
+    name: "Fletchling",
+    level: 5,
+    status: "Today",
     owned: true,
-    inHome: true,
-    shiny: false,
+    sprite:
+      "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/661.png",
   },
   {
-    id: 3,
-    name: "Venusaur",
-    color: "border-slate-600 bg-slate-900/80 text-slate-400",
-    owned: false,
-    inHome: false,
-    shiny: false,
-  },
-  {
-    id: 4,
-    name: "Charmander",
-    color: "border-blue-400 bg-blue-950/60 text-blue-200",
+    id: 747,
+    name: "Mareanie",
+    level: 17,
+    status: "Yesterday",
     owned: true,
-    inHome: false,
-    shiny: true,
+    sprite:
+      "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/747.png",
   },
   {
-    id: 5,
-    name: "Charmeleon",
-    color: "border-green-400 bg-green-950/60 text-green-200",
+    id: 633,
+    name: "Deino",
+    level: 30,
+    status: "Yesterday",
     owned: true,
-    inHome: true,
-    shiny: false,
-  },
-  {
-    id: 6,
-    name: "Charizard",
-    color: "border-slate-600 bg-slate-900/80 text-slate-400",
-    owned: false,
-    inHome: false,
-    shiny: false,
+    sprite:
+      "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/633.png",
   },
 ];
 
-const features = [
+const features: Feature[] = [
+  { title: "Living Dex", body: "Track every Pokemon", Icon: Box },
+  { title: "Box Management", body: "Organize with ease", Icon: Boxes },
+  { title: "Completion Tools", body: "See what's missing", Icon: Medal },
   {
-    title: "Living Dex tracking",
-    body: "Mark what you personally caught or bred, including alternate forms and shiny progress.",
-    icon: CheckIcon,
-    color: "bg-emerald-100 text-emerald-700",
+    title: "Game Sync",
+    body: "Keep everything in sync and backed up",
+    Icon: Sparkles,
   },
+];
+
+const livingDexTotal = 1025;
+const ownedTotal = 674;
+const missingTotal = livingDexTotal - ownedTotal;
+const ownedProgress = Math.round((ownedTotal / livingDexTotal) * 100);
+
+const stats = [
   {
-    title: "HOME-style boxes",
-    body: "Organize progress in familiar 30-slot boxes that are easy to check while playing.",
-    icon: HomeIcon,
-    color: "bg-sky-100 text-sky-700",
+    label: "Living Dex",
+    value: String(ownedTotal),
+    total: String(livingDexTotal),
+    progress: ownedProgress,
   },
-  {
-    title: "Game Dex goals",
-    body: "Follow per-game National Dex completion so the Shiny Charm target stays visible.",
-    icon: SparkleIcon,
-    color: "bg-amber-100 text-amber-700",
-  },
+  { label: "Shiny Owned", value: "128", total: "1025", progress: 12 },
+];
+
+const nextTargets = [
+  { dexNumber: "0152", name: "Chikorita", detail: "Johto starter" },
+  { dexNumber: "0350", name: "Milotic", detail: "Trade evolution" },
+  { dexNumber: "0442", name: "Spiritomb", detail: "Rare encounter" },
+  { dexNumber: "1006", name: "Iron Valiant", detail: "Version target" },
+];
+
+const navItems = [
+  { label: "Dashboard", Icon: LayoutDashboard },
+  { label: "Dex", Icon: Grid3X3 },
+  { label: "Boxes", Icon: Boxes },
+  { label: "Games", Icon: Gamepad2 },
+  { label: "Tools", Icon: Wrench },
 ];
 
 export function LandingPage({ onSignIn }: LandingPageProps) {
   return (
-    <main className="min-h-screen overflow-hidden bg-[#08111f] text-white">
-      <section className="border-b border-white/10 bg-[#0d1828]">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-5 sm:px-6">
-          <div>
-            <p className="text-lg font-bold tracking-tight">
-              Gotta Catch `Em All!
-            </p>
-          </div>
+    <main className="h-dvh w-full overflow-y-auto bg-[#e9e3d8] text-[#f8f0df]">
+      <section className="relative flex min-h-full w-full flex-col overflow-hidden bg-[#0d1019]">
+        <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(110deg,rgba(13,16,25,0.98)_0%,rgba(18,20,31,0.98)_48%,rgba(25,22,39,0.98)_100%)]" />
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-52 bg-[radial-gradient(ellipse_at_30%_100%,rgba(178,234,132,0.34),transparent_44%)]" />
+        <div className="pointer-events-none absolute bottom-0 left-0 h-44 w-[440px] opacity-35 [background-image:radial-gradient(circle,#7b63ae_1px,transparent_1.2px)] [background-size:16px_16px]" />
+
+        <div className="relative z-10 mx-auto flex w-full max-w-[1840px] items-center justify-between px-5 py-4 sm:px-8">
+          <AmanitaLockup />
           <button
             type="button"
             onClick={onSignIn}
-            className="rounded-lg bg-sky-400 px-4 py-2 text-sm font-bold text-slate-950 transition-colors hover:bg-sky-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-200"
+            className="inline-flex h-10 items-center justify-center rounded-lg border border-[#312b46] bg-[#151622]/80 px-4 text-sm font-bold text-[#f8f0df] shadow-sm shadow-black/20 transition-colors hover:bg-[#202033] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b9ec86]"
           >
             Sign in
           </button>
         </div>
-      </section>
 
-      <section className="mx-auto grid max-w-7xl gap-10 px-4 py-10 sm:px-6 lg:grid-cols-[0.95fr_1.05fr] lg:items-center lg:py-16">
-        <div>
-          <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-emerald-300/40 bg-emerald-400/10 px-3 py-1 text-xs font-bold text-emerald-200">
-            <SparkleIcon className="h-3.5 w-3.5" />
-            Built for Living Dex and Shiny Charm progress
-          </div>
-          <h1 className="max-w-3xl text-4xl font-black tracking-tight text-white sm:text-5xl lg:text-6xl">
-            Know exactly what is missing from your Pokedex.
-          </h1>
-          <p className="mt-5 max-w-2xl text-base leading-7 text-slate-300 sm:text-lg">
-            Track your Pokemon, organize them like Pokemon HOME, and keep your
-            game-specific dex goals in one calm, readable place.
-          </p>
-          <div className="mt-7 flex flex-col gap-3 sm:flex-row">
-            <button
-              type="button"
-              onClick={onSignIn}
-              className="inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-400 px-5 py-3 text-sm font-black text-slate-950 transition-colors hover:bg-emerald-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-200"
-            >
-              Start tracking
-              <ArrowRightIcon className="h-4 w-4" />
-            </button>
-          </div>
-        </div>
+        <div className="relative z-10 mx-auto grid w-full max-w-[1840px] flex-1 gap-10 px-5 pb-14 pt-8 sm:px-8 lg:grid-cols-[0.8fr_1.2fr] lg:items-center lg:gap-14 lg:pb-16 lg:pt-7">
+          <div className="max-w-xl">
+            <div className="inline-flex h-7 items-center rounded-full border border-[#b9ec86]/35 bg-[#172318]/75 px-4 text-[10px] font-black uppercase tracking-[0.18em] text-[#b9ec86]">
+              Built for trainers.
+            </div>
 
-        <div className="rounded-lg border border-white/10 bg-[#111d2e] p-4 shadow-2xl shadow-black/30">
-          <div className="mb-4 flex items-center justify-between border-b border-white/10 pb-4">
-            <div>
-              <p className="text-sm font-black">HOME Box 1</p>
-              <p className="text-xs text-slate-400">
-                4 owned / 2 pending transfer
-              </p>
+            <Image
+              src="/logo.svg"
+              alt="Amanita"
+              width={355}
+              height={86}
+              priority
+              className="mt-5 h-auto w-full max-w-[355px]"
+            />
+
+            <p className="mt-4 max-w-[460px] text-xl leading-snug text-[#ebe2d6] sm:text-2xl">
+              The all-in-one companion for your Pokemon journey.
+            </p>
+
+            <div className="mt-8 grid grid-cols-2 gap-x-6 gap-y-5 sm:grid-cols-4">
+              {features.map(({ title, body, Icon }) => (
+                <div key={title}>
+                  <Icon className="h-7 w-7 text-[#bba4ef]" strokeWidth={1.8} />
+                  <p className="mt-3 text-xs font-black text-[#f8f0df]">
+                    {title}
+                  </p>
+                  <p className="mt-1 text-[10px] font-medium leading-snug text-[#c6bcd2]">
+                    {body}
+                  </p>
+                </div>
+              ))}
             </div>
-            <div className="rounded-md bg-emerald-400 px-2 py-1 text-xs font-black text-slate-950">
-              0.4%
-            </div>
-          </div>
-          <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
-            {previewPokemon.map((pokemon) => (
-              <div
-                key={pokemon.name}
-                className={`aspect-square rounded-lg border p-2 ${pokemon.color}`}
+
+            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+              <button
+                type="button"
+                onClick={onSignIn}
+                className="inline-flex h-11 items-center justify-center gap-3 rounded-lg bg-[#b9ec86] px-5 text-sm font-black text-[#0b140d] transition-colors hover:bg-[#c9f49d] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b9ec86]"
               >
-                <div className="flex h-full flex-col items-center justify-between">
-                  <div className="flex w-full justify-between">
-                    <span className="text-[10px] font-bold tabular-nums">
-                      #{String(pokemon.id).padStart(4, "0")}
-                    </span>
-                    <span className="flex items-center gap-1">
-                      {pokemon.shiny && (
-                        <SparkleIcon className="h-3.5 w-3.5 text-yellow-400" />
-                      )}
-                      {pokemon.inHome && (
-                        <HomeIcon className="h-3.5 w-3.5 text-green-400" />
-                      )}
-                      {pokemon.owned && !pokemon.inHome && (
-                        <ArrowUpRightIcon className="h-3.5 w-3.5 text-blue-400" />
-                      )}
-                    </span>
-                  </div>
-                  <Image
-                    src={`https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${pokemon.id}.png`}
-                    alt={pokemon.name}
-                    width={56}
-                    height={56}
-                    unoptimized
-                    style={{ imageRendering: "pixelated" }}
-                    className={`h-14 w-14 object-contain [image-rendering:pixelated] ${
-                      pokemon.owned || pokemon.inHome || pokemon.shiny
-                        ? ""
-                        : "grayscale opacity-50"
-                    }`}
-                  />
-                  <span className="max-w-full truncate text-center text-[10px] font-bold">
-                    {pokemon.name}
+                Get Started
+                <ArrowRight className="h-4 w-4" strokeWidth={2.6} />
+              </button>
+            </div>
+          </div>
+
+          <DashboardPreview />
+        </div>
+      </section>
+    </main>
+  );
+}
+
+function AmanitaLockup() {
+  return (
+    <div className="flex items-center gap-2 text-[#f8f0df]">
+      <span className="grid h-8 w-8 place-items-center rounded-full border border-[#6f5a9f]/70 bg-[#151622]">
+        <Image src="/icon.svg" alt="" width={18} height={18} />
+      </span>
+      <span className="text-base font-black">Amanita</span>
+    </div>
+  );
+}
+
+function DashboardPreview() {
+  const livingDexProgress = stats[0];
+
+  return (
+    <div className="overflow-hidden rounded-lg border border-[#4c426a]/80 bg-[#14141f]/88 shadow-2xl shadow-black/35 backdrop-blur">
+      <div className="grid min-h-[404px] md:grid-cols-[152px_1fr]">
+        <aside className="hidden flex-col border-r border-[#312b46]/85 p-4 md:flex">
+          <AmanitaLockup />
+          <nav className="mt-5 flex-1 space-y-1">
+            {navItems.map(({ label, Icon }, index) => (
+              <div
+                key={label}
+                className={`flex h-8 items-center gap-2 rounded-md px-2.5 text-[10px] font-semibold ${
+                  index === 0 ? "bg-[#4b377a] text-[#f8f0df]" : "text-[#d2c8dc]"
+                }`}
+              >
+                <Icon className="h-3.5 w-3.5" strokeWidth={2} />
+                {label}
+              </div>
+            ))}
+          </nav>
+
+          <div className="border-t border-[#312b46]/85 pt-3">
+            <div className="mb-1.5 flex items-center gap-2">
+              <p className="min-w-0 flex-1 truncate text-[10px] font-semibold text-[#8f8799]">
+                Trainer
+              </p>
+              <span className="grid h-7 w-7 shrink-0 place-items-center rounded-md text-[#c9c1d7]">
+                <Settings className="h-3.5 w-3.5" strokeWidth={2} />
+              </span>
+            </div>
+            <div className="flex h-8 items-center gap-2 rounded-md px-2.5 text-[10px] font-semibold text-[#c9c1d7]">
+              <LogOut className="h-3.5 w-3.5" strokeWidth={2} />
+              Sign out
+            </div>
+          </div>
+        </aside>
+
+        <div className="p-4 sm:p-5">
+          <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <h2 className="text-base font-black sm:text-lg">Dashboard</h2>
+            <div className="flex items-center gap-2">
+              <div className="flex h-8 w-52 items-center gap-2 rounded-md border border-[#312b46]/90 bg-[#10111b]/70 px-2.5 text-[9px] text-[#91899d]">
+                <Search className="h-3 w-3" />
+                Search Pokemon...
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            {stats.map((stat) => (
+              <div
+                key={stat.label}
+                className="rounded-lg border border-[#312b46]/90 bg-[#1a1a28]/88 p-3.5"
+              >
+                <p className="text-[9px] font-semibold text-[#aaa0b8]">
+                  {stat.label}
+                </p>
+                <p className="mt-1 text-xl font-black">
+                  {stat.value}{" "}
+                  <span className="text-[10px] font-medium text-[#aaa0b8]">
+                    / {stat.total}
                   </span>
+                </p>
+                <div className="mt-2 h-1 overflow-hidden rounded-full bg-[#383646]">
+                  <span
+                    className="block h-full rounded-full bg-[#b9ec86]"
+                    style={{ width: `${stat.progress}%` }}
+                  />
                 </div>
               </div>
             ))}
           </div>
-          <div className="mt-4 grid grid-cols-3 gap-2">
-            <div className="rounded-lg bg-[#17263a] p-3">
-              <p className="text-lg font-black text-emerald-300">4</p>
-              <p className="text-[10px] font-bold text-slate-400">owned</p>
-            </div>
-            <div className="rounded-lg bg-[#17263a] p-3">
-              <p className="text-lg font-black text-sky-300">2</p>
-              <p className="text-[10px] font-bold text-slate-400">in HOME</p>
-            </div>
-            <div className="rounded-lg bg-[#17263a] p-3">
-              <p className="text-lg font-black text-yellow-300">2</p>
-              <p className="text-[10px] font-bold text-slate-400">shiny</p>
-            </div>
+
+          <div className="mt-3 grid gap-3 xl:grid-cols-[1fr_1fr_0.86fr]">
+            <section className="rounded-lg border border-[#312b46]/90 bg-[#1a1a28]/82 p-3.5">
+              <h3 className="mb-3 text-[11px] font-black">Recent Catches</h3>
+              {previewPokemon.map((pokemon) => (
+                <div
+                  key={pokemon.id}
+                  className="grid min-h-11 grid-cols-[34px_1fr_auto] items-center gap-2 border-t border-[#312b46]/60 py-1.5 first:border-t-0"
+                >
+                  <span className="grid h-8 w-8 place-items-center rounded-full bg-[#242536]">
+                    <Image
+                      src={pokemon.sprite}
+                      alt=""
+                      width={36}
+                      height={36}
+                      className={
+                        pokemon.owned
+                          ? "h-9 w-9 object-contain"
+                          : "h-9 w-9 object-contain grayscale opacity-35"
+                      }
+                    />
+                  </span>
+                  <div>
+                    <p className="text-[10px] font-bold">{pokemon.name}</p>
+                    <p className="text-[9px] text-[#aaa0b8]">
+                      Lv. {pokemon.level}
+                    </p>
+                  </div>
+                  <p className="text-[9px] font-semibold text-[#ddd7e2]">
+                    {pokemon.status}
+                  </p>
+                </div>
+              ))}
+            </section>
+
+            <section className="rounded-lg border border-[#312b46]/90 bg-[#1a1a28]/82 p-3.5 text-center">
+              <h3 className="mb-4 text-left text-[11px] font-black">
+                Living Dex Progress
+              </h3>
+              <div
+                className="mx-auto grid h-28 w-28 place-items-center rounded-full"
+                style={{
+                  background: `conic-gradient(#b9ec86 ${livingDexProgress.progress * 3.6}deg, #383646 0deg)`,
+                }}
+                aria-label={`${livingDexProgress.progress}% Living Dex progress`}
+              >
+                <div className="grid h-[88px] w-[88px] place-items-center rounded-full bg-[#1a1a28]">
+                  <div>
+                    <p className="text-2xl font-black">
+                      {livingDexProgress.progress}%
+                    </p>
+                    <p className="text-[11px] text-[#cfc8d8]">
+                      {livingDexProgress.value} / {livingDexProgress.total}
+                    </p>
+                  </div>
+                </div>
+              </div>
+              <p className="mt-6 text-[10px] font-semibold text-[#d4cedb]">
+                More than halfway done!
+              </p>
+            </section>
+
+            <section className="rounded-lg border border-[#312b46]/90 bg-[#1a1a28]/82 p-3.5">
+              <div className="mb-3 flex items-center justify-between">
+                <h3 className="text-[11px] font-black">Next Targets</h3>
+                <span className="rounded-full bg-[#b9ec86]/12 px-2 py-0.5 text-[9px] font-black text-[#b9ec86]">
+                  {missingTotal} left
+                </span>
+              </div>
+              {nextTargets.map((pokemon) => (
+                <div
+                  key={pokemon.dexNumber}
+                  className="grid min-h-11 grid-cols-[34px_1fr] items-center gap-2 border-t border-[#312b46]/60 py-1.5 first:border-t-0"
+                >
+                  <span className="grid h-8 w-8 place-items-center rounded-full border border-[#554a70] bg-[#242536] text-[8px] font-black text-[#bcaee0]">
+                    #{pokemon.dexNumber}
+                  </span>
+                  <div className="min-w-0 text-left">
+                    <p className="truncate text-[10px] font-bold">
+                      {pokemon.name}
+                    </p>
+                    <p className="truncate text-[9px] text-[#aaa0b8]">
+                      {pokemon.detail}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </section>
           </div>
         </div>
-      </section>
-
-      <section className="bg-[#eef6ff] text-slate-950">
-        <div className="mx-auto grid max-w-7xl gap-4 px-4 py-10 sm:px-6 lg:grid-cols-3">
-          {features.map((feature) => {
-            const FeatureIcon = feature.icon;
-            return (
-              <article
-                key={feature.title}
-                className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm"
-              >
-                <div
-                  className={`mb-4 flex h-10 w-10 items-center justify-center rounded-lg ${feature.color}`}
-                >
-                  <FeatureIcon className="h-5 w-5" />
-                </div>
-                <h2 className="text-base font-black">{feature.title}</h2>
-                <p className="mt-2 text-sm leading-6 text-slate-600">
-                  {feature.body}
-                </p>
-              </article>
-            );
-          })}
-        </div>
-      </section>
-    </main>
+      </div>
+    </div>
   );
 }

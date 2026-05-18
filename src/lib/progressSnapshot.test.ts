@@ -13,11 +13,11 @@ const validSnapshot: ProgressSnapshot = {
       method: "caught",
     },
   },
-  gameDexProgress: {
-    "scarlet-violet": [1, 4, 7],
-  },
-  shinyGameDexProgress: {
-    "scarlet-violet": [1],
+  gameDex: {
+    "scarlet-violet": {
+      "1-base": { owned: true, shiny: false },
+      "4-base": { owned: true, shiny: false },
+    },
   },
   availableGames: {
     "scarlet-violet": true,
@@ -29,11 +29,10 @@ describe("progress snapshot validation", () => {
     assert.equal(isProgressSnapshot(validSnapshot), true);
   });
 
-  it("rejects pre-shiny-game-progress backups so imports do not silently lose data", () => {
-    const legacySnapshot = { ...validSnapshot };
-    delete (legacySnapshot as Partial<ProgressSnapshot>).shinyGameDexProgress;
-
-    assert.equal(isProgressSnapshot(legacySnapshot), false);
+  it("rejects snapshots missing the gameDex field", () => {
+    const bad = { ...validSnapshot };
+    delete (bad as Partial<ProgressSnapshot>).gameDex;
+    assert.equal(isProgressSnapshot(bad), false);
   });
 
   it("rejects malformed owned records", () => {
@@ -53,12 +52,14 @@ describe("progress snapshot validation", () => {
     );
   });
 
-  it("rejects malformed game progress arrays", () => {
+  it("rejects malformed gameDex flags", () => {
     assert.equal(
       isProgressSnapshot({
         ...validSnapshot,
-        gameDexProgress: {
-          "scarlet-violet": [1, "4", 7],
+        gameDex: {
+          "scarlet-violet": {
+            "1-base": { owned: "yes", shiny: false },
+          },
         },
       }),
       false,

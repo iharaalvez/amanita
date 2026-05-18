@@ -11,27 +11,27 @@ export default function PokedexPage() {
   const openPokemon = useOpenPokemon();
 
   return (
-    <div className="flex flex-col">
-      <div className="sticky top-0 z-10 border-b border-gray-200 bg-white/95 px-4 py-3 backdrop-blur dark:border-gray-700/60 dark:bg-gray-900/95">
-        <div className="flex items-center gap-2">
+    <div className="flex min-h-full flex-col bg-[#f4f0e8] dark:bg-[#0d0f18]">
+      <div className="sticky top-0 z-10 border-y border-[#ded6c8] bg-[#f4f0e8]/95 px-4 py-3 backdrop-blur dark:border-[#302a40] dark:bg-[#0d0f18]/95">
+        <div className="mx-auto flex max-w-7xl items-center gap-2">
           <div className="relative flex-1">
             <label htmlFor="pokedex-search" className="sr-only">
-              Search Pokémon
+              Search Pokemon
             </label>
             <input
               id="pokedex-search"
               type="search"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Find a Pokémon…"
-              className="h-9 w-full rounded-lg border border-gray-200 bg-white px-3 pr-8 text-sm text-gray-800 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-400 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
+              placeholder="Find a Pokemon..."
+              className="h-10 w-full rounded-lg border border-[#ded6c8] bg-white px-3 pr-8 text-sm font-medium text-[#10131d] placeholder:text-[#8f8799] focus:outline-none focus:ring-2 focus:ring-[#f43434] dark:border-[#524969] dark:bg-[#161522] dark:text-[#f8f0df]"
             />
             {search && (
               <button
                 type="button"
                 onClick={() => setSearch("")}
                 aria-label="Clear search"
-                className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-gray-400 hover:text-gray-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 dark:hover:text-gray-200"
+                className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-[#8f8799] hover:text-[#10131d] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#f43434] dark:hover:text-[#f8f0df]"
               >
                 <XIcon className="h-3.5 w-3.5" />
               </button>
@@ -42,10 +42,10 @@ export default function PokedexPage() {
             onClick={() => setFiltersOpen((v) => !v)}
             aria-label="Toggle filters"
             aria-expanded={filtersOpen}
-            className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${
+            className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#f43434] ${
               filtersOpen
-                ? "border-blue-500 bg-blue-500 text-white"
-                : "border-gray-200 bg-white text-gray-500 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+                ? "border-[#f43434] bg-[#f43434] text-white"
+                : "border-[#ded6c8] bg-white text-[#514874] hover:bg-[#fffaf0] dark:border-[#524969] dark:bg-[#161522] dark:text-[#c9c1d7] dark:hover:bg-[#211b32]"
             }`}
           >
             <FilterIcon className="h-4 w-4" />

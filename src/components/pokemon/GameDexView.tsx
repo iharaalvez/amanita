@@ -1,13 +1,17 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import Image from "next/image";
+import { useMemo, useState, type ReactNode } from "react";
 import { useGamePokedex } from "@/hooks/useGamePokedex";
-import { usePokedexStore } from "@/store/pokedexStore";
+import { usePokedexStore, ALPHA_GAMES } from "@/store/pokedexStore";
 import { getGameById } from "@/config/games";
 import { getExclusiveVersion } from "@/config/version-exclusives";
 import { CheckIcon, SparkleIcon } from "@/components/ui";
 import { PokemonSprite } from "@/components/pokemon/PokemonSprite";
-import type { GameDexEntry } from "@/types/pokemon";
+import { isShinyLocked } from "@/config/pokemon-flags";
+import type { GameDexEntry, GameDexFlags } from "@/types/pokemon";
+
+const EMPTY_GAME_FLAGS: Record<string, GameDexFlags> = {};
 
 type GameSlotProps = {
   entry: GameDexEntry;
@@ -15,21 +19,128 @@ type GameSlotProps = {
   onSelect: (speciesId: number, formName: string | null) => void;
 };
 
+const DEFAULT_FLAGS: GameDexFlags = { owned: false, shiny: false };
+
+function getCardVisual(flags: GameDexFlags) {
+  if (flags.shiny_alpha) {
+    return {
+      frame:
+        "border-amber-300 bg-[radial-gradient(circle_at_50%_20%,rgba(251,191,36,0.26),transparent_38%),radial-gradient(circle_at_50%_100%,rgba(239,68,68,0.24),transparent_46%)] shadow-sm shadow-amber-100 dark:border-amber-500/70 dark:shadow-none",
+      button:
+        "hover:bg-amber-50/50 dark:hover:bg-amber-950/20 focus-visible:ring-amber-300",
+      spriteHalo:
+        "bg-amber-100/60 ring-1 ring-amber-300/60 dark:bg-amber-950/20 dark:ring-amber-500/30",
+      statusLabel: "Shiny Alpha",
+      statusClass:
+        "bg-amber-100 text-amber-700 ring-1 ring-amber-300/70 dark:bg-amber-950/50 dark:text-amber-200 dark:ring-amber-500/40",
+    };
+  }
+
+  if (flags.alpha) {
+    return {
+      frame:
+        "border-red-300 bg-[radial-gradient(circle_at_50%_18%,rgba(248,113,113,0.24),transparent_42%),linear-gradient(180deg,rgba(239,68,68,0.12),transparent)] shadow-sm shadow-red-100 dark:border-red-500/70 dark:shadow-none",
+      button:
+        "hover:bg-red-50/50 dark:hover:bg-red-950/20 focus-visible:ring-red-300",
+      spriteHalo:
+        "bg-red-100/60 ring-1 ring-red-300/60 dark:bg-red-950/20 dark:ring-red-500/30",
+      statusLabel: "Alpha",
+      statusClass:
+        "bg-red-100 text-red-700 ring-1 ring-red-300/70 dark:bg-red-950/50 dark:text-red-200 dark:ring-red-500/40",
+    };
+  }
+
+  if (flags.shiny) {
+    return {
+      frame:
+        "border-yellow-300 bg-[radial-gradient(circle_at_50%_18%,rgba(250,204,21,0.25),transparent_42%),linear-gradient(180deg,rgba(250,204,21,0.12),transparent)] shadow-sm shadow-yellow-100 dark:border-yellow-500/70 dark:shadow-none",
+      button:
+        "hover:bg-yellow-50/50 dark:hover:bg-yellow-950/20 focus-visible:ring-yellow-300",
+      spriteHalo:
+        "bg-yellow-100/60 ring-1 ring-yellow-300/60 dark:bg-yellow-950/20 dark:ring-yellow-500/30",
+      statusLabel: "Shiny",
+      statusClass:
+        "bg-yellow-100 text-yellow-700 ring-1 ring-yellow-300/70 dark:bg-yellow-950/50 dark:text-yellow-200 dark:ring-yellow-500/40",
+    };
+  }
+
+  if (flags.owned) {
+    return {
+      frame:
+        "border-green-200 bg-[radial-gradient(circle_at_50%_18%,rgba(74,222,128,0.18),transparent_42%)] shadow-sm shadow-green-100 dark:border-green-900/70 dark:shadow-none",
+      button:
+        "hover:bg-green-50/50 dark:hover:bg-green-950/20 focus-visible:ring-green-300",
+      spriteHalo:
+        "bg-green-100/60 ring-1 ring-green-300/50 dark:bg-green-950/20 dark:ring-green-500/25",
+      statusLabel: null,
+      statusClass: "",
+    };
+  }
+
+  return {
+    frame:
+      "border-transparent bg-white/40 dark:bg-gray-900/20 dark:hover:border-gray-700/70",
+    button: "hover:bg-gray-100 dark:hover:bg-gray-800",
+    spriteHalo:
+      "bg-gray-100/60 ring-1 ring-gray-200/60 dark:bg-gray-900/40 dark:ring-gray-800",
+    statusLabel: null,
+    statusClass: "",
+  };
+}
+
 function GameSlot({ entry, gameId, onSelect }: GameSlotProps) {
-  const owned = usePokedexStore((state) =>
-    state.isOwnedInGame(entry.speciesId, gameId),
+  const isAlphaGame = ALPHA_GAMES.has(gameId);
+  const entryKey = `${entry.speciesId}-${entry.formName ?? "base"}`;
+  const flags = usePokedexStore(
+    (state) => state.gameDex[gameId]?.[entryKey] ?? DEFAULT_FLAGS,
   );
-  const shinyOwned = usePokedexStore((state) =>
-    state.isShinyOwnedInGame(entry.speciesId, gameId),
-  );
+  const {
+    owned,
+    shiny: shinyOwned,
+    alpha: alphaOwned,
+    shiny_alpha: shinyAlphaOwned,
+  } = flags;
+
+  const markOwnedInGame = usePokedexStore((s) => s.markOwnedInGame);
+  const clearOwnedInGame = usePokedexStore((s) => s.clearOwnedInGame);
   const markShinyOwnedInGame = usePokedexStore((s) => s.markShinyOwnedInGame);
   const clearShinyOwnedInGame = usePokedexStore((s) => s.clearShinyOwnedInGame);
+  const markAlphaInGame = usePokedexStore((s) => s.markAlphaInGame);
+  const clearAlphaInGame = usePokedexStore((s) => s.clearAlphaInGame);
+  const markShinyAlphaInGame = usePokedexStore((s) => s.markShinyAlphaInGame);
+  const clearShinyAlphaInGame = usePokedexStore((s) => s.clearShinyAlphaInGame);
+
   const paddedGameNumber = `#${String(entry.entryNumber).padStart(3, "0")}`;
   const paddedNationalNumber = `Nat. #${String(entry.speciesId).padStart(4, "0")}`;
   const exclusiveVersion = getExclusiveVersion(gameId, entry.speciesId);
+  const shinyLocked = isShinyLocked(entry.speciesId, entry.formName);
+
+  const toggleRegistered = () => {
+    if (owned) {
+      clearOwnedInGame(entry.speciesId, gameId, entry.formName);
+      if (shinyOwned)
+        clearShinyOwnedInGame(entry.speciesId, gameId, entry.formName);
+    } else {
+      markOwnedInGame(entry.speciesId, gameId, entry.formName);
+    }
+  };
+
+  const toggleShiny = () => {
+    if (shinyOwned) {
+      clearShinyOwnedInGame(entry.speciesId, gameId, entry.formName);
+    } else {
+      if (!owned) markOwnedInGame(entry.speciesId, gameId, entry.formName);
+      markShinyOwnedInGame(entry.speciesId, gameId, entry.formName);
+    }
+  };
+
+  const anyOwned = owned || shinyOwned || alphaOwned || shinyAlphaOwned;
+  const visual = getCardVisual(flags);
 
   return (
-    <div className="group relative sm:w-[120px]">
+    <div
+      className={`group relative flex flex-col overflow-hidden rounded-xl border transition-all sm:w-[140px] ${visual.frame}`}
+    >
       <button
         onClick={() => onSelect(entry.speciesId, entry.formName)}
         aria-label={`${entry.displayName}, ${owned ? "registered" : "not registered"} in this game`}
@@ -38,11 +149,7 @@ function GameSlot({ entry, gameId, onSelect }: GameSlotProps) {
             ? `${paddedGameNumber} - ${entry.displayName} (${paddedNationalNumber}) · ${exclusiveVersion} exclusive`
             : `${paddedGameNumber} - ${entry.displayName} (${paddedNationalNumber})`
         }
-        className={`relative flex h-[132px] w-full cursor-pointer flex-col items-center justify-center gap-1 rounded-lg p-2 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${
-          owned
-            ? "bg-green-50 ring-1 ring-green-400 dark:bg-green-950/30"
-            : "bg-white/50 hover:bg-gray-200 dark:bg-gray-900/20 dark:hover:bg-gray-600"
-        }`}
+        className={`relative flex h-[164px] w-full cursor-pointer flex-col items-center justify-center gap-1 rounded-xl p-2 transition-all focus-visible:outline-none focus-visible:ring-2 ${visual.button}`}
       >
         {owned && (
           <span
@@ -60,47 +167,202 @@ function GameSlot({ entry, gameId, onSelect }: GameSlotProps) {
             {exclusiveVersion.split(" ")[0]}
           </span>
         )}
-        <PokemonSprite
-          src={entry.spriteUrl}
-          alt={entry.displayName}
-          width={88}
-          height={88}
-          style={{ imageRendering: "pixelated" }}
-          className={`h-20 w-20 object-contain transition-all duration-200 ${
-            owned ? "" : "grayscale opacity-55"
-          }`}
-        />
+        <span
+          className={`grid h-[84px] w-[84px] place-items-center rounded-full transition-transform duration-200 group-hover:scale-105 ${visual.spriteHalo}`}
+          aria-hidden
+        >
+          <PokemonSprite
+            src={entry.spriteUrl}
+            alt={entry.displayName}
+            width={88}
+            height={88}
+            style={{ imageRendering: "pixelated" }}
+            className={`h-[78px] w-[78px] object-contain transition-all duration-200 ${
+              anyOwned ? "" : "grayscale opacity-55"
+            }`}
+          />
+        </span>
         <span className="text-[10px] text-gray-400 tabular-nums">
           {paddedGameNumber}
         </span>
-        <span className="w-full truncate px-1 text-center text-[11px] font-medium text-gray-600 dark:text-gray-300">
+        <span className="min-h-[28px] w-full px-1 text-center text-[11px] font-medium leading-tight text-gray-600 line-clamp-2 dark:text-gray-300">
           {entry.displayName}
         </span>
+        {visual.statusLabel && (
+          <span
+            className={`mt-0.5 rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide ${visual.statusClass}`}
+          >
+            {visual.statusLabel}
+          </span>
+        )}
       </button>
-      {owned && (
-        <button
-          type="button"
-          onClick={() =>
-            shinyOwned
-              ? clearShinyOwnedInGame(entry.speciesId, gameId)
-              : markShinyOwnedInGame(entry.speciesId, gameId)
+      <div
+        className={`grid justify-items-center gap-0.5 px-0.5 pb-2 sm:gap-1 sm:px-1 ${
+          isAlphaGame ? "grid-cols-4" : "grid-cols-2"
+        }`}
+      >
+        <QuickToggle
+          active={!!owned}
+          label={owned ? "Clear registered" : "Mark registered"}
+          className={
+            owned
+              ? "border-green-400 bg-green-50 text-green-600 dark:bg-green-950/30 dark:text-green-300"
+              : "border-gray-200 bg-white text-green-300 hover:border-green-300 hover:text-green-600 dark:border-gray-700 dark:bg-gray-900 dark:text-green-900 dark:hover:text-green-400"
           }
-          title={shinyOwned ? "Remove shiny" : "Mark as shiny"}
-          aria-label={
-            shinyOwned
-              ? `Remove shiny for ${entry.displayName}`
-              : `Mark ${entry.displayName} as shiny in this game`
-          }
-          className={`absolute bottom-2 right-2 z-10 flex h-5 w-5 items-center justify-center rounded-full border transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-400 ${
-            shinyOwned
-              ? "border-yellow-400 bg-yellow-400 text-white"
-              : "border-gray-200 bg-white/90 text-gray-300 opacity-0 group-hover:opacity-100 dark:border-gray-600 dark:bg-gray-800/90 dark:text-gray-500"
-          }`}
+          onClick={toggleRegistered}
         >
-          <SparkleIcon className="h-3 w-3" />
-        </button>
-      )}
+          <CheckIcon className="h-4 w-4" />
+        </QuickToggle>
+
+        <QuickToggle
+          active={!!shinyOwned}
+          label={
+            shinyLocked
+              ? "Shiny unavailable"
+              : shinyOwned
+                ? "Clear shiny registered"
+                : "Mark shiny registered"
+          }
+          disabled={shinyLocked}
+          className={
+            shinyOwned
+              ? "border-yellow-400 bg-yellow-50 text-yellow-600 dark:bg-yellow-950/30 dark:text-yellow-300"
+              : "border-gray-200 bg-white text-gray-300 hover:border-yellow-300 hover:text-yellow-500 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-600 dark:hover:text-yellow-400"
+          }
+          onClick={toggleShiny}
+        >
+          <Image
+            src="/icons/pokemon/shiny-symbol-home.png"
+            alt=""
+            width={18}
+            height={18}
+            aria-hidden
+            className={`h-4 w-4 object-contain ${shinyOwned ? "" : "opacity-45"}`}
+          />
+        </QuickToggle>
+
+        {isAlphaGame && (
+          <>
+            <QuickToggle
+              active={!!alphaOwned}
+              label={alphaOwned ? "Clear alpha owned" : "Mark alpha owned"}
+              className={
+                alphaOwned
+                  ? "border-red-400 bg-red-50 text-red-600 dark:bg-red-950/30 dark:text-red-300"
+                  : "border-gray-200 bg-white text-red-300 hover:border-red-300 hover:text-red-600 dark:border-gray-700 dark:bg-gray-900 dark:text-red-900 dark:hover:text-red-400"
+              }
+              onClick={() =>
+                alphaOwned
+                  ? clearAlphaInGame(entry.speciesId, gameId, entry.formName)
+                  : markAlphaInGame(entry.speciesId, gameId, entry.formName)
+              }
+            >
+              <Image
+                src="/icons/pokemon/alpha-symbol.png"
+                alt=""
+                width={18}
+                height={18}
+                aria-hidden
+                className={`h-4 w-4 object-contain ${alphaOwned ? "" : "opacity-45"}`}
+              />
+            </QuickToggle>
+
+            <QuickToggle
+              active={!!shinyAlphaOwned}
+              label={
+                shinyLocked
+                  ? "Shiny alpha unavailable"
+                  : shinyAlphaOwned
+                    ? "Clear shiny alpha owned"
+                    : "Mark shiny alpha owned"
+              }
+              disabled={shinyLocked}
+              className={
+                shinyAlphaOwned
+                  ? "border-amber-400 bg-red-50 text-red-600 ring-1 ring-amber-300 dark:bg-red-950/30 dark:text-red-300"
+                  : "border-gray-200 bg-white text-red-300 hover:border-amber-300 hover:text-red-600 dark:border-gray-700 dark:bg-gray-900 dark:text-red-900 dark:hover:text-red-400"
+              }
+              onClick={() => {
+                if (shinyAlphaOwned) {
+                  clearShinyAlphaInGame(
+                    entry.speciesId,
+                    gameId,
+                    entry.formName,
+                  );
+                } else {
+                  if (!owned)
+                    markOwnedInGame(entry.speciesId, gameId, entry.formName);
+                  if (!shinyOwned)
+                    markShinyOwnedInGame(
+                      entry.speciesId,
+                      gameId,
+                      entry.formName,
+                    );
+                  markShinyAlphaInGame(entry.speciesId, gameId, entry.formName);
+                }
+              }}
+            >
+              <ShinyAlphaIcon active={!!shinyAlphaOwned} />
+            </QuickToggle>
+          </>
+        )}
+      </div>
     </div>
+  );
+}
+
+function ShinyAlphaIcon({ active }: { active: boolean }) {
+  return (
+    <span className="relative grid h-4 w-4 place-items-center">
+      <Image
+        src="/icons/pokemon/alpha-symbol.png"
+        alt=""
+        width={18}
+        height={18}
+        aria-hidden
+        className={`h-4 w-4 object-contain ${active ? "" : "opacity-45"}`}
+      />
+      <Image
+        src="/icons/pokemon/shiny-symbol-home.png"
+        alt=""
+        width={10}
+        height={10}
+        aria-hidden
+        className={`absolute -right-1 -top-1 h-2.5 w-2.5 object-contain ${active ? "" : "opacity-50"}`}
+      />
+    </span>
+  );
+}
+
+function QuickToggle({
+  active,
+  disabled,
+  label,
+  className,
+  children,
+  onClick,
+}: {
+  active: boolean;
+  disabled?: boolean;
+  label: string;
+  className: string;
+  children: ReactNode;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      aria-pressed={active}
+      disabled={disabled}
+      onClick={(event) => {
+        event.stopPropagation();
+        onClick();
+      }}
+      className={`grid h-6 w-6 place-items-center rounded-full border shadow-sm transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 disabled:cursor-not-allowed disabled:opacity-40 sm:h-7 sm:w-7 ${className}`}
+    >
+      {children}
+    </button>
   );
 }
 
@@ -116,7 +378,9 @@ type Props = {
 };
 
 export function GameDexView({ gameId, onSelect }: Props) {
-  const gameDexProgress = usePokedexStore((state) => state.gameDexProgress);
+  const gameFlags = usePokedexStore(
+    (state) => state.gameDex[gameId] ?? EMPTY_GAME_FLAGS,
+  );
   const [completionFilter, setCompletionFilter] =
     useState<CompletionFilter>("all");
   const [searchQuery, setSearchQuery] = useState("");
@@ -128,19 +392,21 @@ export function GameDexView({ gameId, onSelect }: Props) {
   } = useGamePokedex(gameId);
   const selectedGame = getGameById(gameId);
 
-  const registeredByGame = useMemo(() => {
-    return new Map(
-      Object.entries(gameDexProgress).map(([gId, ids]) => [gId, new Set(ids)]),
+  const requiredSpecies = useMemo(() => {
+    return new Set(
+      (gameDex ?? [])
+        .filter((entry) => !entry.optional)
+        .map((entry) => entry.speciesId),
     );
-  }, [gameDexProgress]);
+  }, [gameDex]);
 
   const filteredGamePokemon = useMemo(() => {
     const normalizedQuery = searchQuery.trim().toLowerCase();
     const entries = gameDex ?? [];
     const numericQuery = normalizedQuery.replace(/^#/, "").replace(/^0+/, "");
     return entries.filter((entry) => {
-      const registered =
-        registeredByGame.get(gameId)?.has(entry.speciesId) ?? false;
+      const key = `${entry.speciesId}-${entry.formName ?? "base"}`;
+      const registered = !!gameFlags[key]?.owned;
       if (completionFilter === "missing" && registered) return false;
       if (completionFilter === "registered" && !registered) return false;
       if (!normalizedQuery) return true;
@@ -153,10 +419,13 @@ export function GameDexView({ gameId, onSelect }: Props) {
         String(entry.speciesId).padStart(4, "0").includes(numericQuery)
       );
     });
-  }, [completionFilter, gameDex, registeredByGame, searchQuery, gameId]);
+  }, [completionFilter, gameDex, gameFlags, searchQuery]);
 
-  const ownedInGame = registeredByGame.get(gameId)?.size ?? 0;
-  const totalInGame = gameDex?.filter((e) => !e.optional).length ?? 0;
+  const totalInGame = requiredSpecies.size;
+  const ownedInGame = Array.from(requiredSpecies).filter((speciesId) => {
+    const key = `${speciesId}-base`;
+    return !!gameFlags[key]?.owned;
+  }).length;
   const progressPct = totalInGame > 0 ? (ownedInGame / totalInGame) * 100 : 0;
   const shinyCharmReady =
     selectedGame?.hasShinyCharm &&
@@ -292,16 +561,16 @@ export function GameDexView({ gameId, onSelect }: Props) {
           Failed to load Pokédex for this game. Try refreshing.
         </div>
       ) : dexLoading ? (
-        <div className="grid grid-cols-3 gap-2 sm:grid-cols-[repeat(auto-fill,minmax(100px,120px))]">
+        <div className="grid grid-cols-3 gap-2 sm:grid-cols-[repeat(auto-fill,minmax(132px,140px))]">
           {Array.from({ length: 48 }).map((_, i) => (
             <div
               key={i}
-              className="h-[132px] w-full animate-pulse rounded-lg bg-gray-200 sm:w-[120px] dark:bg-gray-700"
+              className="h-[202px] w-full animate-pulse rounded-xl bg-gray-200 sm:w-[140px] dark:bg-gray-700"
             />
           ))}
         </div>
       ) : (
-        <div className="grid grid-cols-3 gap-2 sm:grid-cols-[repeat(auto-fill,minmax(100px,120px))]">
+        <div className="grid grid-cols-3 gap-2 sm:grid-cols-[repeat(auto-fill,minmax(132px,140px))]">
           {filteredGamePokemon.map((entry) => (
             <GameSlot
               key={`${entry.speciesId}-${entry.formName ?? "base"}`}

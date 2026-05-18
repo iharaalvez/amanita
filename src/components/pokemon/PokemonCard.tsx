@@ -6,6 +6,7 @@ import {
   getDisplayNameWithoutFormLabel,
   getFormLabel,
 } from "@/lib/forms";
+import { ownedKey, usePokedexStore } from "@/store/pokedexStore";
 import type { LivingDexEntry } from "@/types/pokemon";
 
 const REGION_TAG_CLASSES: Record<string, string> = {
@@ -23,6 +24,10 @@ type Props = {
 
 export function PokemonCard({ entry, onSelect }: Props) {
   const { speciesId, formName, displayName, spriteUrl } = entry;
+  const storeKey = ownedKey(speciesId, formName);
+  const record = usePokedexStore((s) => s.owned[storeKey]);
+  const owned = !!record?.owned;
+  const shinyOwned = !!record?.shiny_owned;
   const paddedNumber = `#${String(speciesId).padStart(4, "0")}`;
   const formLabel = formName ? getFormLabel(formName) : null;
   const cosmeticLabel =
@@ -30,13 +35,23 @@ export function PokemonCard({ entry, onSelect }: Props) {
   const formPill = formLabel || cosmeticLabel;
 
   return (
-    <div className="relative flex flex-col">
+    <div
+      className={`relative flex flex-col rounded-xl border transition-all ${
+        owned || shinyOwned
+          ? "border-green-200 bg-green-50/50 shadow-sm shadow-green-100 dark:border-green-900/70 dark:bg-green-950/20 dark:shadow-none"
+          : "border-transparent"
+      }`}
+    >
       <button
         onClick={() => onSelect(speciesId, formName)}
         title={displayName}
         aria-label={`Open ${displayName} Pokedex entry`}
-        className="group relative flex w-full cursor-pointer flex-col items-center gap-1 rounded-xl border-2 border-transparent p-2 transition-all hover:bg-gray-100 focus-visible:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 dark:hover:bg-gray-800 dark:focus-visible:bg-gray-800"
+        className="group relative flex w-full cursor-pointer flex-col items-center gap-1 rounded-xl p-2 transition-all hover:bg-gray-100 focus-visible:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 dark:hover:bg-gray-800 dark:focus-visible:bg-gray-800"
       >
+        <span className="rounded-full bg-white/85 px-2 py-0.5 text-[10px] font-bold tabular-nums text-gray-400 shadow-sm dark:bg-gray-900/80">
+          {paddedNumber}
+        </span>
+
         <PokemonSprite
           src={spriteUrl}
           alt={displayName}
@@ -45,10 +60,6 @@ export function PokemonCard({ entry, onSelect }: Props) {
           style={{ imageRendering: "pixelated" }}
           className="h-16 w-16 object-contain transition-all duration-200 group-hover:scale-110"
         />
-
-        <span className="text-[10px] tabular-nums text-gray-400">
-          {paddedNumber}
-        </span>
 
         <span className="w-full truncate px-1 text-center text-[11px] font-medium leading-tight">
           {getDisplayNameWithoutFormLabel(displayName, formPill)}

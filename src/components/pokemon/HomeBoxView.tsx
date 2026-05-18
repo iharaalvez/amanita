@@ -160,14 +160,12 @@ export function HomeBoxView({ onSelect }: Props) {
       .filter((entry) => {
         const record = ownedRecords[ownedKey(entry.speciesId, entry.formName)];
         const shinyTarget = isShinyTargetEntry(entry);
-        const modeOwned = isShinyOnlyMode ? record?.shiny_owned : record?.owned;
+        const shinyOwned = !!record?.shiny_owned;
+        const modeOwned = isShinyOnlyMode ? shinyOwned : record?.owned;
         if (isShinyOnlyMode && !shinyTarget && activeStatusFilter !== "all") {
           return false;
         }
-        if (
-          activeStatusFilter === "shiny" &&
-          (!shinyTarget || !record?.shiny_owned)
-        )
+        if (activeStatusFilter === "shiny" && (!shinyTarget || !shinyOwned))
           return false;
         if (activeStatusFilter === "owned" && !modeOwned) return false;
         if (activeStatusFilter === "missing" && modeOwned) return false;
@@ -185,17 +183,18 @@ export function HomeBoxView({ onSelect }: Props) {
       .filter((slot) => {
         const record =
           ownedRecords[ownedKey(slot.entry.speciesId, slot.entry.formName)];
+        const shinyOwned = !!record?.shiny_owned;
         const entryMatchesQuery =
           !q || matchingKeys.has(getEntryKey(slot.entry));
         if (!entryMatchesQuery) return false;
         if (activeStatusFilter === "shiny") {
-          return slot.isShiny && !!record?.shiny_owned;
+          return slot.isShiny && shinyOwned;
         }
         if (activeStatusFilter === "owned") {
-          return slot.isShiny ? !!record?.shiny_owned : !!record?.owned;
+          return slot.isShiny ? shinyOwned : !!record?.owned;
         }
         if (activeStatusFilter === "missing") {
-          return slot.isShiny ? !record?.shiny_owned : !record?.owned;
+          return slot.isShiny ? !shinyOwned : !record?.owned;
         }
         return true;
       })

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { ReactNode, SetStateAction } from "react";
+import type { SetStateAction } from "react";
 import { PokemonSprite } from "@/components/pokemon/PokemonSprite";
 import { usePokedexStore, ownedKey } from "@/store/pokedexStore";
 import {
@@ -15,7 +15,6 @@ import {
   getGamePokemonLocationOverride,
 } from "@/config/game-pokemon-location-overrides";
 import { GAME_LIST } from "@/config/games";
-import { getExclusiveVersion } from "@/config/version-exclusives";
 import {
   ArrowRightIcon,
   CheckIcon,
@@ -23,31 +22,12 @@ import {
   SparkleIcon,
   XIcon,
 } from "@/components/ui";
-import type { OwnershipMethod, ShinyHuntMethod } from "@/types/pokemon";
 import {
   isMythical,
   isShinyLocked,
   requiresTrade,
 } from "@/config/pokemon-flags";
 import { isBattleOnlyForm } from "@/lib/livingDex";
-
-const METHODS: OwnershipMethod[] = [
-  "caught",
-  "bred",
-  "hatched",
-  "transferred",
-  "event",
-];
-
-const SHINY_HUNT_METHODS: { value: ShinyHuntMethod; label: string }[] = [
-  { value: "random", label: "Random" },
-  { value: "masuda", label: "Masuda" },
-  { value: "soft-reset", label: "Soft Reset" },
-  { value: "sos-chain", label: "SOS Chain" },
-  { value: "poke-radar", label: "Poke Radar" },
-  { value: "dex-nav", label: "DexNav" },
-  { value: "outbreak", label: "Outbreak" },
-];
 
 const GAME_COLORS: Record<string, string> = {
   "red-blue": "#dc2626",
@@ -314,84 +294,6 @@ function getEvolutionStageLabel(index: number, totalStages: number): string {
   return `Stage ${index + 1}`;
 }
 
-type StatusToggleProps = {
-  active: boolean;
-  disabled?: boolean;
-  label: string;
-  helper: string;
-  gradient: [string, string];
-  inactiveColor?: string;
-  icon: ReactNode;
-  onClick?: () => void;
-};
-
-function StatusToggle({
-  active,
-  disabled,
-  label,
-  helper,
-  gradient,
-  inactiveColor,
-  icon,
-  onClick,
-}: StatusToggleProps) {
-  const [justActivated, setJustActivated] = useState(false);
-  const prevActiveRef = useRef(active);
-
-  useEffect(() => {
-    if (!prevActiveRef.current && active) {
-      setJustActivated(true);
-      const timer = setTimeout(() => setJustActivated(false), 400);
-      return () => clearTimeout(timer);
-    }
-    prevActiveRef.current = active;
-  }, [active]);
-
-  const gradBg = `linear-gradient(135deg, ${gradient[0]}, ${gradient[1]})`;
-
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      aria-pressed={active}
-      style={active ? { background: gradBg } : undefined}
-      className={`flex min-h-[88px] flex-col items-center justify-center gap-2 rounded-2xl px-2 py-3 text-center transition-all active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${
-        active
-          ? "text-white shadow-md"
-          : disabled
-            ? "cursor-not-allowed bg-gray-100 text-gray-400 dark:bg-gray-700/50 dark:text-gray-500"
-            : "bg-gray-50 text-gray-700 hover:bg-gray-100 dark:bg-gray-700/40 dark:text-gray-200 dark:hover:bg-gray-700/70"
-      }`}
-    >
-      <span
-        style={
-          !active && !disabled
-            ? { color: inactiveColor ?? gradient[0] }
-            : undefined
-        }
-        className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${
-          active
-            ? "bg-white/20"
-            : disabled
-              ? "bg-gray-200 text-gray-400 dark:bg-gray-600"
-              : "bg-white shadow-sm dark:bg-gray-600"
-        } ${justActivated ? "animate-sprite-pop" : ""}`}
-      >
-        {icon}
-      </span>
-      <span>
-        <span className="block text-xs font-bold leading-tight">{label}</span>
-        <span
-          className={`mt-0.5 block text-[10px] leading-snug ${active ? "text-white/70" : "text-gray-400 dark:text-gray-500"}`}
-        >
-          {helper}
-        </span>
-      </span>
-    </button>
-  );
-}
-
 type Props = {
   pokemonId: number;
   speciesId: number;
@@ -409,7 +311,6 @@ export function PokemonDetailModal({
   pokemonId,
   speciesId,
   formName,
-  contextGameId,
   onClose,
   onNavigate,
 }: Props) {
@@ -470,17 +371,8 @@ export function PokemonDetailModal({
   const owned = usePokedexStore((s) => !!s.owned[storeKey]?.owned);
   const shinyOwned = usePokedexStore((s) => !!s.owned[storeKey]?.shiny_owned);
   const ownedRecord = usePokedexStore((s) => s.owned[storeKey]);
-  const markOwned = usePokedexStore((s) => s.markOwned);
-  const markShinyOwned = usePokedexStore((s) => s.markShinyOwned);
-  const clearShinyOwned = usePokedexStore((s) => s.clearShinyOwned);
-  const clearOwnership = usePokedexStore((s) => s.clearOwnership);
-  const markOwnedInGame = usePokedexStore((s) => s.markOwnedInGame);
-  const clearOwnedInGame = usePokedexStore((s) => s.clearOwnedInGame);
-  const markShinyOwnedInGame = usePokedexStore((s) => s.markShinyOwnedInGame);
-  const clearShinyOwnedInGame = usePokedexStore((s) => s.clearShinyOwnedInGame);
   const availableGames = usePokedexStore((s) => s.availableGames);
-  const gameDexProgress = usePokedexStore((s) => s.gameDexProgress);
-  const shinyGameDexProgress = usePokedexStore((s) => s.shinyGameDexProgress);
+  const gameDex = usePokedexStore((s) => s.gameDex);
 
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
@@ -583,9 +475,9 @@ export function PokemonDetailModal({
     (game) => availableGames[game.id],
   );
   const isOwnedInGame = (gameId: string) =>
-    (gameDexProgress[gameId] ?? []).includes(speciesId);
+    !!gameDex[gameId]?.[ownedKey(speciesId, formName)]?.owned;
   const isShinyOwnedInGame = (gameId: string) =>
-    (shinyGameDexProgress[gameId] ?? []).includes(speciesId);
+    !!gameDex[gameId]?.[ownedKey(speciesId, formName)]?.shiny;
   const availableGameNames = new Set(
     availableGameOptions.map((game) => game.name),
   );
@@ -727,49 +619,35 @@ export function PokemonDetailModal({
                 </div>
               </div>
 
-              <div>
-                <div className="grid grid-cols-2 gap-2">
-                  <StatusToggle
-                    active={owned}
-                    label={owned ? "Owned" : "Missing"}
-                    helper={owned ? "Caught or bred" : "Not in your dex"}
-                    gradient={["#16a34a", "#4ade80"]}
-                    inactiveColor={owned ? undefined : "#ef4444"}
-                    icon={
-                      owned ? (
-                        <CheckIcon className="h-5 w-5" />
-                      ) : (
-                        <XIcon className="h-5 w-5" />
-                      )
-                    }
-                    onClick={() =>
-                      owned
-                        ? clearOwnership(speciesId, formName)
-                        : markOwned(speciesId, formName)
-                    }
-                  />
-                  <StatusToggle
-                    active={shinyOwned}
-                    disabled={shinyLocked}
-                    label={
-                      shinyLocked ? "Locked" : shinyOwned ? "Shiny" : "Shiny"
-                    }
-                    helper={
-                      shinyLocked
-                        ? "Unavailable"
-                        : shinyOwned
-                          ? "You own it!"
-                          : "Track shiny"
-                    }
-                    gradient={["#d97706", "#fbbf24"]}
-                    icon={<SparkleIcon className="h-5 w-5" />}
-                    onClick={() =>
-                      shinyOwned
-                        ? clearShinyOwned(speciesId, formName)
-                        : markShinyOwned(speciesId, formName)
-                    }
-                  />
-                </div>
+              <div className="flex flex-wrap gap-2">
+                {owned ? (
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-green-100 px-3 py-1 text-xs font-bold text-green-700 dark:bg-green-950/40 dark:text-green-300">
+                    <CheckIcon className="h-3.5 w-3.5" />
+                    Owned
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-400 dark:bg-gray-800 dark:text-gray-500">
+                    <XIcon className="h-3.5 w-3.5" />
+                    Not owned
+                  </span>
+                )}
+                {shinyOwned && (
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-yellow-100 px-3 py-1 text-xs font-bold text-yellow-700 dark:bg-yellow-950/40 dark:text-yellow-300">
+                    <SparkleIcon className="h-3.5 w-3.5" />
+                    Shiny owned
+                  </span>
+                )}
+                {shinyLocked && (
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-400 dark:bg-slate-800 dark:text-slate-500">
+                    <XIcon className="h-3.5 w-3.5" />
+                    Shiny locked
+                  </span>
+                )}
+                {ownedRecord?.method && (
+                  <span className="inline-flex items-center rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold capitalize text-blue-600 dark:bg-blue-950/30 dark:text-blue-300">
+                    {ownedRecord.method}
+                  </span>
+                )}
               </div>
             </div>
 
@@ -925,283 +803,59 @@ export function PokemonDetailModal({
               )}
             </section>
 
-            {owned && (
-              <section className="flex flex-col gap-3 px-6 pb-4">
-                <div>
-                  <p className="mb-1.5 text-xs font-medium uppercase tracking-wide text-gray-400">
-                    Method
-                  </p>
-                  <div className="flex flex-wrap gap-1.5">
-                    {METHODS.map((method) => (
-                      <button
-                        key={method}
-                        type="button"
-                        onClick={() => markOwned(speciesId, formName, method)}
-                        className={`rounded-full px-3 py-1 text-xs font-medium capitalize transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${
-                          ownedRecord?.method === method
-                            ? "bg-blue-500 text-white"
-                            : "bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
-                        }`}
-                      >
-                        {method}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </section>
-            )}
-
-            {shinyOwned && (
-              <section className="flex flex-col gap-3 border-t border-yellow-100 px-6 pb-4 pt-4 dark:border-yellow-900/40">
+            {shinyOwned && ownedRecord?.shiny_method && (
+              <section className="flex flex-col gap-2 px-6 pb-4">
                 <p className="text-xs font-semibold uppercase tracking-wide text-yellow-600 dark:text-yellow-400">
                   Shiny details
                 </p>
-                <div>
-                  <p className="mb-1.5 text-xs font-medium uppercase tracking-wide text-gray-400">
-                    Hunt method
-                  </p>
-                  <div className="flex flex-wrap gap-1.5">
-                    {SHINY_HUNT_METHODS.map(({ value, label }) => (
-                      <button
-                        key={value}
-                        type="button"
-                        onClick={() =>
-                          markShinyOwned(
-                            speciesId,
-                            formName,
-                            value,
-                            ownedRecord?.shiny_game,
-                          )
-                        }
-                        className={`rounded-full px-3 py-1 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${
-                          ownedRecord?.shiny_method === value
-                            ? "bg-yellow-400 text-white"
-                            : "bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
-                        }`}
-                      >
-                        {label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                <div>
-                  <label
-                    htmlFor="shiny-game"
-                    className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-gray-400"
-                  >
-                    Found in
-                  </label>
-                  <select
-                    id="shiny-game"
-                    value={ownedRecord?.shiny_game ?? ""}
-                    onChange={(event) =>
-                      markShinyOwned(
-                        speciesId,
-                        formName,
-                        ownedRecord?.shiny_method,
-                        event.target.value || undefined,
-                      )
-                    }
-                    disabled={availableGameOptions.length === 0}
-                    className="w-full rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200"
-                  >
-                    <option value="">
-                      {availableGameOptions.length > 0
-                        ? "- select game -"
-                        : "Mark games available first"}
-                    </option>
-                    {availableGameOptions.map((game) => (
-                      <option key={game.id} value={game.id}>
-                        {game.name}
-                      </option>
-                    ))}
-                  </select>
+                <div className="flex flex-wrap gap-1.5">
+                  <span className="rounded-full bg-yellow-50 px-3 py-1 text-xs font-semibold capitalize text-yellow-700 dark:bg-yellow-950/30 dark:text-yellow-300">
+                    {ownedRecord.shiny_method}
+                  </span>
+                  {ownedRecord.shiny_game && (
+                    <span className="rounded-full bg-yellow-50 px-3 py-1 text-xs font-semibold text-yellow-700 dark:bg-yellow-950/30 dark:text-yellow-300">
+                      {ownedRecord.shiny_game}
+                    </span>
+                  )}
                 </div>
               </section>
             )}
 
-            <section className="flex flex-col gap-2 px-6 pb-4">
-              <p className="mb-0.5 text-xs font-medium uppercase tracking-wide text-gray-400">
-                National Dex
-              </p>
-              {availableGameOptions.length === 0 ? (
-                <p className="text-xs text-gray-400">
-                  Mark games available first
+            {availableGameOptions.length > 0 && (
+              <section className="flex flex-col gap-2 px-6 pb-4">
+                <p className="mb-0.5 text-xs font-medium uppercase tracking-wide text-gray-400">
+                  National Dex
                 </p>
-              ) : contextGameId ? (
-                (() => {
-                  const game = availableGameOptions.find(
-                    (g) => g.id === contextGameId,
-                  );
-                  if (!game)
-                    return (
-                      <p className="text-xs text-gray-400">
-                        Game not in your available list
-                      </p>
-                    );
-                  const isRegistered = isOwnedInGame(game.id);
-                  const isShinyInGame = isShinyOwnedInGame(game.id);
-                  const grad = GAME_GRADIENT[game.id];
-                  const color = GAME_COLORS[game.id] ?? "#6b7280";
-                  const gradBg = grad
-                    ? `linear-gradient(135deg, ${grad[0]}, ${grad[1]})`
-                    : color;
-                  const exclusiveVersion = getExclusiveVersion(
-                    game.id,
-                    speciesId,
-                  );
-                  return (
-                    <div className="flex flex-col gap-2">
-                      {isRegistered ? (
-                        <button
-                          type="button"
-                          onClick={() => clearOwnedInGame(speciesId, game.id)}
-                          style={{ background: gradBg }}
-                          className="flex w-full items-center justify-between rounded-xl px-4 py-2.5 text-sm font-bold text-white shadow-sm transition-opacity hover:opacity-85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
-                        >
-                          <span className="flex flex-col items-start">
-                            <span>Registered in {game.name}</span>
-                            {exclusiveVersion && (
-                              <span className="text-[11px] font-normal opacity-75">
-                                {exclusiveVersion} exclusive
-                              </span>
-                            )}
-                          </span>
-                          <XIcon className="h-4 w-4 shrink-0" />
-                        </button>
-                      ) : (
-                        <div
-                          style={{ background: gradBg }}
-                          className="rounded-xl p-[2px]"
-                        >
-                          <button
-                            type="button"
-                            onClick={() => markOwnedInGame(speciesId, game.id)}
-                            style={{ color: grad ? grad[0] : color }}
-                            className="flex w-full flex-col items-center justify-center rounded-[10px] bg-white px-4 py-2.5 text-sm font-bold transition-opacity hover:opacity-85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 dark:bg-gray-800"
-                          >
-                            <span>+ Register in {game.name}</span>
-                            {exclusiveVersion && (
-                              <span className="text-[11px] font-normal opacity-60">
-                                {exclusiveVersion} exclusive
-                              </span>
-                            )}
-                          </button>
-                        </div>
-                      )}
-                      {isRegistered && (
-                        <button
-                          type="button"
-                          onClick={() =>
-                            isShinyInGame
-                              ? clearShinyOwnedInGame(speciesId, game.id)
-                              : markShinyOwnedInGame(speciesId, game.id)
-                          }
-                          style={
-                            isShinyInGame
-                              ? {
-                                  background:
-                                    "linear-gradient(135deg, #d97706, #fbbf24)",
-                                }
-                              : undefined
-                          }
-                          className={`flex w-full items-center justify-center gap-1.5 rounded-xl px-4 py-2 text-sm font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-400 ${
-                            isShinyInGame
-                              ? "text-white shadow-sm"
-                              : "bg-gray-100 text-gray-500 hover:bg-yellow-50 hover:text-yellow-600 dark:bg-gray-700 dark:text-gray-400 dark:hover:bg-yellow-950/40 dark:hover:text-yellow-400"
-                          }`}
-                        >
-                          <SparkleIcon className="h-4 w-4" />
-                          {isShinyInGame ? "Shiny caught" : "Mark shiny"}
-                        </button>
-                      )}
-                    </div>
-                  );
-                })()
-              ) : (
                 <div className="flex flex-wrap gap-1.5">
                   {availableGameOptions.map((game) => {
                     const isRegistered = isOwnedInGame(game.id);
                     const isShinyInGame = isShinyOwnedInGame(game.id);
+                    if (!isRegistered) return null;
                     const grad = GAME_GRADIENT[game.id];
-                    const color = GAME_COLORS[game.id] ?? "#6b7280";
                     const gradBg = grad
                       ? `linear-gradient(135deg, ${grad[0]}, ${grad[1]})`
-                      : color;
-                    const exclusiveVersion = getExclusiveVersion(
-                      game.id,
-                      speciesId,
-                    );
-                    const label = exclusiveVersion
-                      ? `${game.name} · ${exclusiveVersion} only`
-                      : game.name;
-                    return isRegistered ? (
-                      <div
+                      : (GAME_COLORS[game.id] ?? "#6b7280");
+                    return (
+                      <span
                         key={game.id}
                         style={{ background: gradBg }}
-                        className="flex items-center rounded-full"
+                        className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold text-white"
                       >
-                        <button
-                          type="button"
-                          onClick={() => clearOwnedInGame(speciesId, game.id)}
-                          title={`Remove from ${label}`}
-                          className="inline-flex items-center gap-1 rounded-l-full pl-2.5 pr-1.5 py-1 text-xs font-semibold text-white transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
-                        >
-                          {game.name}
-                          {exclusiveVersion && (
-                            <span className="rounded bg-white/25 px-1 text-[9px] font-bold">
-                              {exclusiveVersion.split(" ")[0][0]}
-                            </span>
-                          )}
-                          <XIcon className="h-3 w-3" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            isShinyInGame
-                              ? clearShinyOwnedInGame(speciesId, game.id)
-                              : markShinyOwnedInGame(speciesId, game.id)
-                          }
-                          title={
-                            isShinyInGame
-                              ? `Remove shiny in ${game.name}`
-                              : `Mark shiny in ${game.name}`
-                          }
-                          className={`rounded-r-full pl-1 pr-2 py-1 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-400 ${
-                            isShinyInGame
-                              ? "text-yellow-300"
-                              : "text-white/40 hover:text-yellow-300"
-                          }`}
-                        >
-                          <SparkleIcon className="h-3 w-3" />
-                        </button>
-                      </div>
-                    ) : (
-                      <div
-                        key={game.id}
-                        style={{ background: gradBg }}
-                        className="rounded-full p-[2px]"
-                      >
-                        <button
-                          type="button"
-                          onClick={() => markOwnedInGame(speciesId, game.id)}
-                          title={`Add to ${label}`}
-                          style={{ color: grad ? grad[0] : color }}
-                          className="inline-flex items-center gap-1 rounded-full bg-white px-2.5 py-[3px] text-xs font-semibold transition-opacity hover:opacity-70 focus-visible:outline-none dark:bg-gray-800"
-                        >
-                          {game.name}
-                          {exclusiveVersion && (
-                            <span className="rounded bg-black/10 px-1 text-[9px] font-bold dark:bg-white/10">
-                              {exclusiveVersion.split(" ")[0][0]}
-                            </span>
-                          )}
-                        </button>
-                      </div>
+                        {game.name}
+                        {isShinyInGame && (
+                          <SparkleIcon className="h-3 w-3 text-yellow-300" />
+                        )}
+                      </span>
                     );
                   })}
+                  {availableGameOptions.every((g) => !isOwnedInGame(g.id)) && (
+                    <p className="text-xs text-gray-400">
+                      Not registered in any game
+                    </p>
+                  )}
                 </div>
-              )}
-            </section>
+              </section>
+            )}
 
             <hr className="border-gray-100 dark:border-gray-700" />
 

@@ -100,6 +100,15 @@ describe("Living Dex entry rules", () => {
     assert.equal(getOwnedEntryCount(entries, ownedRecords), 2);
   });
 
+  it("counts owned gender variants toward the base Living Dex species", () => {
+    const entries = [entry(25, "Pikachu")];
+    const ownedRecords = {
+      "25-pikachu-female": owned(25, "pikachu-female"),
+    };
+
+    assert.equal(getOwnedEntryCount(entries, ownedRecords), 1);
+  });
+
   it("excludes shiny-locked species from shiny targets and shiny counts", () => {
     const entries = [
       entry(25, "Pikachu"),
@@ -114,4 +123,5 @@ describe("Living Dex entry rules", () => {
     assert.equal(isShinyTargetEntry(entries[1]), false);
     assert.equal(getShinyEntryCount(entries, ownedRecords), 1);
   });
+
 });

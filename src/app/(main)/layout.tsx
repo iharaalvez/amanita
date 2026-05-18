@@ -114,10 +114,14 @@ function MainLayoutContent({ children }: { children: React.ReactNode }) {
 
   if (loading) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-[#0b1120] px-4 text-white">
+      <main className="flex min-h-screen items-center justify-center bg-[#0d0f18] px-4 text-white">
         <div className="text-center">
-          <p className="text-lg font-bold">Gotta Catch &apos;Em All!</p>
-          <p className="mt-2 text-sm text-slate-400">Checking your session…</p>
+          <p className="text-2xl font-black tracking-tight text-[#f8f0df]">
+            Amanita
+          </p>
+          <p className="mt-3 text-sm text-slate-400">
+            Checking your session...
+          </p>
         </div>
       </main>
     );
@@ -133,12 +137,16 @@ function MainLayoutContent({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="flex h-dvh overflow-hidden bg-white dark:bg-gray-900">
-      <Sidebar user={user} />
+    <div className="flex h-dvh flex-col overflow-hidden bg-[#f4f0e8] dark:bg-[#0d0f18]">
+      <AppHeader />
 
-      <main className="min-w-0 flex-1 overflow-y-auto pb-[calc(4rem+env(safe-area-inset-bottom))] sm:pb-0">
-        {children}
-      </main>
+      <div className="flex min-h-0 flex-1 overflow-hidden">
+        <Sidebar user={user} />
+
+        <main className="min-w-0 flex-1 overflow-y-auto pb-[calc(4rem+env(safe-area-inset-bottom))] sm:pb-0">
+          {children}
+        </main>
+      </div>
 
       {selected && (
         <PokemonDetailModal
@@ -165,5 +173,18 @@ function MainLayoutContent({ children }: { children: React.ReactNode }) {
         </div>
       )}
     </div>
+  );
+}
+
+function AppHeader() {
+  return (
+    <header className="flex h-14 shrink-0 items-center border-b border-[#d9d1c2] bg-[#f4f0e8]/95 px-4 shadow-sm shadow-black/[0.03] backdrop-blur sm:h-16 sm:px-5 dark:border-[#2f2b40] dark:bg-[#151520]/95">
+      <div className="flex items-center gap-2 text-[#10131d] dark:text-[#f8f0df]">
+        <span className="grid h-8 w-8 place-items-center rounded-full border border-[#9b84c8]/45 text-[12px] font-black text-[#7c5db0] dark:text-[#c7a7ff]">
+          A
+        </span>
+        <span className="text-lg font-black tracking-tight">Amanita</span>
+      </div>
+    </header>
   );
 }

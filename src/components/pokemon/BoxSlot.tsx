@@ -1,5 +1,7 @@
 "use client";
 
+import { Plus } from "lucide-react";
+import type { MouseEvent } from "react";
 import { usePokedexStore, ownedKey } from "@/store/pokedexStore";
 import { CheckIcon, SparkleIcon, Tooltip, XIcon } from "@/components/ui";
 import { PokemonSprite } from "@/components/pokemon/PokemonSprite";
@@ -31,6 +33,10 @@ export function BoxSlot({
   const shinyOwned = usePokedexStore((s) =>
     entry ? !!s.owned[key]?.shiny_owned : false,
   );
+  const markOwned = usePokedexStore((s) => s.markOwned);
+  const clearOwnership = usePokedexStore((s) => s.clearOwnership);
+  const markShinyOwned = usePokedexStore((s) => s.markShinyOwned);
+  const clearShinyOwned = usePokedexStore((s) => s.clearShinyOwned);
 
   if (!entry) {
     return (
@@ -61,6 +67,27 @@ export function BoxSlot({
         : hasShinyPair
           ? owned
           : owned || shinyOwned;
+  const toggleActive = isShinySlot ? shinyOwned : owned;
+
+  const toggleSlot = (event?: MouseEvent<HTMLButtonElement>) => {
+    event?.stopPropagation();
+    if (isShinySlot && shinyLocked) return;
+
+    if (isShinySlot) {
+      if (shinyOwned) {
+        clearShinyOwned(entry.speciesId, entry.formName);
+      } else {
+        markShinyOwned(entry.speciesId, entry.formName);
+      }
+      return;
+    }
+
+    if (owned) {
+      clearOwnership(entry.speciesId, entry.formName);
+    } else {
+      markOwned(entry.speciesId, entry.formName);
+    }
+  };
 
   let statusClass: string;
   if (isShinySlot && shinyLocked) {
@@ -71,7 +98,6 @@ export function BoxSlot({
       ? "border-yellow-400 bg-yellow-50 dark:bg-yellow-950/40"
       : "border-transparent bg-white/30 hover:bg-yellow-50/30 dark:bg-gray-900/10 dark:hover:bg-yellow-950/20";
   } else if (hasShinyPair) {
-    // Normal slot in shiny dex mode — only reflect owned, not shinyOwned
     statusClass = owned
       ? "border-green-400 bg-green-50/50 dark:bg-green-950/30"
       : "border-transparent bg-white/50 hover:bg-gray-100 dark:bg-gray-900/20 dark:hover:bg-gray-700/50";
@@ -84,7 +110,7 @@ export function BoxSlot({
   }
 
   const label = isShinySlot
-    ? `${paddedNumber} - ✦ ${entry.displayName}${
+    ? `${paddedNumber} - shiny ${entry.displayName}${
         shinyLocked
           ? " - shiny unavailable"
           : shinyOwned
@@ -93,124 +119,170 @@ export function BoxSlot({
       }`
     : shinyOwned
       ? `${paddedNumber} - ${entry.displayName} - shiny owned`
-      : `${paddedNumber} - ${entry.displayName}${owned ? " - Owned" : ""}`;
+      : `${paddedNumber} - ${entry.displayName}${owned ? " - owned" : ""}`;
+  const toggleLabel = isShinySlot
+    ? shinyOwned
+      ? `Remove shiny ${entry.displayName} from HOME boxes`
+      : `Add shiny ${entry.displayName} to HOME boxes`
+    : owned
+      ? `Remove ${entry.displayName} from HOME boxes`
+      : `Add ${entry.displayName} to HOME boxes`;
 
   return (
     <Tooltip content={label} className="w-full">
-      <button
-        onClick={() => onSelect?.(entry.speciesId, entry.formName)}
-        aria-label={
-          isShinySlot
-            ? `Shiny ${entry.displayName}, ${
-                shinyLocked
-                  ? "shiny unavailable"
-                  : shinyOwned
-                    ? "shiny owned"
-                    : "not shiny owned"
-              }`
-            : `${entry.displayName}, ${owned ? "owned" : "not owned"}${shinyOwned ? ", shiny owned" : ""}`
-        }
-        aria-pressed={isActive}
-        className={`group relative flex aspect-square w-full cursor-pointer flex-col items-center justify-center gap-0 rounded-md border p-0.5 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 sm:gap-0.5 sm:rounded-lg sm:border-2 sm:p-1 ${statusClass}`}
-      >
-        {/* Corner indicators */}
-        <span
-          className={`absolute flex gap-0.5 ${
-            compact
-              ? "right-0.5 top-0.5"
-              : "right-0.5 top-0.5 sm:right-1 sm:top-1"
-          }`}
-          aria-hidden
+      <div className="relative w-full">
+        <button
+          type="button"
+          onClick={() => {
+            if (onSelect) {
+              onSelect(entry.speciesId, entry.formName);
+            } else {
+              toggleSlot();
+            }
+          }}
+          aria-label={
+            isShinySlot
+              ? `Shiny ${entry.displayName}, ${
+                  shinyLocked
+                    ? "shiny unavailable"
+                    : shinyOwned
+                      ? "shiny owned"
+                      : "not shiny owned"
+                }`
+              : `${entry.displayName}, ${owned ? "owned" : "not owned"}${shinyOwned ? ", shiny owned" : ""}`
+          }
+          aria-pressed={isActive}
+          className={`group relative flex aspect-square w-full cursor-pointer flex-col items-center justify-center gap-0 rounded-md border p-0.5 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 sm:gap-0.5 sm:rounded-lg sm:border-2 sm:p-1 ${statusClass}`}
         >
-          {isShinySlot ? (
-            shinyLocked ? (
-              <XIcon
-                className={
-                  compact
-                    ? "h-2.5 w-2.5 text-slate-400"
-                    : "h-3 w-3 text-slate-400 sm:h-3.5 sm:w-3.5"
-                }
-              />
-            ) : (
-              shinyOwned && (
-                <SparkleIcon
+          <span
+            className={`absolute flex gap-0.5 ${
+              compact
+                ? "right-0.5 top-0.5"
+                : "right-0.5 top-0.5 sm:right-1 sm:top-1"
+            }`}
+            aria-hidden
+          >
+            {isShinySlot ? (
+              shinyLocked ? (
+                <XIcon
                   className={
                     compact
-                      ? "h-2.5 w-2.5 text-yellow-400"
-                      : "h-3 w-3 text-yellow-400 sm:h-3.5 sm:w-3.5"
+                      ? "h-2.5 w-2.5 text-slate-400"
+                      : "h-3 w-3 text-slate-400 sm:h-3.5 sm:w-3.5"
+                  }
+                />
+              ) : (
+                shinyOwned && (
+                  <SparkleIcon
+                    className={
+                      compact
+                        ? "h-2.5 w-2.5 text-yellow-400"
+                        : "h-3 w-3 text-yellow-400 sm:h-3.5 sm:w-3.5"
+                    }
+                  />
+                )
+              )
+            ) : hasShinyPair ? (
+              owned && (
+                <CheckIcon
+                  className={
+                    compact
+                      ? "h-2.5 w-2.5 text-green-400"
+                      : "h-3 w-3 text-green-400 sm:h-3.5 sm:w-3.5"
                   }
                 />
               )
-            )
-          ) : hasShinyPair ? (
-            owned && (
-              <CheckIcon
-                className={
-                  compact
-                    ? "h-2.5 w-2.5 text-green-400"
-                    : "h-3 w-3 text-green-400 sm:h-3.5 sm:w-3.5"
-                }
-              />
-            )
-          ) : (
+            ) : (
+              <>
+                {shinyOwned && (
+                  <SparkleIcon className="h-3 w-3 text-yellow-400 sm:h-3.5 sm:w-3.5" />
+                )}
+                {owned && !shinyOwned && (
+                  <CheckIcon className="h-3 w-3 text-green-400 sm:h-3.5 sm:w-3.5" />
+                )}
+              </>
+            )}
+          </span>
+
+          {isShinySlot && (
+            <span
+              className={`absolute font-bold leading-none text-yellow-400 ${
+                compact
+                  ? "left-0.5 top-0.5 text-[6px]"
+                  : "left-8 top-1 text-[8px] sm:left-7 sm:top-1.5"
+              }`}
+              aria-hidden
+            >
+              *
+            </span>
+          )}
+
+          <PokemonSprite
+            src={spriteUrl}
+            alt={isShinySlot ? `Shiny ${entry.displayName}` : entry.displayName}
+            width={72}
+            height={72}
+            style={{ imageRendering: "pixelated" }}
+            className={`object-contain transition-all duration-200 group-hover:scale-110 ${
+              compact
+                ? "h-8 w-8"
+                : "h-9 w-9 min-[390px]:h-10 min-[390px]:w-10 sm:h-16 sm:w-16"
+            } ${
+              shinyLocked && isShinySlot
+                ? "grayscale opacity-30"
+                : isActive
+                  ? ""
+                  : "grayscale opacity-50"
+            }`}
+          />
+          {!compact && (
             <>
-              {shinyOwned && (
-                <SparkleIcon className="h-3 w-3 text-yellow-400 sm:h-3.5 sm:w-3.5" />
-              )}
-              {owned && !shinyOwned && (
-                <CheckIcon className="h-3 w-3 text-green-400 sm:h-3.5 sm:w-3.5" />
-              )}
+              <span className="w-full truncate text-center text-[8px] font-semibold leading-none text-gray-600 dark:text-gray-200 min-[390px]:text-[9px] sm:px-0.5 sm:text-[10px] sm:leading-tight">
+                {slotName}
+              </span>
+              <span
+                className={`max-w-full truncate rounded-full px-1 py-0.5 text-[7px] font-semibold leading-none sm:px-1.5 sm:text-[8px] ${
+                  formPill
+                    ? regionLabel
+                      ? "bg-violet-100 text-violet-700 dark:bg-violet-900 dark:text-violet-300"
+                      : "bg-teal-100 text-teal-700 dark:bg-teal-900 dark:text-teal-300"
+                    : "hidden invisible sm:inline-flex"
+                }`}
+              >
+                {formPill ?? " "}
+              </span>
             </>
           )}
-        </span>
+        </button>
 
-        {/* Shiny slot marker */}
-        {isShinySlot && (
-          <span
-            className={`absolute left-0.5 top-0.5 font-bold leading-none text-yellow-400 ${compact ? "text-[6px]" : "text-[8px]"}`}
-            aria-hidden
+        {!compact && !(isShinySlot && shinyLocked) && (
+          <button
+            type="button"
+            onClick={toggleSlot}
+            aria-label={toggleLabel}
+            aria-pressed={toggleActive}
+            className={`absolute left-1 top-1 z-10 grid h-7 w-7 place-items-center rounded-full border shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 sm:h-6 sm:w-6 ${
+              isShinySlot
+                ? shinyOwned
+                  ? "border-yellow-400 bg-yellow-400 text-white"
+                  : "border-yellow-200 bg-white text-yellow-500 hover:bg-yellow-50 dark:border-yellow-900/70 dark:bg-gray-900 dark:text-yellow-400"
+                : owned
+                  ? "border-green-400 bg-green-400 text-white"
+                  : "border-green-200 bg-white text-green-600 hover:bg-green-50 dark:border-green-900/70 dark:bg-gray-900 dark:text-green-400"
+            }`}
           >
-            ✦
-          </span>
+            {toggleActive ? (
+              isShinySlot ? (
+                <SparkleIcon className="h-4 w-4 sm:h-3 sm:w-3" />
+              ) : (
+                <CheckIcon className="h-4 w-4 sm:h-3 sm:w-3" />
+              )
+            ) : (
+              <Plus className="h-4 w-4 sm:h-3 sm:w-3" />
+            )}
+          </button>
         )}
-
-        <PokemonSprite
-          src={spriteUrl}
-          alt={isShinySlot ? `Shiny ${entry.displayName}` : entry.displayName}
-          width={72}
-          height={72}
-          style={{ imageRendering: "pixelated" }}
-          className={`object-contain transition-all duration-200 group-hover:scale-110 ${
-            compact
-              ? "h-8 w-8"
-              : "h-9 w-9 min-[390px]:h-10 min-[390px]:w-10 sm:h-16 sm:w-16"
-          } ${
-            shinyLocked && isShinySlot
-              ? "grayscale opacity-30"
-              : isActive
-                ? ""
-                : "grayscale opacity-50"
-          }`}
-        />
-        {!compact && (
-          <>
-            <span className="w-full truncate text-center text-[8px] font-semibold leading-none text-gray-600 dark:text-gray-200 min-[390px]:text-[9px] sm:px-0.5 sm:text-[10px] sm:leading-tight">
-              {slotName}
-            </span>
-            <span
-              className={`max-w-full truncate rounded-full px-1 py-0.5 text-[7px] font-semibold leading-none sm:px-1.5 sm:text-[8px] ${
-                formPill
-                  ? regionLabel
-                    ? "bg-violet-100 text-violet-700 dark:bg-violet-900 dark:text-violet-300"
-                    : "bg-teal-100 text-teal-700 dark:bg-teal-900 dark:text-teal-300"
-                  : "hidden invisible sm:inline-flex"
-              }`}
-            >
-              {formPill ?? " "}
-            </span>
-          </>
-        )}
-      </button>
+      </div>
     </Tooltip>
   );
 }

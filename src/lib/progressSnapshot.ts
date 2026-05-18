@@ -11,18 +11,19 @@ function isBooleanRecord(value: unknown): value is Record<string, boolean> {
   );
 }
 
-function isNumberArrayRecord(
+function isGameDexFlags(value: unknown): boolean {
+  if (!isRecord(value)) return false;
+  return typeof value.owned === "boolean" && typeof value.shiny === "boolean";
+}
+
+function isGameDexRecord(
   value: unknown,
-): value is Record<string, number[]> {
-  return (
-    isRecord(value) &&
-    Object.values(value).every(
-      (entry) =>
-        Array.isArray(entry) &&
-        entry.every(
-          (item) => typeof item === "number" && Number.isInteger(item),
-        ),
-    )
+): value is Record<string, Record<string, { owned: boolean; shiny: boolean }>> {
+  if (!isRecord(value)) return false;
+  return Object.values(value).every(
+    (gameEntry) =>
+      isRecord(gameEntry) &&
+      Object.values(gameEntry).every(isGameDexFlags),
   );
 }
 
@@ -49,8 +50,10 @@ export function isProgressSnapshot(value: unknown): value is ProgressSnapshot {
 
   return (
     isOwnedRecordMap(value.owned) &&
-    isNumberArrayRecord(value.gameDexProgress) &&
-    isNumberArrayRecord(value.shinyGameDexProgress) &&
-    isBooleanRecord(value.availableGames)
+    isGameDexRecord(value.gameDex) &&
+    isBooleanRecord(value.availableGames) &&
+    (value.pinnedGameId === undefined ||
+      value.pinnedGameId === null ||
+      typeof value.pinnedGameId === "string")
   );
 }

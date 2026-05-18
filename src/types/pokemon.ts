@@ -17,13 +17,22 @@ export type ShinyHuntMethod =
 export type OwnedRecord = {
   pokedex_number: number; // species ID (1-1025)
   form_name: string | null; // null = base form, e.g. 'vulpix-alola' for regional
-  owned: boolean;
-  shiny_owned: boolean;
+  owned: boolean; // has this species in the Living Dex (HOME)
+  shiny_owned: boolean; // has this species in the Shiny Living Dex (HOME)
   method?: OwnershipMethod;
   notes?: string;
   date_obtained?: string;
   shiny_method?: ShinyHuntMethod;
   shiny_game?: string;
+};
+
+// Per-game, per-species registration flags. Alpha fields only apply to games
+// in ALPHA_GAMES (PLA and Legends: Z-A). Future: home_alpha when HOME tracks it.
+export type GameDexFlags = {
+  owned: boolean;
+  shiny: boolean;
+  alpha?: boolean;
+  shiny_alpha?: boolean;
 };
 
 export type PokemonStatName =
@@ -117,9 +126,11 @@ export type ApiHealth = {
 
 export type ProgressSnapshot = {
   owned: Record<string, OwnedRecord>;
-  gameDexProgress: Record<string, number[]>;
-  shinyGameDexProgress: Record<string, number[]>;
+  // gameDex[gameId][speciesKey] = flags. Replaces the old separate
+  // gameDexProgress/shinyGameDexProgress number[] arrays.
+  gameDex: Record<string, Record<string, GameDexFlags>>;
   availableGames: Record<string, boolean>;
+  pinnedGameId?: string | null;
 };
 
 export type EvolutionStage = {

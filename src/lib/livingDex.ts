@@ -56,9 +56,7 @@ export function getOwnedEntryCount(
   entries: LivingDexEntry[],
   ownedRecords: Record<string, OwnedRecord>,
 ): number {
-  return entries.filter(
-    (entry) => ownedRecords[ownedKey(entry.speciesId, entry.formName)]?.owned,
-  ).length;
+  return entries.filter((entry) => isOwnedForEntry(entry, ownedRecords)).length;
 }
 
 export function getShinyEntryCount(
@@ -67,7 +65,45 @@ export function getShinyEntryCount(
 ): number {
   return entries.filter(
     (entry) =>
-      isShinyTargetEntry(entry) &&
-      ownedRecords[ownedKey(entry.speciesId, entry.formName)]?.shiny_owned,
+      isShinyTargetEntry(entry) && isShinyOwnedForEntry(entry, ownedRecords),
   ).length;
+}
+
+function isOwnedForEntry(
+  entry: LivingDexEntry,
+  ownedRecords: Record<string, OwnedRecord>,
+): boolean {
+  if (ownedRecords[ownedKey(entry.speciesId, entry.formName)]?.owned) {
+    return true;
+  }
+
+  return hasOwnedGenderVariant(entry, ownedRecords, "owned");
+}
+
+function isShinyOwnedForEntry(
+  entry: LivingDexEntry,
+  ownedRecords: Record<string, OwnedRecord>,
+): boolean {
+  const record = ownedRecords[ownedKey(entry.speciesId, entry.formName)];
+  if (record?.shiny_owned) {
+    return true;
+  }
+
+  return hasOwnedGenderVariant(entry, ownedRecords, "shiny_owned");
+}
+
+function hasOwnedGenderVariant(
+  entry: LivingDexEntry,
+  ownedRecords: Record<string, OwnedRecord>,
+  field: "owned" | "shiny_owned",
+): boolean {
+  if (entry.formName !== null) return false;
+
+  return Object.values(ownedRecords).some(
+    (record) =>
+      record.pokedex_number === entry.speciesId &&
+      !!record.form_name &&
+      !!record[field] &&
+      GENDER_DIFFERENCE_FORM_KEYS.has(`${entry.speciesId}-${record.form_name}`),
+  );
 }
