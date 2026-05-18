@@ -136,29 +136,6 @@ export default function DonutToolPage() {
 
       <div className="grid gap-4 xl:grid-cols-[360px_1fr]">
         <aside className="space-y-4">
-          <section className="rounded-xl border border-pink-200 bg-pink-50/60 p-4 shadow-sm dark:border-pink-900/50 dark:bg-pink-950/20">
-            <div className="mb-3 flex items-center justify-between gap-3">
-              <div>
-                <p className="text-xs font-black uppercase tracking-widest text-pink-500">
-                  Recommended
-                </p>
-                <h2 className="mt-1 text-lg font-black text-gray-950 dark:text-white">
-                  Best Recipes
-                </h2>
-              </div>
-              <Sparkles className="h-5 w-5 text-pink-500" />
-            </div>
-            <div className="space-y-2">
-              {RECOMMENDED_DONUT_RECIPES.map((recipe) => (
-                <RecommendedRecipeCard
-                  key={recipe.id}
-                  recipe={recipe}
-                  onLoad={() => loadRecipe(recipe)}
-                />
-              ))}
-            </div>
-          </section>
-
           <section className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900">
             <div className="mb-3 flex items-start justify-between gap-3">
               <div>
@@ -279,6 +256,29 @@ export default function DonutToolPage() {
               Power rolls are random among eligible flavor powers; tied flavors
               can pull from more than one family.
             </p>
+          </section>
+
+          <section className="rounded-xl border border-pink-200 bg-pink-50/60 p-4 shadow-sm dark:border-pink-900/50 dark:bg-pink-950/20">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <div>
+                <p className="text-xs font-black uppercase tracking-widest text-pink-500">
+                  Suggested Donuts
+                </p>
+                <h2 className="mt-1 text-lg font-black text-gray-950 dark:text-white">
+                  Best Recipes
+                </h2>
+              </div>
+              <Sparkles className="h-5 w-5 text-pink-500" />
+            </div>
+            <div className="space-y-2">
+              {RECOMMENDED_DONUT_RECIPES.map((recipe) => (
+                <RecommendedRecipeCard
+                  key={recipe.id}
+                  recipe={recipe}
+                  onLoad={() => loadRecipe(recipe)}
+                />
+              ))}
+            </div>
           </section>
         </aside>
 
