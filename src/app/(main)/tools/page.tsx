@@ -1,24 +1,33 @@
-import Link from 'next/link';
-import { Calculator, ChefHat, Sparkles } from 'lucide-react';
+import Link from "next/link";
+import { Calculator, ChefHat, Donut, Sparkles } from "lucide-react";
 
 const tools = [
   {
-    title: 'Sandwich Maker',
-    description: 'Find recipes and meals that grant Encounter, Title, and Sparkling powers.',
+    title: "Sandwich Maker",
+    description:
+      "Find recipes and meals that grant Encounter, Title, and Sparkling powers.",
     Icon: ChefHat,
-    href: '/tools/sandwich',
+    href: "/tools/sandwich",
     available: true,
   },
   {
-    title: 'Shiny Odds',
-    description: 'Compare charm, outbreak, Masuda, and method modifiers.',
+    title: "Ansha's Donuts",
+    description:
+      "Build Legends: Z-A donuts from berry flavors, calories, and level boosts.",
+    Icon: Donut,
+    href: "/tools/donuts",
+    available: true,
+  },
+  {
+    title: "Shiny Odds",
+    description: "Compare charm, outbreak, Masuda, and method modifiers.",
     Icon: Sparkles,
     href: null,
     available: false,
   },
   {
-    title: 'Catch Planner',
-    description: 'Prioritize targets by game, location, and ownership gaps.',
+    title: "Catch Planner",
+    description: "Prioritize targets by game, location, and ownership gaps.",
     Icon: Calculator,
     href: null,
     available: false,
@@ -46,8 +55,8 @@ export default function ToolsPage() {
             <article
               className={`relative rounded-lg border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900 ${
                 available
-                  ? 'transition-shadow hover:shadow-md hover:border-violet-300 dark:hover:border-violet-700'
-                  : 'opacity-70'
+                  ? "transition-shadow hover:shadow-md hover:border-violet-300 dark:hover:border-violet-700"
+                  : "opacity-70"
               }`}
             >
               <div className="mb-4 flex items-start justify-between gap-3">
