@@ -19,6 +19,11 @@ const validSnapshot: ProgressSnapshot = {
       "4-base": { owned: true, shiny: false },
     },
   },
+  gameHomeBoxes: {
+    "scarlet-violet": {
+      "1-base": true,
+    },
+  },
   availableGames: {
     "scarlet-violet": true,
   },
@@ -72,6 +77,20 @@ describe("progress snapshot validation", () => {
         ...validSnapshot,
         availableGames: {
           "scarlet-violet": "yes",
+        },
+      }),
+      false,
+    );
+  });
+
+  it("rejects malformed game HOME box flags", () => {
+    assert.equal(
+      isProgressSnapshot({
+        ...validSnapshot,
+        gameHomeBoxes: {
+          "scarlet-violet": {
+            "1-base": "yes",
+          },
         },
       }),
       false,

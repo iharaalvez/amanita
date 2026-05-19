@@ -1,11 +1,17 @@
 import type {
   ApiHealth,
   GameDexEntry,
+  GameHomeBoxFormRule,
+  GameHomeBoxEntry,
   GameLocationGroup,
   GameLocationPokemon,
   LivingDexEntry,
   MapLocationOutline,
+  UserProfile,
 } from "@/types/pokemon";
+import { GENDER_DIFFERENCE_FORM_KEYS } from "@/config/cosmetic-forms";
+import { BATTLE_ONLY_FORM_NAMES } from "@/config/battle-forms";
+import { isAllowedGameHomeBoxForm } from "@/config/game-home-box-forms";
 import { GAME_LIST } from "@/config/games";
 import type { GameEntry } from "@/config/games";
 import { supabase } from "./supabase";
@@ -21,6 +27,7 @@ const MYTHICAL_IDS = new Set([
 const SHINY_CHARM_GAME_IDS = new Set(
   GAME_LIST.filter((game) => game.hasShinyCharm).map((game) => game.id),
 );
+const MEGA_FORM_PATTERN = /(^|-)mega($|-)/;
 
 type RawLivingDexEntry = {
   id: number;
@@ -65,6 +72,23 @@ type RawSpawnLocation = {
   levels: string | null;
   source: "pokeapi" | "pokedb" | "manual";
   confidence: "high" | "medium" | "low";
+};
+
+type RawUserProfile = {
+  user_id: string;
+  role: "user" | "admin";
+  display_name: string | null;
+};
+
+type RawGameHomeBoxFormRule = {
+  id: number;
+  game_id: string;
+  species_id: number;
+  form_name: string | null;
+  allowed: boolean;
+  notes: string | null;
+  updated_by: string | null;
+  updated_at: string | null;
 };
 
 function getGenerationFromSpeciesId(speciesId: number): number {
@@ -194,6 +218,117 @@ function mapGameDexEntry(
   };
 }
 
+function mapGameHomeBoxEntry(
+  entry: LivingDexEntry,
+  entryNumber: number,
+  optional: boolean,
+): GameHomeBoxEntry {
+  return {
+    ...entry,
+    entryNumber,
+    optional,
+  };
+}
+
+function mapGameHomeBoxFormRule(
+  row: RawGameHomeBoxFormRule,
+): GameHomeBoxFormRule {
+  return {
+    id: row.id,
+    gameId: row.game_id,
+    speciesId: row.species_id,
+    formName: row.form_name,
+    allowed: row.allowed,
+    notes: row.notes,
+    updatedBy: row.updated_by,
+    updatedAt: row.updated_at,
+  };
+}
+
+function mapUserProfile(row: RawUserProfile): UserProfile {
+  return {
+    userId: row.user_id,
+    role: row.role,
+    displayName: row.display_name,
+  };
+}
+
+function buildGameHomeBoxRuleLookup(
+  rules: readonly GameHomeBoxFormRule[],
+): Map<number, GameHomeBoxFormRule[]> {
+  const lookup = new Map<number, GameHomeBoxFormRule[]>();
+  for (const rule of rules) {
+    const existing = lookup.get(rule.speciesId) ?? [];
+    existing.push(rule);
+    lookup.set(rule.speciesId, existing);
+  }
+  return lookup;
+}
+
+function isAllowedGameHomeBoxFormWithRules(
+  rulesBySpecies: Map<number, GameHomeBoxFormRule[]>,
+  gameId: string,
+  speciesId: number,
+  formName: string | null,
+): boolean {
+  const speciesRules = rulesBySpecies.get(speciesId);
+  if (!speciesRules?.length) {
+    return isAllowedGameHomeBoxForm(gameId, speciesId, formName);
+  }
+  return speciesRules.some(
+    (rule) => rule.formName === formName && rule.allowed,
+  );
+}
+
+function isGenderDifferenceEntry(entry: LivingDexEntry): boolean {
+  return (
+    !!entry.formName &&
+    GENDER_DIFFERENCE_FORM_KEYS.has(`${entry.speciesId}-${entry.formName}`)
+  );
+}
+
+function isExcludedHomeBoxForm(formName: string | null): boolean {
+  return (
+    !!formName &&
+    (BATTLE_ONLY_FORM_NAMES.has(formName) || MEGA_FORM_PATTERN.test(formName))
+  );
+}
+
+function isGenderDifferenceForGameForm(
+  entry: LivingDexEntry,
+  baseEntry: LivingDexEntry | undefined,
+  formName: string | null,
+): boolean {
+  if (!isGenderDifferenceEntry(entry) || !entry.formName) return false;
+  if (formName) return entry.formName === `${formName}-female`;
+  return !!baseEntry && entry.formName === `${baseEntry.name}-female`;
+}
+
+function shouldExpandLivingFormForGameRow(
+  rulesBySpecies: Map<number, GameHomeBoxFormRule[]>,
+  gameId: string,
+  entry: LivingDexEntry,
+  baseEntry: LivingDexEntry | undefined,
+  formName: string | null,
+): boolean {
+  if (
+    !isAllowedGameHomeBoxFormWithRules(
+      rulesBySpecies,
+      gameId,
+      entry.speciesId,
+      entry.formName,
+    )
+  ) {
+    return false;
+  }
+  if (!entry.formName) return false;
+  if (isExcludedHomeBoxForm(entry.formName)) return false;
+  if (isGenderDifferenceForGameForm(entry, baseEntry, formName)) return true;
+  if (isGenderDifferenceEntry(entry)) return false;
+  if (formName) return entry.formName === formName;
+  return true;
+}
+
 export const api = {
   async getLivingDexEntries(): Promise<LivingDexEntry[]> {
     const rows = await getRawLivingDexEntries();
@@ -239,6 +374,150 @@ export const api = {
         ? a.speciesId - b.speciesId
         : a.entryNumber - b.entryNumber,
     );
+  },
+
+  async getGameHomeBoxDex(gameId: string): Promise<GameHomeBoxEntry[]> {
+    const [livingRows, gameRows, formRules] = await Promise.all([
+      getRawLivingDexEntries(),
+      getRawGameDexEntries(gameId),
+      this.getGameHomeBoxFormRules(gameId).catch(() => []),
+    ]);
+    const livingEntries = livingRows.map(mapLivingDexEntry);
+    const rulesBySpecies = buildGameHomeBoxRuleLookup(formRules);
+    const livingEntryByKey = new Map(
+      livingEntries.map((entry) => [
+        livingEntryKey(entry.speciesId, entry.formName),
+        entry,
+      ]),
+    );
+    const entriesByKey = new Map<string, GameHomeBoxEntry>();
+
+    const addEntry = (
+      entry: LivingDexEntry,
+      entryNumber: number,
+      optional: boolean,
+    ) => {
+      entriesByKey.set(
+        livingEntryKey(entry.speciesId, entry.formName),
+        mapGameHomeBoxEntry(entry, entryNumber, optional),
+      );
+    };
+
+    for (const row of gameRows) {
+      const formName = row.form_name === "" ? null : row.form_name;
+      const entryNumber = row.entry_number ?? row.species_id;
+      const optional = isOptionalInGameDex(gameId, row.species_id);
+      const livingEntry = livingEntryByKey.get(
+        livingEntryKey(row.species_id, formName),
+      );
+      if (!livingEntry) continue;
+
+      if (
+        !isExcludedHomeBoxForm(formName) &&
+        isAllowedGameHomeBoxFormWithRules(
+          rulesBySpecies,
+          gameId,
+          livingEntry.speciesId,
+          formName,
+        )
+      ) {
+        addEntry(livingEntry, entryNumber, optional);
+      }
+
+      const baseEntry = livingEntryByKey.get(
+        livingEntryKey(row.species_id, null),
+      );
+      for (const possibleGenderEntry of livingEntries) {
+        if (possibleGenderEntry.speciesId !== row.species_id) continue;
+        if (
+          shouldExpandLivingFormForGameRow(
+            rulesBySpecies,
+            gameId,
+            possibleGenderEntry,
+            baseEntry,
+            formName,
+          )
+        ) {
+          addEntry(possibleGenderEntry, entryNumber, optional);
+        }
+      }
+    }
+
+    return Array.from(entriesByKey.values()).sort((a, b) =>
+      a.entryNumber === b.entryNumber
+        ? a.speciesId === b.speciesId
+          ? (a.sortOrder ?? 0) - (b.sortOrder ?? 0) ||
+            a.displayName.localeCompare(b.displayName)
+          : a.speciesId - b.speciesId
+        : a.entryNumber - b.entryNumber,
+    );
+  },
+
+  async getCurrentUserProfile(): Promise<UserProfile | null> {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return null;
+
+    const { data, error } = await supabase
+      .from("user_profiles")
+      .select("user_id,role,display_name")
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    if (error) throw error;
+    return data ? mapUserProfile(data as RawUserProfile) : null;
+  },
+
+  async getGameHomeBoxFormRules(
+    gameId?: string,
+  ): Promise<GameHomeBoxFormRule[]> {
+    let query = supabase
+      .from("game_home_box_form_rules")
+      .select(
+        "id,game_id,species_id,form_name,allowed,notes,updated_by,updated_at",
+      )
+      .order("game_id", { ascending: true })
+      .order("species_id", { ascending: true })
+      .order("form_name", { ascending: true, nullsFirst: true });
+
+    if (gameId) query = query.eq("game_id", gameId);
+
+    const { data, error } = await query;
+    if (error) throw error;
+    return ((data ?? []) as RawGameHomeBoxFormRule[]).map(
+      mapGameHomeBoxFormRule,
+    );
+  },
+
+  async upsertGameHomeBoxFormRule(
+    rule: Omit<GameHomeBoxFormRule, "id" | "updatedBy" | "updatedAt">,
+  ): Promise<void> {
+    const { error } = await supabase.from("game_home_box_form_rules").upsert(
+      {
+        game_id: rule.gameId,
+        species_id: rule.speciesId,
+        form_name: rule.formName,
+        allowed: rule.allowed,
+        notes: rule.notes,
+      },
+      { onConflict: "game_id,species_id,form_name" },
+    );
+
+    if (error) throw error;
+  },
+
+  async deleteGameHomeBoxFormRules(
+    gameId: string,
+    speciesId: number,
+  ): Promise<void> {
+    const { error } = await supabase
+      .from("game_home_box_form_rules")
+      .delete()
+      .eq("game_id", gameId)
+      .eq("species_id", speciesId);
+
+    if (error) throw error;
   },
 
   async getEncounters(speciesId: number): Promise<Record<string, string[]>> {

@@ -3,7 +3,7 @@ import type { CosmeticFormConfig } from "./cosmetic-forms";
 // Battle-only transformations sourced from PokeAPI pokemon names.
 // They can count toward HOME's form dex, but the transformed Pokemon cannot be
 // stored in Pokemon HOME boxes, so they are excluded from Living Dex box slots.
-export const HOME_BATTLE_FORMS: CosmeticFormConfig[] = [
+const RAW_HOME_BATTLE_FORMS: CosmeticFormConfig[] = [
   {
     speciesId: 460,
     apiName: "abomasnow-mega",
@@ -798,6 +798,10 @@ export const HOME_BATTLE_FORMS: CosmeticFormConfig[] = [
   },
 ];
 
+export const HOME_BATTLE_FORMS = RAW_HOME_BATTLE_FORMS.filter(
+  (form) => !/(^|-)mega($|-)/.test(form.apiName),
+);
+
 export const BATTLE_ONLY_FORM_NAMES = new Set(
-  HOME_BATTLE_FORMS.map((form) => form.apiName),
+  RAW_HOME_BATTLE_FORMS.map((form) => form.apiName),
 );

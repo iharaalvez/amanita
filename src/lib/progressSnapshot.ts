@@ -11,6 +11,15 @@ function isBooleanRecord(value: unknown): value is Record<string, boolean> {
   );
 }
 
+function isNestedBooleanRecord(
+  value: unknown,
+): value is Record<string, Record<string, boolean>> {
+  return (
+    isRecord(value) &&
+    Object.values(value).every((gameEntry) => isBooleanRecord(gameEntry))
+  );
+}
+
 function isGameDexFlags(value: unknown): boolean {
   if (!isRecord(value)) return false;
   return typeof value.owned === "boolean" && typeof value.shiny === "boolean";
@@ -51,6 +60,8 @@ export function isProgressSnapshot(value: unknown): value is ProgressSnapshot {
   return (
     isOwnedRecordMap(value.owned) &&
     isGameDexRecord(value.gameDex) &&
+    (value.gameHomeBoxes === undefined ||
+      isNestedBooleanRecord(value.gameHomeBoxes)) &&
     isBooleanRecord(value.availableGames) &&
     (value.pinnedGameId === undefined ||
       value.pinnedGameId === null ||

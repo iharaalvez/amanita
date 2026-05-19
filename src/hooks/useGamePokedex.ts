@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { getGameById } from "@/config/games";
 import { api } from "@/lib/api";
-import type { GameDexEntry } from "@/types/pokemon";
+import type { GameDexEntry, GameHomeBoxEntry } from "@/types/pokemon";
 
 export function useGamePokedex(gameId: string) {
   const entry = getGameById(gameId);
@@ -9,6 +9,17 @@ export function useGamePokedex(gameId: string) {
   return useQuery<GameDexEntry[]>({
     queryKey: ["game-pokedex", gameId],
     queryFn: () => api.getGameDex(gameId),
+    enabled: !!entry,
+    staleTime: Infinity,
+  });
+}
+
+export function useGameHomeBoxDex(gameId: string) {
+  const entry = getGameById(gameId);
+
+  return useQuery<GameHomeBoxEntry[]>({
+    queryKey: ["game-home-box-dex", gameId],
+    queryFn: () => api.getGameHomeBoxDex(gameId),
     enabled: !!entry,
     staleTime: Infinity,
   });

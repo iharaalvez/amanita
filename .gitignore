@@ -44,3 +44,4 @@ next-dev-*.log
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+/public/*.zip

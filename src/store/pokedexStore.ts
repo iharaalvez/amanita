@@ -5,6 +5,7 @@ import {
   deleteRecord,
   syncAvailableGames,
   syncGameDex,
+  syncGameHomeBoxes,
   syncPinnedGameId,
 } from "@/lib/sync";
 import type {
@@ -28,6 +29,9 @@ type PokedexState = {
   owned: Record<string, OwnedRecord>;
   // gameDex[gameId][speciesKey] = { owned, shiny, alpha?, shiny_alpha? }
   gameDex: Record<string, Record<string, GameDexFlags>>;
+  // gameHomeBoxes[gameId][speciesKey] tracks game-origin Pokemon transferred
+  // into HOME boxes, independent from game dex registration.
+  gameHomeBoxes: Record<string, Record<string, boolean>>;
   availableGames: Record<string, boolean>;
   pinnedGameId: string | null;
   setPinnedGameId: (gameId: string | null) => void;
@@ -130,6 +134,22 @@ type PokedexState = {
     formName?: string | null,
   ) => GameDexFlags;
 
+  markInGameHomeBox: (
+    speciesId: number,
+    gameId: string,
+    formName?: string | null,
+  ) => void;
+  clearFromGameHomeBox: (
+    speciesId: number,
+    gameId: string,
+    formName?: string | null,
+  ) => void;
+  isInGameHomeBox: (
+    speciesId: number,
+    gameId: string,
+    formName?: string | null,
+  ) => boolean;
+
   setGameAvailable: (gameId: string, available: boolean) => void;
   isGameAvailable: (gameId: string) => boolean;
   getAvailableGameIds: () => string[];
@@ -146,6 +166,27 @@ function normalizeBooleanRecord(value: unknown): Record<string, boolean> {
     Object.entries(value).filter(
       (entry): entry is [string, boolean] => typeof entry[1] === "boolean",
     ),
+  );
+}
+
+function normalizeNestedBooleanRecord(
+  value: unknown,
+): Record<string, Record<string, boolean>> {
+  if (!isRecord(value)) return {};
+  return Object.fromEntries(
+    Object.entries(value)
+      .filter((entry): entry is [string, Record<string, unknown>] =>
+        isRecord(entry[1]),
+      )
+      .map(([gameId, records]) => [
+        gameId,
+        Object.fromEntries(
+          Object.entries(records).filter(
+            (entry): entry is [string, boolean] =>
+              typeof entry[1] === "boolean",
+          ),
+        ),
+      ]),
   );
 }
 
@@ -252,6 +293,21 @@ function mergeGameDexRecords(
   return result;
 }
 
+function mergeGameHomeBoxRecords(
+  local: Record<string, Record<string, boolean>>,
+  remote: Record<string, Record<string, boolean>> | undefined,
+): Record<string, Record<string, boolean>> {
+  const gameIds = new Set([...Object.keys(local), ...Object.keys(remote ?? {})]);
+  const result: Record<string, Record<string, boolean>> = {};
+  for (const gameId of gameIds) {
+    result[gameId] = {
+      ...(remote?.[gameId] ?? {}),
+      ...(local[gameId] ?? {}),
+    };
+  }
+  return result;
+}
+
 // Helper to update a single entry in gameDex and sync the whole game's data.
 function patchGameEntry(
   state: PokedexState,
@@ -276,6 +332,7 @@ export const usePokedexStore = create<PokedexState>()(
     (set, get) => ({
       owned: {},
       gameDex: {},
+      gameHomeBoxes: {},
       availableGames: {},
       pinnedGameId: null,
 
@@ -299,6 +356,7 @@ export const usePokedexStore = create<PokedexState>()(
         set({
           owned: snapshot.owned,
           gameDex: snapshot.gameDex,
+          gameHomeBoxes: snapshot.gameHomeBoxes ?? {},
           availableGames: snapshot.availableGames,
           pinnedGameId: snapshot.pinnedGameId ?? null,
         });
@@ -309,6 +367,10 @@ export const usePokedexStore = create<PokedexState>()(
         const merged: ProgressSnapshot = {
           owned: { ...snapshot.owned, ...current.owned },
           gameDex: mergeGameDexRecords(current.gameDex, snapshot.gameDex),
+          gameHomeBoxes: mergeGameHomeBoxRecords(
+            current.gameHomeBoxes,
+            snapshot.gameHomeBoxes,
+          ),
           availableGames: {
             ...Object.fromEntries(
               Object.keys({
@@ -325,6 +387,7 @@ export const usePokedexStore = create<PokedexState>()(
         set({
           owned: merged.owned,
           gameDex: merged.gameDex,
+          gameHomeBoxes: merged.gameHomeBoxes ?? {},
           availableGames: merged.availableGames,
           pinnedGameId: merged.pinnedGameId ?? null,
         });
@@ -334,12 +397,19 @@ export const usePokedexStore = create<PokedexState>()(
       getProgressSnapshot: () => ({
         owned: get().owned,
         gameDex: get().gameDex,
+        gameHomeBoxes: get().gameHomeBoxes,
         availableGames: get().availableGames,
         pinnedGameId: get().pinnedGameId,
       }),
 
       clearAll: () =>
-        set({ owned: {}, gameDex: {}, availableGames: {}, pinnedGameId: null }),
+        set({
+          owned: {},
+          gameDex: {},
+          gameHomeBoxes: {},
+          availableGames: {},
+          pinnedGameId: null,
+        }),
 
       // --- Living Dex (HOME) ---
 
@@ -597,6 +667,37 @@ export const usePokedexStore = create<PokedexState>()(
       isShinyAlphaInGame: (speciesId, gameId, formName) =>
         !!get().gameDex[gameId]?.[ownedKey(speciesId, formName)]?.shiny_alpha,
 
+      markInGameHomeBox: (speciesId, gameId, formName) => {
+        const key = ownedKey(speciesId, formName);
+        set((state) => {
+          const newGameHomeBoxes = {
+            ...state.gameHomeBoxes,
+            [gameId]: { ...state.gameHomeBoxes[gameId], [key]: true },
+          };
+          void syncGameHomeBoxes(newGameHomeBoxes);
+          return { gameHomeBoxes: newGameHomeBoxes };
+        });
+      },
+
+      clearFromGameHomeBox: (speciesId, gameId, formName) => {
+        const key = ownedKey(speciesId, formName);
+        set((state) => {
+          const existing = state.gameHomeBoxes[gameId]?.[key];
+          if (!existing) return {};
+          const newGame = { ...state.gameHomeBoxes[gameId] };
+          delete newGame[key];
+          const newGameHomeBoxes = {
+            ...state.gameHomeBoxes,
+            [gameId]: newGame,
+          };
+          void syncGameHomeBoxes(newGameHomeBoxes);
+          return { gameHomeBoxes: newGameHomeBoxes };
+        });
+      },
+
+      isInGameHomeBox: (speciesId, gameId, formName) =>
+        !!get().gameHomeBoxes[gameId]?.[ownedKey(speciesId, formName)],
+
       setGameAvailable: (gameId, available) => {
         set((state) => ({
           availableGames: { ...state.availableGames, [gameId]: available },
@@ -617,7 +718,7 @@ export const usePokedexStore = create<PokedexState>()(
     }),
     {
       name: "living-pokedex-v1",
-      version: 7,
+      version: 8,
       migrate: (persistedState, version) => {
         if (!isRecord(persistedState)) return persistedState;
 
@@ -712,6 +813,10 @@ export const usePokedexStore = create<PokedexState>()(
           }
         }
 
+        if (version < 8) {
+          persistedState.gameHomeBoxes = {};
+        }
+
         return persistedState;
       },
       merge: (persistedState, currentState) => {
@@ -758,6 +863,9 @@ export const usePokedexStore = create<PokedexState>()(
           ...currentState,
           ...persistedState,
           gameDex,
+          gameHomeBoxes: normalizeNestedBooleanRecord(
+            persistedState.gameHomeBoxes,
+          ),
           availableGames: normalizeBooleanRecord(persistedState.availableGames),
           pinnedGameId:
             typeof persistedState.pinnedGameId === "string"
@@ -773,6 +881,9 @@ export const usePokedexStore = create<PokedexState>()(
           setShowShinyDex: currentState.setShowShinyDex,
           setHomeBoxMode: currentState.setHomeBoxMode,
           setPinnedGameId: currentState.setPinnedGameId,
+          markInGameHomeBox: currentState.markInGameHomeBox,
+          clearFromGameHomeBox: currentState.clearFromGameHomeBox,
+          isInGameHomeBox: currentState.isInGameHomeBox,
         };
       },
     },

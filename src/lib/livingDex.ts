@@ -59,6 +59,26 @@ export function getOwnedEntryCount(
   return entries.filter((entry) => isOwnedForEntry(entry, ownedRecords)).length;
 }
 
+export function getOwnedOrShinyEntryCount(
+  entries: LivingDexEntry[],
+  ownedRecords: Record<string, OwnedRecord>,
+): number {
+  return entries.filter((entry) => isOwnedOrShinyForEntry(entry, ownedRecords))
+    .length;
+}
+
+export function getSpeciesOwnedCount(
+  baseEntries: LivingDexEntry[],
+  ownedRecords: Record<string, OwnedRecord>,
+): number {
+  const ownedSpecies = new Set(
+    Object.values(ownedRecords)
+      .filter((r) => r.owned || r.shiny_owned)
+      .map((r) => r.pokedex_number),
+  );
+  return baseEntries.filter((entry) => ownedSpecies.has(entry.speciesId)).length;
+}
+
 export function getShinyEntryCount(
   entries: LivingDexEntry[],
   ownedRecords: Record<string, OwnedRecord>,
@@ -76,8 +96,15 @@ function isOwnedForEntry(
   if (ownedRecords[ownedKey(entry.speciesId, entry.formName)]?.owned) {
     return true;
   }
-
   return hasOwnedGenderVariant(entry, ownedRecords, "owned");
+}
+
+function isOwnedOrShinyForEntry(
+  entry: LivingDexEntry,
+  ownedRecords: Record<string, OwnedRecord>,
+): boolean {
+  const record = ownedRecords[ownedKey(entry.speciesId, entry.formName)];
+  return !!(record?.owned || record?.shiny_owned);
 }
 
 function isShinyOwnedForEntry(

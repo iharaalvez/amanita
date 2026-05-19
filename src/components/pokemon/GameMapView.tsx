@@ -4,6 +4,7 @@ import dynamic from "next/dynamic";
 import { useMemo, useState } from "react";
 import { useMapOutlines } from "@/hooks/useMapOutlines";
 import { PokemonSprite } from "@/components/pokemon/PokemonSprite";
+import { ArrowUpRightIcon } from "@/components/ui";
 import type { GameLocationGroup, MapLocationOutline } from "@/types/pokemon";
 
 type LeafletProps = {
@@ -38,6 +39,27 @@ const GAME_REGION_ORDER: Record<string, string[]> = {
   "scarlet-violet": ["paldea", "kitakami", "blueberry-academy"],
 };
 
+type ExternalMapConfig = {
+  title: string;
+  embedUrl: string;
+  sourceUrl: string;
+};
+
+const EXTERNAL_GAME_MAPS: Record<string, ExternalMapConfig> = {
+  pla: {
+    title: "Legends: Arceus Hisui Region",
+    embedUrl:
+      "https://mapgenie.io/pokemon-legends-arceus/maps/hisui-region?embed=light",
+    sourceUrl: "https://mapgenie.io/pokemon-legends-arceus/maps/hisui-region",
+  },
+  "legends-za": {
+    title: "Legends: Z-A Lumiose City",
+    embedUrl:
+      "https://mapgenie.io/pokemon-legends-z-a/maps/lumiose-city?embed=light",
+    sourceUrl: "https://mapgenie.io/pokemon-legends-z-a/maps/lumiose-city",
+  },
+};
+
 function formatRegionLabel(identifier: string): string {
   return identifier
     .split("-")
@@ -56,6 +78,7 @@ export function GameMapView({
   const [activeLocation, setActiveLocation] =
     useState<GameLocationGroup | null>(null);
 
+  const externalMap = EXTERNAL_GAME_MAPS[gameId];
   const registeredSet = useMemo(() => new Set(registeredIds), [registeredIds]);
 
   const regions = useMemo(() => {
@@ -85,6 +108,42 @@ export function GameMapView({
   }, [gameId, outlines]);
 
   const activeRegion = selectedRegion ?? regions[0] ?? null;
+
+  if (externalMap) {
+    return (
+      <div className="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 px-4 py-3 dark:border-gray-800">
+          <div>
+            <h3 className="text-sm font-black text-gray-950 dark:text-white">
+              {externalMap.title}
+            </h3>
+            <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+              Interactive map embedded from MapGenie.
+            </p>
+          </div>
+          <a
+            href={externalMap.sourceUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-2 text-xs font-bold text-gray-600 transition-colors hover:border-blue-300 hover:text-blue-600 dark:border-gray-700 dark:text-gray-300 dark:hover:border-blue-800 dark:hover:text-blue-300"
+          >
+            Open full map
+            <ArrowUpRightIcon className="h-3.5 w-3.5" />
+          </a>
+        </div>
+
+        <div className="h-[520px] bg-gray-100 dark:bg-gray-950 lg:h-[640px]">
+          <iframe
+            title={`${externalMap.title} map`}
+            src={externalMap.embedUrl}
+            loading="lazy"
+            referrerPolicy="no-referrer-when-downgrade"
+            className="h-full w-full border-0"
+          />
+        </div>
+      </div>
+    );
+  }
 
   if (isLoading) {
     return (

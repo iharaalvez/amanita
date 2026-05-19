@@ -4,6 +4,8 @@
   displayName: string;
   label: string;
   dataName?: string; // PokeAPI pokemon or pokemon-form name when different from apiName.
+  spriteUrl?: string; // Explicit sprite override when PokeAPI has no sprite.
+  shinySpriteUrl?: string;
   spriteGender?: "female";
   isRegionalForm?: boolean;
   regionLabel?: string | null;
@@ -1421,12 +1423,16 @@ export const COSMETIC_FORMS: CosmeticFormConfig[] = [
     apiName: "frillish-female",
     displayName: "Frillish Female",
     label: "Female",
+    dataName: "frillish",
+    spriteGender: "female",
   },
   {
     speciesId: 593,
     apiName: "jellicent-female",
     displayName: "Jellicent Female",
     label: "Female",
+    dataName: "jellicent",
+    spriteGender: "female",
   },
   {
     speciesId: 618,
@@ -1587,6 +1593,8 @@ export const COSMETIC_FORMS: CosmeticFormConfig[] = [
     apiName: "pyroar-female",
     displayName: "Pyroar Female",
     label: "Female",
+    dataName: "pyroar",
+    spriteGender: "female",
   },
   {
     speciesId: 669,
@@ -1889,12 +1897,16 @@ export const COSMETIC_FORMS: CosmeticFormConfig[] = [
     apiName: "sinistea-antique",
     displayName: "Sinistea Antique Form",
     label: "Antique Form",
+    spriteUrl: "https://pokejungle.net/sprites/normal/0854-1.png",
+    shinySpriteUrl: "https://pokejungle.net/sprites/shiny/0854-1.png",
   },
   {
     speciesId: 855,
     apiName: "polteageist-antique",
     displayName: "Polteageist Antique Form",
     label: "Antique Form",
+    spriteUrl: "https://pokejungle.net/sprites/normal/0855-1.png",
+    shinySpriteUrl: "https://pokejungle.net/sprites/shiny/0855-1.png",
   },
   {
     speciesId: 869,
@@ -2363,12 +2375,16 @@ export const COSMETIC_FORMS: CosmeticFormConfig[] = [
     apiName: "poltchageist-artisan",
     displayName: "Poltchageist Artisan",
     label: "Artisan",
+    spriteUrl: "https://pokejungle.net/sprites/normal/1012-1.png",
+    shinySpriteUrl: "https://pokejungle.net/sprites/shiny/1012-1.png",
   },
   {
     speciesId: 1013,
     apiName: "sinistcha-masterpiece",
     displayName: "Sinistcha Masterpiece",
     label: "Masterpiece",
+    spriteUrl: "https://pokejungle.net/sprites/normal/1013-1.png",
+    shinySpriteUrl: "https://pokejungle.net/sprites/shiny/1013-1.png",
   },
 ];
 

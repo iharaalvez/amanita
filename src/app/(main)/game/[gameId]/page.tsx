@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { notFound, useParams } from "next/navigation";
 import { GameDexView } from "@/components/pokemon/GameDexView";
+import { GameHomeBoxView } from "@/components/pokemon/GameHomeBoxView";
 import { GameLocationView } from "@/components/pokemon/GameLocationView";
 import { PokemonSprite } from "@/components/pokemon/PokemonSprite";
 import { CheckIcon, CompassIcon } from "@/components/ui";
@@ -12,7 +13,7 @@ import { useOpenPokemon } from "@/hooks/useOpenPokemon";
 import { usePokedexStore } from "@/store/pokedexStore";
 import type { GameDexEntry, GameDexFlags } from "@/types/pokemon";
 
-type Tab = "dex" | "guide" | "locations";
+type Tab = "dex" | "boxes" | "guide" | "locations";
 
 const EMPTY_GAME_FLAGS: Record<string, GameDexFlags> = {};
 
@@ -199,7 +200,7 @@ export default function GamePage() {
     <div>
       <div className="sticky top-0 z-10 border-b border-gray-100 bg-white/95 px-4 backdrop-blur dark:border-gray-800 dark:bg-gray-950/95">
         <div className="flex gap-1 pt-2">
-          {(["dex", "guide", "locations"] as Tab[]).map((tab) => (
+          {(["dex", "boxes", "guide", "locations"] as Tab[]).map((tab) => (
             <button
               key={tab}
               type="button"
@@ -212,9 +213,11 @@ export default function GamePage() {
             >
               {tab === "dex"
                 ? "National Dex"
-                : tab === "guide"
-                  ? "Hunt Guide"
-                  : "Locations"}
+                : tab === "boxes"
+                  ? "National Dex Boxes"
+                  : tab === "guide"
+                    ? "Hunt Guide"
+                    : "Locations"}
             </button>
           ))}
         </div>
@@ -224,6 +227,14 @@ export default function GamePage() {
         {activeTab === "dex" ? (
           <GameDexView
             gameId={gameId}
+            onSelect={(speciesId, formName, contextGameId) =>
+              openPokemon(speciesId, formName, contextGameId)
+            }
+          />
+        ) : activeTab === "boxes" ? (
+          <GameHomeBoxView
+            gameId={gameId}
+            gameName={game.name}
             onSelect={(speciesId, formName, contextGameId) =>
               openPokemon(speciesId, formName, contextGameId)
             }

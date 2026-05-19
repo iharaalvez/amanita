@@ -43,7 +43,7 @@ export async function loadFromSupabase(
     supabase
       .from("user_settings")
       .select(
-        "available_games, game_dex, game_dex_progress, shiny_game_dex_progress, pinned_game_id",
+        "available_games, game_dex, game_home_boxes, game_dex_progress, shiny_game_dex_progress, pinned_game_id",
       )
       .eq("user_id", resolvedUserId)
       .maybeSingle(),
@@ -139,6 +139,10 @@ export async function loadFromSupabase(
   return {
     owned,
     gameDex,
+    gameHomeBoxes: (settingsResult.data?.game_home_boxes ?? {}) as Record<
+      string,
+      Record<string, boolean>
+    >,
     availableGames: (settingsResult.data?.available_games ?? {}) as Record<
       string,
       boolean
@@ -206,6 +210,22 @@ export async function syncGameDex(
     .upsert({ user_id: user.id, game_dex: gameDex }, { onConflict: "user_id" });
 }
 
+export async function syncGameHomeBoxes(
+  gameHomeBoxes: Record<string, Record<string, boolean>>,
+): Promise<void> {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return;
+
+  await supabase
+    .from("user_settings")
+    .upsert(
+      { user_id: user.id, game_home_boxes: gameHomeBoxes },
+      { onConflict: "user_id" },
+    );
+}
+
 export async function syncAvailableGames(
   games: Record<string, boolean>,
 ): Promise<void> {
@@ -264,6 +284,7 @@ export async function syncAllRecords(
   await Promise.all([
     syncAvailableGames(snapshot.availableGames),
     syncGameDex(snapshot.gameDex),
+    syncGameHomeBoxes(snapshot.gameHomeBoxes ?? {}),
     syncPinnedGameId(snapshot.pinnedGameId ?? null),
   ]);
 }

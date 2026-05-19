@@ -1,10 +1,17 @@
 import { Bell, Database, Shield } from "lucide-react";
+import Link from "next/link";
 
 const settings = [
   {
     title: "Account",
     description: "Profile, session, and sync preferences.",
     Icon: Shield,
+  },
+  {
+    title: "Admin",
+    description: "Manage game form rules for National Dex Boxes.",
+    Icon: Shield,
+    href: "/admin/game-forms",
   },
   {
     title: "Data",
@@ -34,22 +41,41 @@ export default function SettingsPage() {
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-        {settings.map(({ title, description, Icon }) => (
-          <article
+        {settings.map(({ title, description, Icon, href }) => {
+          const content = (
+            <>
+              <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-lg bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300">
+                <Icon className="h-5 w-5" />
+              </div>
+              <h2 className="text-base font-black text-gray-950 dark:text-white">
+                {title}
+              </h2>
+              <p className="mt-2 text-sm leading-6 text-gray-500 dark:text-gray-400">
+                {description}
+              </p>
+            </>
+          );
+
+          const className =
+            "rounded-lg border border-gray-200 bg-white p-4 shadow-sm transition-colors dark:border-gray-800 dark:bg-gray-900";
+
+          return href ? (
+            <Link
+              key={title}
+              href={href}
+              className={`${className} hover:border-violet-300 hover:bg-violet-50/30 dark:hover:border-violet-900 dark:hover:bg-violet-950/20`}
+            >
+              {content}
+            </Link>
+          ) : (
+            <article
             key={title}
-            className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900"
+              className={className}
           >
-            <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-lg bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300">
-              <Icon className="h-5 w-5" />
-            </div>
-            <h2 className="text-base font-black text-gray-950 dark:text-white">
-              {title}
-            </h2>
-            <p className="mt-2 text-sm leading-6 text-gray-500 dark:text-gray-400">
-              {description}
-            </p>
-          </article>
-        ))}
+              {content}
+            </article>
+          );
+        })}
       </div>
     </div>
   );

@@ -10,7 +10,9 @@ import {
 import {
   compareLivingDexEntries,
   getOwnedEntryCount,
+  getOwnedOrShinyEntryCount,
   getShinyEntryCount,
+  getSpeciesOwnedCount,
   isHomeTrackedEntry,
   isLivingDexSpecies,
   isShinyTargetEntry,
@@ -97,11 +99,13 @@ export function HomeBoxView({ onSelect }: Props) {
     const shinyTargetEntries = entries.filter(isShinyTargetEntry);
     const baseEntries = (data ?? []).filter(isLivingDexSpecies);
     const owned = getOwnedEntryCount(entries, ownedRecords);
+    const ownedOrShiny = getOwnedOrShinyEntryCount(entries, ownedRecords);
     const shiny = getShinyEntryCount(shinyTargetEntries, ownedRecords);
-    const baseOwned = getOwnedEntryCount(baseEntries, ownedRecords);
+    const baseOwned = getSpeciesOwnedCount(baseEntries, ownedRecords);
 
     return {
       owned,
+      ownedOrShiny,
       shiny,
       total: entries.length,
       shinyTotal: shinyTargetEntries.length,
@@ -245,7 +249,7 @@ export function HomeBoxView({ onSelect }: Props) {
         ? summary.shiny
         : isPairedMode
           ? summary.owned + summary.shiny
-          : summary.owned,
+          : summary.ownedOrShiny,
       activeClass: isShinyOnlyMode
         ? "bg-yellow-400 text-white"
         : "bg-green-500 text-white",
@@ -257,7 +261,7 @@ export function HomeBoxView({ onSelect }: Props) {
         ? summary.shinyTotal - summary.shiny
         : isPairedMode
           ? summary.total + summary.shinyTotal - summary.owned - summary.shiny
-          : summary.total - summary.owned,
+          : summary.total - summary.ownedOrShiny,
       activeClass:
         "bg-slate-600 text-white dark:bg-slate-300 dark:text-slate-900",
     },
@@ -280,7 +284,7 @@ export function HomeBoxView({ onSelect }: Props) {
     ? summary.shiny
     : isPairedMode
       ? summary.owned + summary.shiny
-      : summary.owned;
+      : summary.ownedOrShiny;
   const completionPct =
     displayedSlotTotal > 0
       ? Math.min(100, (displayedOwnedTotal / displayedSlotTotal) * 100)
@@ -307,18 +311,18 @@ export function HomeBoxView({ onSelect }: Props) {
           <div className="grid grid-cols-3 gap-2 sm:min-w-80">
             <div className="rounded-lg border border-green-100 bg-green-50 px-3 py-2 dark:border-green-900/40 dark:bg-green-950/30">
               <p className="text-lg font-black tabular-nums text-green-600 dark:text-green-400">
-                {summary.owned}
+                {displayedOwnedTotal}/{displayedSlotTotal}
               </p>
               <p className="text-[10px] font-bold uppercase tracking-wide text-green-700/70 dark:text-green-300/70">
                 Owned
               </p>
             </div>
-            <div className="rounded-lg border border-gray-100 bg-gray-50 px-3 py-2 dark:border-gray-800 dark:bg-gray-900">
-              <p className="text-lg font-black tabular-nums text-gray-950 dark:text-white">
-                {displayedSlotTotal}
+            <div className="rounded-lg border border-blue-100 bg-blue-50 px-3 py-2 dark:border-blue-900/40 dark:bg-blue-950/30">
+              <p className="text-lg font-black tabular-nums text-blue-950 dark:text-white">
+                {summary.baseOwned}/{summary.baseTotal}
               </p>
-              <p className="text-[10px] font-bold uppercase tracking-wide text-gray-400">
-                Slots
+              <p className="text-[10px] font-bold uppercase tracking-wide text-blue-400">
+                Species Dex
               </p>
             </div>
             <div className="rounded-lg border border-yellow-100 bg-yellow-50 px-3 py-2 dark:border-yellow-900/40 dark:bg-yellow-950/30">
@@ -438,11 +442,8 @@ export function HomeBoxView({ onSelect }: Props) {
         <div className="flex items-center justify-between gap-2">
           {summary.includesForms ? (
             <p className="min-w-0 flex-1 text-[10px] font-medium leading-snug text-gray-500 dark:text-gray-500 sm:text-[11px]">
-              Slot counts include forms. Species Living Dex:{" "}
-              <span className="tabular-nums text-green-500">
-                {summary.baseOwned}/{summary.baseTotal}
-              </span>
-              {isShinyOnlyMode && summary.shinyLocked > 0 ? (
+              Slot counts include forms
+              {(isShinyOnlyMode || isPairedMode) && summary.shinyLocked > 0 ? (
                 <>
                   {" "}
                   - Shiny targets exclude{" "}

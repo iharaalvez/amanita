@@ -87,6 +87,28 @@ export type GameDexEntry = {
   optional: boolean;
 };
 
+export type GameHomeBoxEntry = LivingDexEntry & {
+  entryNumber: number;
+  optional: boolean;
+};
+
+export type UserProfile = {
+  userId: string;
+  role: "user" | "admin";
+  displayName: string | null;
+};
+
+export type GameHomeBoxFormRule = {
+  id?: number;
+  gameId: string;
+  speciesId: number;
+  formName: string | null;
+  allowed: boolean;
+  notes: string | null;
+  updatedBy?: string | null;
+  updatedAt?: string | null;
+};
+
 export type GameLocationPokemon = {
   speciesId: number;
   formName: string | null;
@@ -129,6 +151,9 @@ export type ProgressSnapshot = {
   // gameDex[gameId][speciesKey] = flags. Replaces the old separate
   // gameDexProgress/shinyGameDexProgress number[] arrays.
   gameDex: Record<string, Record<string, GameDexFlags>>;
+  // gameHomeBoxes[gameId][speciesKey] = true when that game-origin Pokemon is
+  // placed in the game's HOME transfer boxes. Independent from gameDex.
+  gameHomeBoxes?: Record<string, Record<string, boolean>>;
   availableGames: Record<string, boolean>;
   pinnedGameId?: string | null;
 };
