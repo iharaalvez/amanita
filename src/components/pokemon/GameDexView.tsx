@@ -149,7 +149,7 @@ function GameSlot({ entry, gameId, onSelect }: GameSlotProps) {
             ? `${paddedGameNumber} - ${entry.displayName} (${paddedNationalNumber}) · ${exclusiveVersion} exclusive`
             : `${paddedGameNumber} - ${entry.displayName} (${paddedNationalNumber})`
         }
-        className={`relative flex h-[164px] w-full cursor-pointer flex-col items-center justify-center gap-1 rounded-xl p-2 transition-all focus-visible:outline-none focus-visible:ring-2 ${visual.button}`}
+        className={`relative flex h-[164px] w-full cursor-pointer flex-col items-center justify-center gap-1 rounded-xl p-2 pb-6 transition-all focus-visible:outline-none focus-visible:ring-2 ${visual.button}`}
       >
         {owned && (
           <span
@@ -190,7 +190,7 @@ function GameSlot({ entry, gameId, onSelect }: GameSlotProps) {
         </span>
         {visual.statusLabel && (
           <span
-            className={`mt-0.5 rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide ${visual.statusClass}`}
+            className={`absolute bottom-1.5 rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide ${visual.statusClass}`}
           >
             {visual.statusLabel}
           </span>
