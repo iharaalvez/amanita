@@ -18,23 +18,23 @@ values
   ('legends-za-hyperspace', 137,  '', 11),  -- Porygon
   ('legends-za-hyperspace', 233,  '', 12),  -- Porygon2
   ('legends-za-hyperspace', 474,  '', 13),  -- Porygon-Z
-  ('legends-za-hyperspace', 921,  '', 14),  -- Capsakid
-  ('legends-za-hyperspace', 922,  '', 15),  -- Scovillain
+  ('legends-za-hyperspace', 951,  '', 14),  -- Capsakid
+  ('legends-za-hyperspace', 952,  '', 15),  -- Scovillain
   ('legends-za-hyperspace', 957,  '', 16),  -- Tinkatink
   ('legends-za-hyperspace', 958,  '', 17),  -- Tinkatuff
   ('legends-za-hyperspace', 959,  '', 18),  -- Tinkaton
   ('legends-za-hyperspace', 967,  '', 19),  -- Cyclizar
-  ('legends-za-hyperspace', 970,  '', 20),  -- Glimmet
-  ('legends-za-hyperspace', 971,  '', 21),  -- Glimmora
+  ('legends-za-hyperspace', 969,  '', 20),  -- Glimmet
+  ('legends-za-hyperspace', 970,  '', 21),  -- Glimmora
   ('legends-za-hyperspace', 479,  '', 22),  -- Rotom
-  ('legends-za-hyperspace', 953,  '', 23),  -- Greavard
-  ('legends-za-hyperspace', 954,  '', 24),  -- Houndstone
+  ('legends-za-hyperspace', 971,  '', 23),  -- Greavard
+  ('legends-za-hyperspace', 972,  '', 24),  -- Houndstone
   ('legends-za-hyperspace', 769,  '', 25),  -- Sandygast
   ('legends-za-hyperspace', 770,  '', 26),  -- Palossand
   ('legends-za-hyperspace', 352,  '', 27),  -- Kecleon
   ('legends-za-hyperspace', 973,  '', 28),  -- Flamigo
   ('legends-za-hyperspace', 615,  '', 29),  -- Cryogonal
-  ('legends-za-hyperspace', 980,  '', 30),  -- Dondozo
+  ('legends-za-hyperspace', 977,  '', 30),  -- Dondozo
   ('legends-za-hyperspace', 978,  '', 31),  -- Tatsugiri
   ('legends-za-hyperspace', 996,  '', 32),  -- Frigibax
   ('legends-za-hyperspace', 997,  '', 33),  -- Arctibax
