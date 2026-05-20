@@ -22,6 +22,7 @@ export type OwnedRecord = {
   method?: OwnershipMethod;
   notes?: string;
   date_obtained?: string;
+  game?: string; // game where this was caught for the Living Dex
   shiny_method?: ShinyHuntMethod;
   shiny_game?: string;
 };

@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useLivingDexEntries } from "@/hooks/usePokemon";
 import { useOpenPokemon } from "@/hooks/useOpenPokemon";
@@ -11,6 +12,8 @@ import {
   isShinyTargetEntry,
 } from "@/lib/livingDex";
 import { ownedKey, usePokedexStore } from "@/store/pokedexStore";
+import { getGameById, GAME_ALT_LOGOS, GAME_LIST } from "@/config/games";
+import type { CatchEvent } from "@/store/pokedexStore";
 import type { LivingDexEntry } from "@/types/pokemon";
 import { Search } from "lucide-react";
 
@@ -26,42 +29,25 @@ type RecentCatch = {
   name: string;
   spriteUrl: string;
   dateLabel: string;
+  gameName: string | null;
+  isShiny: boolean;
+  isAlpha: boolean;
 };
-
-const FALLBACK_CATCHES: RecentCatch[] = [
-  {
-    id: 906,
-    name: "Sprigatito",
-    spriteUrl:
-      "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/906.png",
-    dateLabel: "Today",
-  },
-  {
-    id: 661,
-    name: "Fletchling",
-    spriteUrl:
-      "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/661.png",
-    dateLabel: "Today",
-  },
-  {
-    id: 747,
-    name: "Mareanie",
-    spriteUrl:
-      "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/747.png",
-    dateLabel: "Yesterday",
-  },
-  {
-    id: 633,
-    name: "Deino",
-    spriteUrl:
-      "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/633.png",
-    dateLabel: "Yesterday",
-  },
-];
 
 export function DashboardView() {
   const [search, setSearch] = useState("");
   const ownedRecords = usePokedexStore((s) => s.owned);
+  const catchLog = usePokedexStore((s) => s.recentCatches);
+  const availableGames = usePokedexStore((s) => s.availableGames);
+  const availableGameIds = useMemo(() => {
+    const gameOrder = new Map(GAME_LIST.map((g, i) => [g.id, i]));
+    return Object.entries(availableGames)
+      .filter(([, v]) => v)
+      .map(([k]) => k)
+      .sort((a, b) => (gameOrder.get(a) ?? 999) - (gameOrder.get(b) ?? 999));
+  }, [availableGames]);
+  const pinnedGameId = usePokedexStore((s) => s.pinnedGameId);
+  const gameDex = usePokedexStore((s) => s.gameDex);
   const openPokemon = useOpenPokemon();
   const { data: entries } = useLivingDexEntries();
 
@@ -97,7 +83,7 @@ export function DashboardView() {
     },
   ];
 
-  const recentCatches = getRecentCatches(allEntries, ownedRecords);
+  const recentCatches = getRecentCatches(allEntries, catchLog);
   const nextTargets = getNextTargets(livingEntries, ownedRecords);
   const remaining = Math.max(livingTotal - ownedCount, 0);
   const searchResults = getSearchResults(livingEntries, search);
@@ -105,9 +91,10 @@ export function DashboardView() {
   return (
     <div className="min-h-full bg-[#11111b] px-4 py-5 text-[#f8f0df] sm:px-6 lg:px-7">
       <div className="mx-auto max-w-7xl">
-        <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        {/* Header */}
+        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <h1 className="text-xl font-black tracking-tight">Dashboard</h1>
-          <div className="relative">
+          <div className="relative w-full sm:w-80">
             <form
               onSubmit={(event) => {
                 event.preventDefault();
@@ -121,21 +108,21 @@ export function DashboardView() {
               <label htmlFor="dashboard-search" className="sr-only">
                 Search Pokemon
               </label>
-              <div className="flex h-8 w-full min-w-0 items-center gap-2 rounded-md border border-[#2f2b40] bg-[#151520] px-3 text-[10px] text-[#837b91] sm:w-56">
-                <Search className="h-3 w-3" />
+              <div className="flex h-9 w-full items-center gap-2 rounded-md border border-[#2f2b40] bg-[#151520] px-3 text-[#837b91]">
+                <Search className="h-3.5 w-3.5 shrink-0" />
                 <input
                   id="dashboard-search"
                   type="search"
                   value={search}
                   onChange={(event) => setSearch(event.target.value)}
-                  placeholder="Search Pokemon..."
-                  className="min-w-0 flex-1 bg-transparent text-[10px] font-medium text-[#f8f0df] outline-none placeholder:text-[#837b91]"
+                  placeholder="Search Pokémon..."
+                  className="min-w-0 flex-1 bg-transparent text-[11px] font-medium text-[#f8f0df] outline-none placeholder:text-[#837b91]"
                 />
               </div>
             </form>
 
             {search.trim() && (
-              <div className="absolute right-0 top-10 z-20 w-72 overflow-hidden rounded-lg border border-[#2f2b40] bg-[#151520] shadow-2xl shadow-black/30">
+              <div className="absolute right-0 top-11 z-20 w-full overflow-hidden rounded-lg border border-[#2f2b40] bg-[#151520] shadow-2xl shadow-black/30">
                 {searchResults.length > 0 ? (
                   searchResults.map((entry) => (
                     <button
@@ -165,7 +152,7 @@ export function DashboardView() {
                   ))
                 ) : (
                   <p className="px-3 py-4 text-sm text-[#8f8799]">
-                    No Pokemon found.
+                    No Pokémon found.
                   </p>
                 )}
               </div>
@@ -173,152 +160,277 @@ export function DashboardView() {
           </div>
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-2">
-          {stats.map((stat) => (
-            <StatCard key={stat.label} stat={stat} />
-          ))}
-        </div>
-
-        <div className="mt-5 grid gap-5 lg:grid-cols-[1.18fr_0.95fr_0.92fr]">
-          <section className="rounded-lg border border-[#2f2b40] bg-[#1a1a27]/80 p-4">
-            <h2 className="mb-4 text-xs font-black">Recent Catches</h2>
-            <div>
-              {(recentCatches.length > 0
-                ? recentCatches
-                : FALLBACK_CATCHES
-              ).map((pokemon, index) => (
-                <div
-                  key={`${pokemon.id}-${pokemon.name}`}
-                  className="grid min-h-12 grid-cols-[32px_1fr_auto] items-center gap-3 border-t border-[#2f2b40]/70 py-2 first:border-t-0"
-                >
-                  <Image
-                    src={pokemon.spriteUrl}
-                    alt={pokemon.name}
-                    width={36}
-                    height={36}
-                    unoptimized
-                    style={{ width: "auto", height: "auto" }}
-                    className="h-9 w-9 object-contain [image-rendering:pixelated]"
-                  />
-                  <div className="min-w-0">
-                    <p className="truncate text-[11px] font-bold">
-                      {pokemon.name}
-                    </p>
-                    <p className="text-[9px] text-[#8f8799]">
-                      Lv. {index === 0 ? 12 : index === 1 ? 5 : 17}
-                    </p>
-                  </div>
-                  <p className="text-[9px] font-semibold text-[#d4cedb]">
-                    {pokemon.dateLabel}
-                  </p>
-                </div>
-              ))}
-            </div>
-          </section>
-
-          <section className="rounded-lg border border-[#2f2b40] bg-[#1a1a27]/80 p-4">
-            <h2 className="mb-5 text-xs font-black">Living Dex Progress</h2>
-            <div className="grid place-items-center">
-              <div
-                className="grid h-36 w-36 place-items-center rounded-full"
-                style={{
-                  background: `conic-gradient(#b9ec86 ${progress}%, #343045 0)`,
-                }}
-              >
-                <div className="grid h-[116px] w-[116px] place-items-center rounded-full bg-[#1a1a27]">
-                  <div className="text-center">
-                    <p className="text-3xl font-black">{roundedProgress}%</p>
-                    <p className="text-xs text-[#cfc8d8]">
-                      {ownedCount} / {livingTotal}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <p className="mt-5 text-center text-[10px] font-semibold text-[#d4cedb]">
-              {ownedCount >= livingTotal
-                ? "All Pokemon caught!"
-                : `${Math.max(livingTotal - ownedCount, 0)} Pokemon remaining`}
-            </p>
-          </section>
-
-          <section className="rounded-lg border border-[#2f2b40] bg-[#1a1a27]/80 p-4">
-            <div className="mb-4 flex items-center justify-between gap-3">
-              <h2 className="text-xs font-black">Next Targets</h2>
-              <span className="rounded-full bg-[#b9ec86]/10 px-2 py-1 text-[10px] font-black text-[#b9ec86]">
-                {remaining} left
-              </span>
-            </div>
-            <div>
-              {(nextTargets.length > 0 ? nextTargets : FALLBACK_TARGETS).map(
-                (pokemon) => (
-                  <div
-                    key={`${pokemon.dexNumber}-${pokemon.name}`}
-                    className="grid min-h-12 grid-cols-[40px_1fr] items-center gap-3 border-t border-[#2f2b40]/70 py-2 first:border-t-0"
+        {/* Games bar */}
+        <section className="rounded-lg border border-[#2f2b40] bg-[#1a1a27]/80 px-4 py-3">
+          <div className="mb-2.5 flex items-center justify-between">
+            <p className="text-[10px] font-black">Your Games</p>
+            <Link
+              href="/games"
+              className="text-[9px] text-[#8f8799] transition-colors hover:text-[#f8f0df]"
+            >
+              Manage →
+            </Link>
+          </div>
+          <div className="flex flex-wrap items-end gap-x-4 gap-y-2">
+            {availableGameIds.length > 0 ? (
+              availableGameIds.map((gameId) => {
+                const game = getGameById(gameId);
+                if (!game) return null;
+                const caught = Object.values(gameDex[gameId] ?? {}).filter(
+                  (f) => f.owned,
+                ).length;
+                const isPinned = gameId === pinnedGameId;
+                return (
+                  <Link
+                    key={gameId}
+                    href={`/game/${gameId}`}
+                    title={game.name}
+                    className={`flex flex-col items-center gap-1 rounded-lg px-2 py-1 transition-colors hover:bg-white/5 ${
+                      isPinned ? "bg-[#b9ec86]/5 ring-1 ring-[#b9ec86]/30" : ""
+                    }`}
                   >
-                    <span className="grid h-9 w-9 place-items-center rounded-full border border-[#554a70] bg-[#242536] text-[8px] font-black text-[#bcaee0]">
-                      #{pokemon.dexNumber}
-                    </span>
+                    {GAME_ALT_LOGOS.has(gameId) ? (
+                      <div className="flex items-end">
+                        <Image
+                          src={`/icons/games/${gameId}-alt.png`}
+                          alt=""
+                          width={150}
+                          height={52}
+                          unoptimized
+                          className="h-12 w-auto max-w-[150px] object-contain opacity-80 -mr-6"
+                        />
+                        <Image
+                          src={`/icons/games/${gameId}.png`}
+                          alt={game.name}
+                          width={160}
+                          height={64}
+                          unoptimized
+                          className="relative z-10 h-16 w-auto max-w-[160px] object-contain"
+                        />
+                      </div>
+                    ) : (
+                      <Image
+                        src={`/icons/games/${gameId}.png`}
+                        alt={game.name}
+                        width={180}
+                        height={64}
+                        unoptimized
+                        className="h-16 w-auto max-w-[180px] object-contain"
+                      />
+                    )}
+                    {caught > 0 && (
+                      <span
+                        className={`text-[9px] font-semibold ${isPinned ? "text-[#b9ec86]" : "text-[#8f8799]"}`}
+                      >
+                        {caught}
+                      </span>
+                    )}
+                  </Link>
+                );
+              })
+            ) : (
+              <Link
+                href="/games"
+                className="text-[10px] text-[#8f8799] transition-colors hover:text-[#f8f0df]"
+              >
+                No games added yet — click to get started →
+              </Link>
+            )}
+          </div>
+        </section>
+
+        {/* Main content: 2-col */}
+        <div className="mt-4 grid gap-4 lg:grid-cols-[1.35fr_1fr]">
+          {/* Recent Catches */}
+          <section className="rounded-lg border border-[#2f2b40] bg-[#1a1a27]/80 p-4">
+            <h2 className="mb-3 text-xs font-black">Recent Catches</h2>
+            <div>
+              {recentCatches.length > 0 ? (
+                recentCatches.map((pokemon) => (
+                  <div
+                    key={`${pokemon.id}-${pokemon.name}-${pokemon.isShiny ? "shiny" : "normal"}`}
+                    className="grid min-h-14 grid-cols-[44px_1fr_auto] items-center gap-4 border-t border-[#2f2b40]/70 py-3 first:border-t-0"
+                  >
+                    <Image
+                      src={pokemon.spriteUrl}
+                      alt={pokemon.name}
+                      width={44}
+                      height={44}
+                      unoptimized
+                      style={{ width: "auto", height: "auto" }}
+                      className="h-11 w-11 object-contain [image-rendering:pixelated]"
+                    />
                     <div className="min-w-0">
-                      <p className="truncate text-[11px] font-bold">
-                        {pokemon.name}
-                      </p>
-                      <p className="truncate text-[9px] text-[#8f8799]">
-                        {pokemon.detail}
-                      </p>
+                      <div className="flex items-center gap-1.5">
+                        <p className="truncate text-sm font-bold">
+                          {pokemon.name}
+                        </p>
+                        {pokemon.isShiny && (
+                          <span className="shrink-0 text-xs font-bold text-[#f8d85a]">
+                            ✦
+                          </span>
+                        )}
+                      </div>
+                      <div className="mt-0.5 flex items-center gap-1.5">
+                        {pokemon.gameName && (
+                          <span className="truncate text-xs text-[#8f8799]">
+                            {pokemon.gameName}
+                          </span>
+                        )}
+                        {pokemon.isAlpha && (
+                          <span className="text-xs font-bold text-[#c084fc]">
+                            α
+                          </span>
+                        )}
+                      </div>
                     </div>
+                    <p className="text-xs font-semibold text-[#d4cedb]">
+                      {pokemon.dateLabel}
+                    </p>
                   </div>
-                ),
+                ))
+              ) : (
+                <p className="py-6 text-center text-[10px] text-[#8f8799]">
+                  No catches yet — mark Pokémon in a game dex to get started.
+                </p>
               )}
             </div>
           </section>
+
+          {/* Right column */}
+          <div className="flex flex-col gap-4">
+            {/* Progress */}
+            <section className="rounded-lg border border-[#2f2b40] bg-[#1a1a27]/80 p-4">
+              <h2 className="mb-3 text-xs font-black">Living Dex Progress</h2>
+              <div className="flex items-center gap-5">
+                <div
+                  className="grid h-[88px] w-[88px] shrink-0 place-items-center rounded-full"
+                  style={{
+                    background: `conic-gradient(#b9ec86 ${progress}%, #343045 0)`,
+                  }}
+                >
+                  <div className="grid h-[68px] w-[68px] place-items-center rounded-full bg-[#1a1a27]">
+                    <div className="text-center">
+                      <p className="text-xl font-black leading-none">
+                        {roundedProgress}%
+                      </p>
+                      <p className="mt-0.5 text-[9px] text-[#cfc8d8]">
+                        {ownedCount} / {livingTotal}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                <div className="min-w-0 flex-1 space-y-2.5">
+                  {stats.map((stat) => {
+                    const pct =
+                      stat.total > 0
+                        ? Math.min((stat.value / stat.total) * 100, 100)
+                        : 0;
+                    return (
+                      <div key={stat.label}>
+                        <div className="flex items-baseline justify-between gap-1">
+                          <p className="text-[10px] font-semibold text-[#8f8799]">
+                            {stat.label}
+                          </p>
+                          <p className="shrink-0 text-[10px] font-black">
+                            {stat.value}
+                            <span className="ml-0.5 font-medium text-[#8f8799]">
+                              /{stat.total}
+                            </span>
+                          </p>
+                        </div>
+                        <div className="mt-1 h-1 overflow-hidden rounded-full bg-[#343045]">
+                          <span
+                            className={`block h-full rounded-full ${stat.colorClass}`}
+                            style={{ width: `${pct}%` }}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </section>
+
+            {/* Next Targets */}
+            <section className="rounded-lg border border-[#2f2b40] bg-[#1a1a27]/80 p-4">
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <h2 className="text-xs font-black">Next Targets</h2>
+                <span className="rounded-full bg-[#b9ec86]/10 px-2 py-0.5 text-[10px] font-black text-[#b9ec86]">
+                  {remaining} left
+                </span>
+              </div>
+              <div>
+                {(nextTargets.length > 0 ? nextTargets : FALLBACK_TARGETS).map(
+                  (pokemon) => (
+                    <div
+                      key={`${pokemon.dexNumber}-${pokemon.name}`}
+                      className="grid min-h-10 grid-cols-[34px_1fr] items-center gap-3 border-t border-[#2f2b40]/70 py-1.5 first:border-t-0"
+                    >
+                      <span className="grid h-8 w-8 place-items-center rounded-full border border-[#554a70] bg-[#242536] text-[8px] font-black text-[#bcaee0]">
+                        #{pokemon.dexNumber}
+                      </span>
+                      <div className="min-w-0">
+                        <p className="truncate text-[11px] font-bold">
+                          {pokemon.name}
+                        </p>
+                        <p className="truncate text-[9px] text-[#8f8799]">
+                          {pokemon.detail}
+                        </p>
+                      </div>
+                    </div>
+                  ),
+                )}
+              </div>
+            </section>
+          </div>
         </div>
       </div>
     </div>
   );
 }
 
-function StatCard({ stat }: { stat: Stat }) {
-  const percent = stat.total > 0 ? (stat.value / stat.total) * 100 : 0;
-
-  return (
-    <section className="rounded-lg border border-[#2f2b40] bg-[#1a1a27]/80 p-4">
-      <p className="text-[10px] font-semibold text-[#8f8799]">{stat.label}</p>
-      <p className="mt-1 text-2xl font-black">
-        {stat.value}
-        <span className="ml-1 text-[11px] font-medium text-[#8f8799]">
-          / {stat.total}
-        </span>
-      </p>
-      <div className="mt-3 h-1 overflow-hidden rounded-full bg-[#343045]">
-        <span
-          className={`block h-full rounded-full ${stat.colorClass}`}
-          style={{ width: `${Math.min(percent, 100)}%` }}
-        />
-      </div>
-    </section>
-  );
+function formatDateLabel(dateString?: string): string {
+  if (!dateString) return "Tracked";
+  const date = new Date(dateString);
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const yesterday = new Date(today);
+  yesterday.setDate(today.getDate() - 1);
+  const d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  if (d.getTime() === today.getTime()) return "Today";
+  if (d.getTime() === yesterday.getTime()) return "Yesterday";
+  return `${String(date.getDate()).padStart(2, "0")}/${String(date.getMonth() + 1).padStart(2, "0")}/${date.getFullYear()}`;
 }
 
 function getRecentCatches(
   entries: LivingDexEntry[],
-  ownedRecords: ReturnType<typeof usePokedexStore.getState>["owned"],
+  catchLog: CatchEvent[],
 ): RecentCatch[] {
-  return entries
-    .filter(
-      (entry) => ownedRecords[ownedKey(entry.speciesId, entry.formName)]?.owned,
-    )
-    .slice(-4)
-    .reverse()
-    .map((entry) => {
-      const record = ownedRecords[ownedKey(entry.speciesId, entry.formName)];
-      return {
-        id: entry.speciesId,
-        name: entry.displayName,
-        spriteUrl: entry.spriteUrl,
-        dateLabel: record?.date_obtained ?? "Tracked",
-      };
+  const entryMap = new Map<string, LivingDexEntry>();
+  for (const entry of entries) {
+    entryMap.set(ownedKey(entry.speciesId, entry.formName), entry);
+  }
+
+  const results: RecentCatch[] = [];
+  for (const event of catchLog) {
+    if (results.length >= 4) break;
+    const key = ownedKey(event.speciesId, event.formName);
+    const entry = entryMap.get(key);
+    if (!entry) continue;
+    results.push({
+      id: event.speciesId,
+      name: entry.displayName,
+      spriteUrl: event.isShiny
+        ? (entry.shinySpriteUrl ?? entry.spriteUrl)
+        : entry.spriteUrl,
+      dateLabel: formatDateLabel(event.date),
+      gameName: getGameById(event.gameId)?.name ?? event.gameId,
+      isShiny: event.isShiny,
+      isAlpha: event.isAlpha,
     });
+  }
+  return results;
 }
 
 type NextTarget = {
@@ -340,7 +452,8 @@ function getNextTargets(
 ): NextTarget[] {
   return entries
     .filter(
-      (entry) => !ownedRecords[ownedKey(entry.speciesId, entry.formName)]?.owned,
+      (entry) =>
+        !ownedRecords[ownedKey(entry.speciesId, entry.formName)]?.owned,
     )
     .slice(0, 4)
     .map((entry) => ({

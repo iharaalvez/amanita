@@ -107,6 +107,26 @@ export const VISIBLE_GAME_LIST: readonly GameEntry[] = GAME_LIST.filter(
   (g) => !g.dlcOf,
 );
 
+// Game IDs that have a paired second version logo at /icons/games/{id}-alt.png
+export const GAME_ALT_LOGOS = new Set([
+  "red-blue",
+  "gold-silver",
+  "ruby-sapphire",
+  "firered-leafgreen",
+  "diamond-pearl",
+  "heartgold-soulsilver",
+  "black-white",
+  "black2-white2",
+  "x-y",
+  "oras",
+  "sun-moon",
+  "usum",
+  "lgpe",
+  "swsh",
+  "bdsp",
+  "scarlet-violet",
+]);
+
 export const GAME_BY_ID = Object.fromEntries(
   GAME_LIST.map((game) => [game.id, game]),
 ) as Record<string, GameEntry>;

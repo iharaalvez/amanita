@@ -19,6 +19,8 @@ type SupabaseRow = {
   method: string | null;
   shiny_method: string | null;
   shiny_game: string | null;
+  date_obtained: string | null;
+  game: string | null;
   // Legacy columns — read-only for one-time migration
   in_home?: boolean;
   alpha_owned?: boolean;
@@ -64,6 +66,8 @@ export async function loadFromSupabase(
       method: (row.method as OwnershipMethod) ?? undefined,
       shiny_method: (row.shiny_method as ShinyHuntMethod) ?? undefined,
       shiny_game: row.shiny_game ?? undefined,
+      date_obtained: row.date_obtained ?? undefined,
+      game: row.game ?? undefined,
     };
   }
 
@@ -170,6 +174,8 @@ export async function syncRecord(record: OwnedRecord): Promise<void> {
       method: record.method ?? null,
       shiny_method: record.shiny_method ?? null,
       shiny_game: record.shiny_game ?? null,
+      date_obtained: record.date_obtained ?? null,
+      game: record.game ?? null,
       updated_at: new Date().toISOString(),
     },
     { onConflict: "user_id,species_id,form_name" },
@@ -273,6 +279,8 @@ export async function syncAllRecords(
     method: record.method ?? null,
     shiny_method: record.shiny_method ?? null,
     shiny_game: record.shiny_game ?? null,
+    date_obtained: record.date_obtained ?? null,
+    game: record.game ?? null,
     updated_at: new Date().toISOString(),
   }));
 

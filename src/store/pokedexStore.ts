@@ -25,8 +25,20 @@ export const ALPHA_GAMES = new Set(["pla", "legends-za", "legends-za-hyperspace"
 
 export type HomeBoxMode = "normal" | "shiny" | "paired";
 
+export type CatchEvent = {
+  speciesId: number;
+  formName: string | null;
+  gameId: string;
+  date: string; // ISO timestamp
+  isShiny: boolean;
+  isAlpha: boolean;
+};
+
+const MAX_CATCH_LOG = 50;
+
 type PokedexState = {
   owned: Record<string, OwnedRecord>;
+  recentCatches: CatchEvent[];
   // gameDex[gameId][speciesKey] = { owned, shiny, alpha?, shiny_alpha? }
   gameDex: Record<string, Record<string, GameDexFlags>>;
   // gameHomeBoxes[gameId][speciesKey] tracks game-origin Pokemon transferred
@@ -331,6 +343,7 @@ export const usePokedexStore = create<PokedexState>()(
   persist(
     (set, get) => ({
       owned: {},
+      recentCatches: [],
       gameDex: {},
       gameHomeBoxes: {},
       availableGames: {},
@@ -405,6 +418,7 @@ export const usePokedexStore = create<PokedexState>()(
       clearAll: () =>
         set({
           owned: {},
+          recentCatches: [],
           gameDex: {},
           gameHomeBoxes: {},
           availableGames: {},
@@ -415,19 +429,24 @@ export const usePokedexStore = create<PokedexState>()(
 
       markOwned: (speciesId, formName, method) => {
         const key = ownedKey(speciesId, formName);
-        set((state) => ({
-          owned: {
-            ...state.owned,
-            [key]: {
-              pokedex_number: speciesId,
-              form_name: formName ?? null,
-              owned: true,
-              shiny_owned: state.owned[key]?.shiny_owned ?? false,
-              notes: state.owned[key]?.notes,
-              method,
+        set((state) => {
+          const existing = state.owned[key];
+          return {
+            owned: {
+              ...state.owned,
+              [key]: {
+                pokedex_number: speciesId,
+                form_name: formName ?? null,
+                owned: true,
+                shiny_owned: existing?.shiny_owned ?? false,
+                notes: existing?.notes,
+                method,
+                date_obtained: existing?.date_obtained ?? new Date().toISOString(),
+                game: existing?.game,
+              },
             },
-          },
-        }));
+          };
+        });
         void syncRecord(get().owned[key]!);
       },
 
@@ -516,11 +535,20 @@ export const usePokedexStore = create<PokedexState>()(
       markOwnedInGame: (speciesId, gameId, formName) => {
         const key = ownedKey(speciesId, formName);
         set((state) => {
-          const newGameDex = patchGameEntry(state, gameId, key, {
-            owned: true,
-          });
+          const newGameDex = patchGameEntry(state, gameId, key, { owned: true });
           void syncGameDex(newGameDex);
-          return { gameDex: newGameDex };
+          const event: CatchEvent = {
+            speciesId,
+            formName: formName ?? null,
+            gameId,
+            date: new Date().toISOString(),
+            isShiny: false,
+            isAlpha: false,
+          };
+          return {
+            gameDex: newGameDex,
+            recentCatches: [event, ...state.recentCatches].slice(0, MAX_CATCH_LOG),
+          };
         });
       },
 
@@ -559,7 +587,18 @@ export const usePokedexStore = create<PokedexState>()(
             shiny: true,
           });
           void syncGameDex(newGameDex);
-          return { gameDex: newGameDex };
+          const event: CatchEvent = {
+            speciesId,
+            formName: formName ?? null,
+            gameId,
+            date: new Date().toISOString(),
+            isShiny: true,
+            isAlpha: false,
+          };
+          return {
+            gameDex: newGameDex,
+            recentCatches: [event, ...state.recentCatches].slice(0, MAX_CATCH_LOG),
+          };
         });
       },
 
@@ -597,7 +636,18 @@ export const usePokedexStore = create<PokedexState>()(
             alpha: true,
           });
           void syncGameDex(newGameDex);
-          return { gameDex: newGameDex };
+          const event: CatchEvent = {
+            speciesId,
+            formName: formName ?? null,
+            gameId,
+            date: new Date().toISOString(),
+            isShiny: false,
+            isAlpha: true,
+          };
+          return {
+            gameDex: newGameDex,
+            recentCatches: [event, ...state.recentCatches].slice(0, MAX_CATCH_LOG),
+          };
         });
       },
 
@@ -637,7 +687,18 @@ export const usePokedexStore = create<PokedexState>()(
             shiny_alpha: true,
           });
           void syncGameDex(newGameDex);
-          return { gameDex: newGameDex };
+          const event: CatchEvent = {
+            speciesId,
+            formName: formName ?? null,
+            gameId,
+            date: new Date().toISOString(),
+            isShiny: true,
+            isAlpha: true,
+          };
+          return {
+            gameDex: newGameDex,
+            recentCatches: [event, ...state.recentCatches].slice(0, MAX_CATCH_LOG),
+          };
         });
       },
 
@@ -718,7 +779,7 @@ export const usePokedexStore = create<PokedexState>()(
     }),
     {
       name: "living-pokedex-v1",
-      version: 8,
+      version: 9,
       migrate: (persistedState, version) => {
         if (!isRecord(persistedState)) return persistedState;
 
@@ -817,6 +878,10 @@ export const usePokedexStore = create<PokedexState>()(
           persistedState.gameHomeBoxes = {};
         }
 
+        if (version < 9) {
+          persistedState.recentCatches = [];
+        }
+
         return persistedState;
       },
       merge: (persistedState, currentState) => {
@@ -862,6 +927,9 @@ export const usePokedexStore = create<PokedexState>()(
         return {
           ...currentState,
           ...persistedState,
+          recentCatches: Array.isArray(persistedState.recentCatches)
+            ? (persistedState.recentCatches as CatchEvent[])
+            : [],
           gameDex,
           gameHomeBoxes: normalizeNestedBooleanRecord(
             persistedState.gameHomeBoxes,
