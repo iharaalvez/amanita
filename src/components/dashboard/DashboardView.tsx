@@ -13,9 +13,19 @@ import {
 } from "@/lib/livingDex";
 import { ownedKey, usePokedexStore } from "@/store/pokedexStore";
 import { getGameById, GAME_ALT_LOGOS, GAME_LIST } from "@/config/games";
-import type { CatchEvent } from "@/store/pokedexStore";
-import type { LivingDexEntry } from "@/types/pokemon";
+import type { CatchEvent, ShinyHunt, HuntCounterMode } from "@/store/pokedexStore";
+import type { LivingDexEntry, ShinyHuntMethod } from "@/types/pokemon";
 import { Search } from "lucide-react";
+
+const METHOD_LABELS: Record<ShinyHuntMethod, string> = {
+  masuda: "Masuda Method",
+  "sos-chain": "SOS Chain",
+  "poke-radar": "Poké Radar",
+  "dex-nav": "DexNav",
+  "soft-reset": "Soft Reset",
+  outbreak: "Mass Outbreak",
+  random: "Random",
+};
 
 type Stat = {
   label: string;
@@ -36,8 +46,26 @@ type RecentCatch = {
 
 export function DashboardView() {
   const [search, setSearch] = useState("");
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [huntSearch, setHuntSearch] = useState("");
+  const [selectedHuntEntry, setSelectedHuntEntry] =
+    useState<LivingDexEntry | null>(null);
+  const [huntGameId, setHuntGameId] = useState("");
+  const [huntMethod, setHuntMethod] = useState<ShinyHuntMethod>("random");
+  const [huntCounterMode, setHuntCounterMode] =
+    useState<HuntCounterMode>("encounters");
+
   const ownedRecords = usePokedexStore((s) => s.owned);
   const catchLog = usePokedexStore((s) => s.recentCatches);
+  const shinyHunts = usePokedexStore((s) => s.shinyHunts);
+  const addShinyHunt = usePokedexStore((s) => s.addShinyHunt);
+  const incrementShinyHunt = usePokedexStore((s) => s.incrementShinyHunt);
+  const decrementShinyHunt = usePokedexStore((s) => s.decrementShinyHunt);
+  const setShinyHuntCounterMode = usePokedexStore(
+    (s) => s.setShinyHuntCounterMode,
+  );
+  const removeShinyHunt = usePokedexStore((s) => s.removeShinyHunt);
+  const completeShinyHunt = usePokedexStore((s) => s.completeShinyHunt);
   const availableGames = usePokedexStore((s) => s.availableGames);
   const availableGameIds = useMemo(() => {
     const gameOrder = new Map(GAME_LIST.map((g, i) => [g.id, i]));
@@ -56,6 +84,25 @@ export function DashboardView() {
     () => allEntries.filter(isLivingDexSpecies),
     [allEntries],
   );
+
+  const entryByKey = useMemo(() => {
+    const map = new Map<string, LivingDexEntry>();
+    for (const e of allEntries) map.set(ownedKey(e.speciesId, e.formName), e);
+    return map;
+  }, [allEntries]);
+
+  const huntSearchResults = useMemo(() => {
+    const q = huntSearch.trim().toLowerCase();
+    if (!q) return [];
+    const dexQ = q.replace(/^#0*/, "");
+    return allEntries
+      .filter(
+        (e) =>
+          e.displayName.toLowerCase().includes(q) ||
+          String(e.speciesId).startsWith(dexQ),
+      )
+      .slice(0, 5);
+  }, [allEntries, huntSearch]);
 
   const livingTotal = livingEntries.length || 1025;
   const shinyEntries = useMemo(
@@ -84,8 +131,6 @@ export function DashboardView() {
   ];
 
   const recentCatches = getRecentCatches(allEntries, catchLog);
-  const nextTargets = getNextTargets(livingEntries, ownedRecords);
-  const remaining = Math.max(livingTotal - ownedCount, 0);
   const searchResults = getSearchResults(livingEntries, search);
 
   return (
@@ -240,7 +285,7 @@ export function DashboardView() {
         </section>
 
         {/* Main content: 2-col */}
-        <div className="mt-4 grid gap-4 lg:grid-cols-[1.35fr_1fr]">
+        <div className="mt-4 grid items-start gap-4 lg:grid-cols-[1.35fr_1fr]">
           {/* Recent Catches */}
           <section className="rounded-lg border border-[#2f2b40] bg-[#1a1a27]/80 p-4">
             <h2 className="mb-3 text-xs font-black">Recent Catches</h2>
@@ -352,40 +397,304 @@ export function DashboardView() {
               </div>
             </section>
 
-            {/* Next Targets */}
+            {/* Shiny Hunts */}
             <section className="rounded-lg border border-[#2f2b40] bg-[#1a1a27]/80 p-4">
               <div className="mb-3 flex items-center justify-between gap-3">
-                <h2 className="text-xs font-black">Next Targets</h2>
-                <span className="rounded-full bg-[#b9ec86]/10 px-2 py-0.5 text-[10px] font-black text-[#b9ec86]">
-                  {remaining} left
-                </span>
+                <h2 className="text-xs font-black">Shiny Hunts</h2>
+                <button
+                  onClick={() => setShowAddModal(true)}
+                  className="rounded-full bg-[#f8d85a]/10 px-2.5 py-0.5 text-[10px] font-black text-[#f8d85a] transition-colors hover:bg-[#f8d85a]/20"
+                >
+                  + Add
+                </button>
               </div>
-              <div>
-                {(nextTargets.length > 0 ? nextTargets : FALLBACK_TARGETS).map(
-                  (pokemon) => (
-                    <div
-                      key={`${pokemon.dexNumber}-${pokemon.name}`}
-                      className="grid min-h-10 grid-cols-[34px_1fr] items-center gap-3 border-t border-[#2f2b40]/70 py-1.5 first:border-t-0"
-                    >
-                      <span className="grid h-8 w-8 place-items-center rounded-full border border-[#554a70] bg-[#242536] text-[8px] font-black text-[#bcaee0]">
-                        #{pokemon.dexNumber}
-                      </span>
-                      <div className="min-w-0">
-                        <p className="truncate text-[11px] font-bold">
-                          {pokemon.name}
-                        </p>
-                        <p className="truncate text-[9px] text-[#8f8799]">
-                          {pokemon.detail}
-                        </p>
+              <div className="space-y-2.5">
+                {shinyHunts.length > 0 ? (
+                  shinyHunts.map((hunt) => {
+                    const entry = entryByKey.get(
+                      ownedKey(hunt.speciesId, hunt.formName),
+                    );
+                    const spriteUrl =
+                      entry?.shinySpriteUrl ?? entry?.spriteUrl;
+                    const gameName =
+                      getGameById(hunt.gameId)?.name ?? hunt.gameId;
+                    return (
+                      <div
+                        key={hunt.id}
+                        className="rounded-lg border border-[#2f2b40]/50 bg-[#151520] p-2.5"
+                      >
+                        <div className="grid grid-cols-[36px_1fr_auto] items-start gap-2">
+                          <div className="relative mt-0.5">
+                            {spriteUrl && (
+                              <Image
+                                src={spriteUrl}
+                                alt={entry?.displayName ?? ""}
+                                width={36}
+                                height={36}
+                                unoptimized
+                                className="h-9 w-9 object-contain [image-rendering:pixelated]"
+                              />
+                            )}
+                            <span className="absolute -right-1 -top-1 text-[9px] text-[#f8d85a]">
+                              ✦
+                            </span>
+                          </div>
+                          <div className="min-w-0">
+                            <p className="truncate text-xs font-bold">
+                              {entry?.displayName ??
+                                `#${String(hunt.speciesId).padStart(4, "0")}`}
+                            </p>
+                            <p className="truncate text-[10px] text-[#8f8799]">
+                              {gameName}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <button
+                              onClick={() => completeShinyHunt(hunt.id)}
+                              title="Mark as caught"
+                              className="grid h-6 w-6 place-items-center rounded-full bg-[#b9ec86]/10 text-[10px] text-[#b9ec86] transition-colors hover:bg-[#b9ec86]/20"
+                            >
+                              ✓
+                            </button>
+                            <button
+                              onClick={() => removeShinyHunt(hunt.id)}
+                              title="Abandon hunt"
+                              className="grid h-6 w-6 place-items-center rounded-full bg-white/5 text-[10px] text-[#8f8799] transition-colors hover:bg-white/10 hover:text-[#f8f0df]"
+                            >
+                              ×
+                            </button>
+                          </div>
+                        </div>
+                        <div className="mt-2 flex items-center gap-2">
+                          <button
+                            onClick={() => decrementShinyHunt(hunt.id)}
+                            className="grid h-6 w-6 place-items-center rounded bg-white/5 text-xs font-bold text-[#8f8799] hover:bg-white/10 hover:text-[#f8f0df]"
+                          >
+                            −
+                          </button>
+                          <span className="min-w-[52px] text-center font-mono text-sm font-black">
+                            {hunt.count.toLocaleString()}
+                          </span>
+                          <button
+                            onClick={() => incrementShinyHunt(hunt.id)}
+                            className="grid h-6 w-10 place-items-center rounded bg-[#f8d85a]/10 text-xs font-bold text-[#f8d85a] hover:bg-[#f8d85a]/20"
+                          >
+                            +1
+                          </button>
+                          <div className="ml-auto flex gap-1">
+                            <button
+                              onClick={() =>
+                                setShinyHuntCounterMode(hunt.id, "encounters")
+                              }
+                              className={`rounded px-1.5 py-0.5 text-[9px] font-bold transition-colors ${
+                                hunt.counterMode === "encounters"
+                                  ? "bg-[#f8d85a]/20 text-[#f8d85a]"
+                                  : "bg-white/5 text-[#8f8799] hover:text-[#f8f0df]"
+                              }`}
+                            >
+                              Enc
+                            </button>
+                            <button
+                              onClick={() =>
+                                setShinyHuntCounterMode(hunt.id, "soft-resets")
+                              }
+                              className={`rounded px-1.5 py-0.5 text-[9px] font-bold transition-colors ${
+                                hunt.counterMode === "soft-resets"
+                                  ? "bg-[#f8d85a]/20 text-[#f8d85a]"
+                                  : "bg-white/5 text-[#8f8799] hover:text-[#f8f0df]"
+                              }`}
+                            >
+                              SR
+                            </button>
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                  ),
+                    );
+                  })
+                ) : (
+                  <p className="py-4 text-center text-[10px] text-[#8f8799]">
+                    No active hunts — click + Add to start tracking.
+                  </p>
                 )}
               </div>
             </section>
           </div>
         </div>
       </div>
+
+      {/* Add Hunt modal */}
+      {showAddModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setShowAddModal(false);
+          }}
+        >
+          <div className="w-full max-w-sm rounded-xl border border-[#2f2b40] bg-[#1a1a27] p-5 shadow-2xl">
+            <h3 className="mb-4 text-sm font-black">Add Shiny Hunt</h3>
+
+            {/* Pokémon picker */}
+            {selectedHuntEntry ? (
+              <div className="mb-3 flex items-center gap-3 rounded-lg border border-[#2f2b40] bg-[#151520] px-3 py-2">
+                <Image
+                  src={
+                    selectedHuntEntry.shinySpriteUrl ??
+                    selectedHuntEntry.spriteUrl
+                  }
+                  alt={selectedHuntEntry.displayName}
+                  width={40}
+                  height={40}
+                  unoptimized
+                  className="h-10 w-10 object-contain [image-rendering:pixelated]"
+                />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-bold">
+                    {selectedHuntEntry.displayName}
+                  </p>
+                  <p className="text-[10px] text-[#8f8799]">
+                    #{String(selectedHuntEntry.speciesId).padStart(4, "0")}
+                  </p>
+                </div>
+                <button
+                  onClick={() => setSelectedHuntEntry(null)}
+                  className="text-sm text-[#8f8799] hover:text-[#f8f0df]"
+                >
+                  ×
+                </button>
+              </div>
+            ) : (
+              <div className="relative mb-3">
+                <input
+                  autoFocus
+                  value={huntSearch}
+                  onChange={(e) => setHuntSearch(e.target.value)}
+                  placeholder="Search Pokémon…"
+                  className="w-full rounded-lg border border-[#2f2b40] bg-[#151520] px-3 py-2 text-xs text-[#f8f0df] outline-none placeholder:text-[#8f8799] focus:border-[#554a70]"
+                />
+                {huntSearchResults.length > 0 && (
+                  <div className="absolute top-full z-10 mt-1 w-full overflow-hidden rounded-lg border border-[#2f2b40] bg-[#151520] shadow-xl">
+                    {huntSearchResults.map((entry) => (
+                      <button
+                        key={`${entry.speciesId}-${entry.formName ?? "base"}`}
+                        type="button"
+                        onClick={() => {
+                          setSelectedHuntEntry(entry);
+                          setHuntSearch("");
+                        }}
+                        className="flex w-full items-center gap-2 border-t border-[#2f2b40]/70 px-3 py-1.5 text-left first:border-t-0 hover:bg-white/5"
+                      >
+                        <Image
+                          src={entry.shinySpriteUrl ?? entry.spriteUrl}
+                          alt=""
+                          width={28}
+                          height={28}
+                          unoptimized
+                          className="h-7 w-7 object-contain [image-rendering:pixelated]"
+                        />
+                        <span className="flex-1 truncate text-xs font-bold">
+                          {entry.displayName}
+                        </span>
+                        <span className="shrink-0 text-[10px] text-[#8f8799]">
+                          #{String(entry.speciesId).padStart(4, "0")}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Game */}
+            <select
+              value={huntGameId}
+              onChange={(e) => setHuntGameId(e.target.value)}
+              className="mb-3 w-full rounded-lg border border-[#2f2b40] bg-[#151520] px-3 py-2 text-xs text-[#f8f0df] outline-none focus:border-[#554a70]"
+            >
+              <option value="">Select game…</option>
+              {availableGameIds.map((id) => (
+                <option key={id} value={id}>
+                  {getGameById(id)?.name ?? id}
+                </option>
+              ))}
+            </select>
+
+            {/* Method */}
+            <select
+              value={huntMethod}
+              onChange={(e) =>
+                setHuntMethod(e.target.value as ShinyHuntMethod)
+              }
+              className="mb-3 w-full rounded-lg border border-[#2f2b40] bg-[#151520] px-3 py-2 text-xs text-[#f8f0df] outline-none focus:border-[#554a70]"
+            >
+              {(Object.entries(METHOD_LABELS) as [ShinyHuntMethod, string][]).map(
+                ([method, label]) => (
+                  <option key={method} value={method}>
+                    {label}
+                  </option>
+                ),
+              )}
+            </select>
+
+            {/* Counter mode */}
+            <div className="mb-4 flex gap-2">
+              {(
+                [
+                  ["encounters", "Encounters"],
+                  ["soft-resets", "Soft Resets"],
+                ] as [HuntCounterMode, string][]
+              ).map(([mode, label]) => (
+                <button
+                  key={mode}
+                  onClick={() => setHuntCounterMode(mode)}
+                  className={`flex-1 rounded-lg py-1.5 text-[11px] font-bold transition-colors ${
+                    huntCounterMode === mode
+                      ? "bg-[#f8d85a]/20 text-[#f8d85a]"
+                      : "bg-[#151520] text-[#8f8799] hover:text-[#f8f0df]"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            {/* Actions */}
+            <div className="flex gap-2">
+              <button
+                onClick={() => {
+                  setShowAddModal(false);
+                  setHuntSearch("");
+                  setSelectedHuntEntry(null);
+                }}
+                className="flex-1 rounded-lg border border-[#2f2b40] py-2 text-xs font-bold text-[#8f8799] hover:text-[#f8f0df]"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  if (!selectedHuntEntry || !huntGameId) return;
+                  addShinyHunt(
+                    selectedHuntEntry.speciesId,
+                    selectedHuntEntry.formName,
+                    huntGameId,
+                    huntMethod,
+                    huntCounterMode,
+                  );
+                  setShowAddModal(false);
+                  setSelectedHuntEntry(null);
+                  setHuntSearch("");
+                  setHuntGameId("");
+                  setHuntMethod("random");
+                  setHuntCounterMode("encounters");
+                }}
+                disabled={!selectedHuntEntry || !huntGameId}
+                className="flex-1 rounded-lg bg-[#f8d85a]/20 py-2 text-xs font-bold text-[#f8d85a] transition-colors hover:bg-[#f8d85a]/30 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                Start Hunt
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -431,39 +740,6 @@ function getRecentCatches(
     });
   }
   return results;
-}
-
-type NextTarget = {
-  dexNumber: string;
-  name: string;
-  detail: string;
-};
-
-const FALLBACK_TARGETS: NextTarget[] = [
-  { dexNumber: "0152", name: "Chikorita", detail: "Johto starter" },
-  { dexNumber: "0350", name: "Milotic", detail: "Trade evolution" },
-  { dexNumber: "0442", name: "Spiritomb", detail: "Rare encounter" },
-  { dexNumber: "1006", name: "Iron Valiant", detail: "Version target" },
-];
-
-function getNextTargets(
-  entries: LivingDexEntry[],
-  ownedRecords: ReturnType<typeof usePokedexStore.getState>["owned"],
-): NextTarget[] {
-  return entries
-    .filter(
-      (entry) =>
-        !ownedRecords[ownedKey(entry.speciesId, entry.formName)]?.owned,
-    )
-    .slice(0, 4)
-    .map((entry) => ({
-      dexNumber: String(entry.speciesId).padStart(4, "0"),
-      name: entry.displayName,
-      detail:
-        entry.generation > 0
-          ? `Generation ${entry.generation}`
-          : "Living Dex target",
-    }));
 }
 
 function getSearchResults(

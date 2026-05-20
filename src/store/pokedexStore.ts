@@ -12,6 +12,8 @@ import type {
   OwnedRecord,
   OwnershipMethod,
   ShinyHuntMethod,
+  HuntCounterMode,
+  ShinyHunt,
   GameDexFlags,
   ProgressSnapshot,
 } from "@/types/pokemon";
@@ -34,11 +36,14 @@ export type CatchEvent = {
   isAlpha: boolean;
 };
 
+export type { ShinyHunt, HuntCounterMode };
+
 const MAX_CATCH_LOG = 50;
 
 type PokedexState = {
   owned: Record<string, OwnedRecord>;
   recentCatches: CatchEvent[];
+  shinyHunts: ShinyHunt[];
   // gameDex[gameId][speciesKey] = { owned, shiny, alpha?, shiny_alpha? }
   gameDex: Record<string, Record<string, GameDexFlags>>;
   // gameHomeBoxes[gameId][speciesKey] tracks game-origin Pokemon transferred
@@ -166,6 +171,20 @@ type PokedexState = {
   isGameAvailable: (gameId: string) => boolean;
   getAvailableGameIds: () => string[];
   getGameProgress: (gameId: string) => { owned: number };
+
+  // Shiny hunt tracking
+  addShinyHunt: (
+    speciesId: number,
+    formName: string | null,
+    gameId: string,
+    method: ShinyHuntMethod,
+    counterMode: HuntCounterMode,
+  ) => void;
+  incrementShinyHunt: (id: string) => void;
+  decrementShinyHunt: (id: string) => void;
+  setShinyHuntCounterMode: (id: string, counterMode: HuntCounterMode) => void;
+  removeShinyHunt: (id: string) => void;
+  completeShinyHunt: (id: string) => void;
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -344,6 +363,7 @@ export const usePokedexStore = create<PokedexState>()(
     (set, get) => ({
       owned: {},
       recentCatches: [],
+      shinyHunts: [],
       gameDex: {},
       gameHomeBoxes: {},
       availableGames: {},
@@ -419,6 +439,7 @@ export const usePokedexStore = create<PokedexState>()(
         set({
           owned: {},
           recentCatches: [],
+          shinyHunts: [],
           gameDex: {},
           gameHomeBoxes: {},
           availableGames: {},
@@ -759,6 +780,63 @@ export const usePokedexStore = create<PokedexState>()(
       isInGameHomeBox: (speciesId, gameId, formName) =>
         !!get().gameHomeBoxes[gameId]?.[ownedKey(speciesId, formName)],
 
+      addShinyHunt: (speciesId, formName, gameId, method, counterMode) => {
+        set((state) => ({
+          shinyHunts: [
+            ...state.shinyHunts,
+            {
+              id: crypto.randomUUID(),
+              speciesId,
+              formName,
+              gameId,
+              method,
+              counterMode,
+              count: 0,
+              startedAt: new Date().toISOString(),
+            },
+          ],
+        }));
+      },
+
+      incrementShinyHunt: (id) => {
+        set((state) => ({
+          shinyHunts: state.shinyHunts.map((h) =>
+            h.id === id ? { ...h, count: h.count + 1 } : h,
+          ),
+        }));
+      },
+
+      decrementShinyHunt: (id) => {
+        set((state) => ({
+          shinyHunts: state.shinyHunts.map((h) =>
+            h.id === id ? { ...h, count: Math.max(0, h.count - 1) } : h,
+          ),
+        }));
+      },
+
+      setShinyHuntCounterMode: (id, counterMode) => {
+        set((state) => ({
+          shinyHunts: state.shinyHunts.map((h) =>
+            h.id === id ? { ...h, counterMode } : h,
+          ),
+        }));
+      },
+
+      removeShinyHunt: (id) => {
+        set((state) => ({
+          shinyHunts: state.shinyHunts.filter((h) => h.id !== id),
+        }));
+      },
+
+      completeShinyHunt: (id) => {
+        const hunt = get().shinyHunts.find((h) => h.id === id);
+        if (!hunt) return;
+        set((state) => ({
+          shinyHunts: state.shinyHunts.filter((h) => h.id !== id),
+        }));
+        get().markShinyOwnedInGame(hunt.speciesId, hunt.gameId, hunt.formName);
+      },
+
       setGameAvailable: (gameId, available) => {
         set((state) => ({
           availableGames: { ...state.availableGames, [gameId]: available },
@@ -779,7 +857,7 @@ export const usePokedexStore = create<PokedexState>()(
     }),
     {
       name: "living-pokedex-v1",
-      version: 9,
+      version: 10,
       migrate: (persistedState, version) => {
         if (!isRecord(persistedState)) return persistedState;
 
@@ -882,6 +960,10 @@ export const usePokedexStore = create<PokedexState>()(
           persistedState.recentCatches = [];
         }
 
+        if (version < 10) {
+          persistedState.shinyHunts = [];
+        }
+
         return persistedState;
       },
       merge: (persistedState, currentState) => {
@@ -929,6 +1011,9 @@ export const usePokedexStore = create<PokedexState>()(
           ...persistedState,
           recentCatches: Array.isArray(persistedState.recentCatches)
             ? (persistedState.recentCatches as CatchEvent[])
+            : [],
+          shinyHunts: Array.isArray(persistedState.shinyHunts)
+            ? (persistedState.shinyHunts as ShinyHunt[])
             : [],
           gameDex,
           gameHomeBoxes: normalizeNestedBooleanRecord(

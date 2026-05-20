@@ -14,6 +14,19 @@ export type ShinyHuntMethod =
   | "outbreak"
   | "random";
 
+export type HuntCounterMode = "encounters" | "soft-resets";
+
+export type ShinyHunt = {
+  id: string;
+  speciesId: number;
+  formName: string | null;
+  gameId: string;
+  method: ShinyHuntMethod;
+  counterMode: HuntCounterMode;
+  count: number;
+  startedAt: string; // ISO timestamp
+};
+
 export type OwnedRecord = {
   pokedex_number: number; // species ID (1-1025)
   form_name: string | null; // null = base form, e.g. 'vulpix-alola' for regional
