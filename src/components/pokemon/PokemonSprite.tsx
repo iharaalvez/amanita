@@ -30,7 +30,7 @@ export function PokemonSprite({
         width={width}
         height={height}
         unoptimized
-        style={{ width: "auto", height: "auto", ...style }}
+        style={style}
         className={className}
       />
     );
