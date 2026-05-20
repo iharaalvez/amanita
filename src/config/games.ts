@@ -93,12 +93,6 @@ export const GAME_LIST: readonly GameEntry[] = [
     generation: 9,
     hasShinyCharm: true,
   },
-  {
-    id: "legends-za-hyperspace",
-    name: "Legends: Z-A — Hyperspace",
-    generation: 9,
-    hasShinyCharm: false,
-  },
 ] as const;
 
 export const GAME_BY_ID = Object.fromEntries(
