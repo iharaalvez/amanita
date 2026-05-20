@@ -151,14 +151,6 @@ function GameSlot({ entry, gameId, onSelect }: GameSlotProps) {
         }
         className={`relative flex h-[164px] w-full cursor-pointer flex-col items-center justify-center gap-1 rounded-xl p-2 pb-6 transition-all focus-visible:outline-none focus-visible:ring-2 ${visual.button}`}
       >
-        {owned && (
-          <span
-            className="absolute right-2 top-2 flex h-4 w-4 items-center justify-center rounded-full bg-green-400 text-white"
-            aria-hidden
-          >
-            <CheckIcon className="h-2.5 w-2.5" />
-          </span>
-        )}
         {exclusiveVersion && (
           <span
             className="absolute left-2 top-2 rounded bg-amber-100 px-1 text-[8px] font-bold uppercase tracking-wide text-amber-700 dark:bg-amber-900/40 dark:text-amber-400"

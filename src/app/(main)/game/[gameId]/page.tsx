@@ -7,13 +7,13 @@ import { GameHomeBoxView } from "@/components/pokemon/GameHomeBoxView";
 import { GameLocationView } from "@/components/pokemon/GameLocationView";
 import { PokemonSprite } from "@/components/pokemon/PokemonSprite";
 import { CheckIcon, CompassIcon } from "@/components/ui";
-import { getGameById } from "@/config/games";
+import { getGameById, getDlcGames } from "@/config/games";
 import { useGamePokedex } from "@/hooks/useGamePokedex";
 import { useOpenPokemon } from "@/hooks/useOpenPokemon";
 import { usePokedexStore } from "@/store/pokedexStore";
 import type { GameDexEntry, GameDexFlags } from "@/types/pokemon";
 
-type Tab = "dex" | "boxes" | "guide" | "locations";
+type Tab = "dex" | "boxes" | "guide" | "locations" | "hyperspace-dex" | "hyperspace-boxes";
 
 const EMPTY_GAME_FLAGS: Record<string, GameDexFlags> = {};
 
@@ -196,28 +196,38 @@ export default function GamePage() {
   const game = getGameById(gameId);
   if (!game) notFound();
 
+  const dlcGames = getDlcGames(gameId);
+
+  type TabConfig = { id: Tab; label: string };
+  const tabs: TabConfig[] = [
+    { id: "dex", label: "National Dex" },
+    { id: "boxes", label: "National Dex Boxes" },
+    { id: "guide", label: "Hunt Guide" },
+    { id: "locations", label: "Locations" },
+    ...dlcGames.map((dlc) => [
+      { id: `hyperspace-dex` as Tab, label: `${dlc.name} Dex` },
+      { id: `hyperspace-boxes` as Tab, label: `${dlc.name} Boxes` },
+    ]).flat(),
+  ];
+
+  const hyperspaceGame = dlcGames[0];
+
   return (
     <div>
       <div className="sticky top-0 z-10 border-b border-gray-100 bg-white/95 px-4 backdrop-blur dark:border-gray-800 dark:bg-gray-950/95">
-        <div className="flex gap-1 pt-2">
-          {(["dex", "boxes", "guide", "locations"] as Tab[]).map((tab) => (
+        <div className="flex gap-1 overflow-x-auto pt-2">
+          {tabs.map((tab) => (
             <button
-              key={tab}
+              key={tab.id}
               type="button"
-              onClick={() => setActiveTab(tab)}
-              className={`rounded-t-lg px-4 py-2 text-sm font-semibold transition-colors ${
-                activeTab === tab
+              onClick={() => setActiveTab(tab.id)}
+              className={`shrink-0 rounded-t-lg px-4 py-2 text-sm font-semibold transition-colors ${
+                activeTab === tab.id
                   ? "border-b-2 border-blue-500 text-blue-600 dark:text-blue-400"
                   : "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
               }`}
             >
-              {tab === "dex"
-                ? "National Dex"
-                : tab === "boxes"
-                  ? "National Dex Boxes"
-                  : tab === "guide"
-                    ? "Hunt Guide"
-                    : "Locations"}
+              {tab.label}
             </button>
           ))}
         </div>
@@ -243,6 +253,21 @@ export default function GamePage() {
           <HuntGuideView
             gameId={gameId}
             gameName={game.name}
+            onSelect={(speciesId, formName, contextGameId) =>
+              openPokemon(speciesId, formName, contextGameId)
+            }
+          />
+        ) : activeTab === "hyperspace-dex" && hyperspaceGame ? (
+          <GameDexView
+            gameId={hyperspaceGame.id}
+            onSelect={(speciesId, formName, contextGameId) =>
+              openPokemon(speciesId, formName, contextGameId)
+            }
+          />
+        ) : activeTab === "hyperspace-boxes" && hyperspaceGame ? (
+          <GameHomeBoxView
+            gameId={hyperspaceGame.id}
+            gameName={hyperspaceGame.name}
             onSelect={(speciesId, formName, contextGameId) =>
               openPokemon(speciesId, formName, contextGameId)
             }

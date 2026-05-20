@@ -1,7 +1,7 @@
 "use client";
 
 import { usePokedexStore } from "@/store/pokedexStore";
-import { GAME_LIST, getGamesByGeneration } from "@/config/games";
+import { VISIBLE_GAME_LIST, getGamesByGeneration } from "@/config/games";
 import { CheckIcon, XIcon } from "@/components/ui";
 
 const GEN_LABELS: Record<number, string> = {
@@ -23,7 +23,7 @@ type Props = {
 export function AvailableGamesModal({ onClose }: Props) {
   const availableGames = usePokedexStore((state) => state.availableGames);
   const setGameAvailable = usePokedexStore((state) => state.setGameAvailable);
-  const gamesByGen = getGamesByGeneration(GAME_LIST);
+  const gamesByGen = getGamesByGeneration(VISIBLE_GAME_LIST);
 
   return (
     <div

@@ -21,7 +21,7 @@ export function ownedKey(speciesId: number, formName?: string | null): string {
 }
 
 // Games where alpha/shiny-alpha tracking applies.
-export const ALPHA_GAMES = new Set(["pla", "legends-za"]);
+export const ALPHA_GAMES = new Set(["pla", "legends-za", "legends-za-hyperspace"]);
 
 export type HomeBoxMode = "normal" | "shiny" | "paired";
 

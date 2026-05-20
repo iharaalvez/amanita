@@ -3,6 +3,7 @@ export type GameEntry = {
   name: string;
   generation: number;
   hasShinyCharm: boolean;
+  dlcOf?: string; // parent game id — hidden from catalog, surfaced as tabs inside the parent
 };
 
 export const GAME_LIST: readonly GameEntry[] = [
@@ -93,7 +94,18 @@ export const GAME_LIST: readonly GameEntry[] = [
     generation: 9,
     hasShinyCharm: true,
   },
+  {
+    id: "legends-za-hyperspace",
+    name: "Hyperspace",
+    generation: 9,
+    hasShinyCharm: false,
+    dlcOf: "legends-za",
+  },
 ] as const;
+
+export const VISIBLE_GAME_LIST: readonly GameEntry[] = GAME_LIST.filter(
+  (g) => !g.dlcOf,
+);
 
 export const GAME_BY_ID = Object.fromEntries(
   GAME_LIST.map((game) => [game.id, game]),
@@ -103,8 +115,12 @@ export function getGameById(gameId: string): GameEntry | undefined {
   return GAME_LIST.find((game) => game.id === gameId);
 }
 
+export function getDlcGames(parentId: string): readonly GameEntry[] {
+  return GAME_LIST.filter((g) => g.dlcOf === parentId);
+}
+
 export function getGamesByGeneration(
-  games: readonly GameEntry[] = GAME_LIST,
+  games: readonly GameEntry[] = VISIBLE_GAME_LIST,
 ): Array<[number, GameEntry[]]> {
   const groups = new Map<number, GameEntry[]>();
 

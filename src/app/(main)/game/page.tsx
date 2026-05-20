@@ -11,7 +11,7 @@ import {
   SparkleIcon,
 } from "@/components/ui";
 import {
-  GAME_LIST,
+  VISIBLE_GAME_LIST,
   getGamesByGeneration,
   type GameEntry,
 } from "@/config/games";
@@ -189,15 +189,15 @@ export default function GameIndexPage() {
   const availableGames = usePokedexStore((s) => s.availableGames);
 
   const myGames = useMemo(
-    () => GAME_LIST.filter((game) => availableGames[game.id]),
+    () => VISIBLE_GAME_LIST.filter((game) => availableGames[game.id]),
     [availableGames],
   );
   const otherGames = useMemo(
-    () => GAME_LIST.filter((game) => !availableGames[game.id]),
+    () => VISIBLE_GAME_LIST.filter((game) => !availableGames[game.id]),
     [availableGames],
   );
   const catalogGames = useMemo(
-    () => (myGames.length > 0 ? otherGames : [...GAME_LIST]),
+    () => (myGames.length > 0 ? otherGames : [...VISIBLE_GAME_LIST]),
     [myGames.length, otherGames],
   );
   const filteredCatalogGames = useMemo(
@@ -251,7 +251,7 @@ export default function GameIndexPage() {
               My Games
             </h2>
             <span className="text-xs tabular-nums text-gray-400">
-              {myGames.length}/{GAME_LIST.length}
+              {myGames.length}/{VISIBLE_GAME_LIST.length}
             </span>
           </div>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
