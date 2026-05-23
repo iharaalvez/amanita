@@ -13,7 +13,7 @@ import {
 } from "@/lib/livingDex";
 import { ownedKey, usePokedexStore } from "@/store/pokedexStore";
 import { getGameById, GAME_ALT_LOGOS, GAME_LIST } from "@/config/games";
-import type { CatchEvent, ShinyHunt, HuntCounterMode } from "@/store/pokedexStore";
+import type { CatchEvent, HuntCounterMode } from "@/store/pokedexStore";
 import type { LivingDexEntry, ShinyHuntMethod } from "@/types/pokemon";
 import { Search } from "lucide-react";
 
@@ -414,8 +414,7 @@ export function DashboardView() {
                     const entry = entryByKey.get(
                       ownedKey(hunt.speciesId, hunt.formName),
                     );
-                    const spriteUrl =
-                      entry?.shinySpriteUrl ?? entry?.spriteUrl;
+                    const spriteUrl = entry?.shinySpriteUrl ?? entry?.spriteUrl;
                     const gameName =
                       getGameById(hunt.gameId)?.name ?? hunt.gameId;
                     return (
@@ -621,18 +620,16 @@ export function DashboardView() {
             {/* Method */}
             <select
               value={huntMethod}
-              onChange={(e) =>
-                setHuntMethod(e.target.value as ShinyHuntMethod)
-              }
+              onChange={(e) => setHuntMethod(e.target.value as ShinyHuntMethod)}
               className="mb-3 w-full rounded-lg border border-[#2f2b40] bg-[#151520] px-3 py-2 text-xs text-[#f8f0df] outline-none focus:border-[#554a70]"
             >
-              {(Object.entries(METHOD_LABELS) as [ShinyHuntMethod, string][]).map(
-                ([method, label]) => (
-                  <option key={method} value={method}>
-                    {label}
-                  </option>
-                ),
-              )}
+              {(
+                Object.entries(METHOD_LABELS) as [ShinyHuntMethod, string][]
+              ).map(([method, label]) => (
+                <option key={method} value={method}>
+                  {label}
+                </option>
+              ))}
             </select>
 
             {/* Counter mode */}

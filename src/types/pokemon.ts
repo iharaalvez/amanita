@@ -170,6 +170,18 @@ export type ProgressSnapshot = {
   gameHomeBoxes?: Record<string, Record<string, boolean>>;
   availableGames: Record<string, boolean>;
   pinnedGameId?: string | null;
+  shinyHunts?: ShinyHunt[];
+  recentCatches?: CatchEvent[];
+};
+
+// Imported here to avoid a circular dependency with pokedexStore.
+export type CatchEvent = {
+  speciesId: number;
+  formName: string | null;
+  gameId: string;
+  date: string;
+  isShiny: boolean;
+  isAlpha: boolean;
 };
 
 export type EvolutionStage = {

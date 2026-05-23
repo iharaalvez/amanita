@@ -3,6 +3,8 @@ import type {
   OwnedRecord,
   OwnershipMethod,
   ProgressSnapshot,
+  ShinyHunt,
+  CatchEvent,
   ShinyHuntMethod,
   GameDexFlags,
 } from "@/types/pokemon";
@@ -45,7 +47,7 @@ export async function loadFromSupabase(
     supabase
       .from("user_settings")
       .select(
-        "available_games, game_dex, game_home_boxes, game_dex_progress, shiny_game_dex_progress, pinned_game_id",
+        "available_games, game_dex, game_home_boxes, game_dex_progress, shiny_game_dex_progress, pinned_game_id, shiny_hunts, recent_catches",
       )
       .eq("user_id", resolvedUserId)
       .maybeSingle(),
@@ -155,6 +157,12 @@ export async function loadFromSupabase(
       typeof settingsResult.data?.pinned_game_id === "string"
         ? settingsResult.data.pinned_game_id
         : null,
+    shinyHunts: Array.isArray(settingsResult.data?.shiny_hunts)
+      ? (settingsResult.data.shiny_hunts as ShinyHunt[])
+      : [],
+    recentCatches: Array.isArray(settingsResult.data?.recent_catches)
+      ? (settingsResult.data.recent_catches as CatchEvent[])
+      : [],
   };
 }
 
@@ -262,6 +270,34 @@ export async function syncPinnedGameId(gameId: string | null): Promise<void> {
     );
 }
 
+export async function syncShinyHunts(hunts: ShinyHunt[]): Promise<void> {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return;
+
+  await supabase
+    .from("user_settings")
+    .upsert(
+      { user_id: user.id, shiny_hunts: hunts },
+      { onConflict: "user_id" },
+    );
+}
+
+export async function syncRecentCatches(catches: CatchEvent[]): Promise<void> {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return;
+
+  await supabase
+    .from("user_settings")
+    .upsert(
+      { user_id: user.id, recent_catches: catches },
+      { onConflict: "user_id" },
+    );
+}
+
 export async function syncAllRecords(
   snapshot: ProgressSnapshot,
 ): Promise<void> {
@@ -294,5 +330,7 @@ export async function syncAllRecords(
     syncGameDex(snapshot.gameDex),
     syncGameHomeBoxes(snapshot.gameHomeBoxes ?? {}),
     syncPinnedGameId(snapshot.pinnedGameId ?? null),
+    syncShinyHunts(snapshot.shinyHunts ?? []),
+    syncRecentCatches(snapshot.recentCatches ?? []),
   ]);
 }

@@ -2,11 +2,12 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import {
   syncRecord,
-  deleteRecord,
   syncAvailableGames,
   syncGameDex,
   syncGameHomeBoxes,
   syncPinnedGameId,
+  syncShinyHunts,
+  syncRecentCatches,
 } from "@/lib/sync";
 import type {
   OwnedRecord,
@@ -14,9 +15,12 @@ import type {
   ShinyHuntMethod,
   HuntCounterMode,
   ShinyHunt,
+  CatchEvent,
   GameDexFlags,
   ProgressSnapshot,
 } from "@/types/pokemon";
+
+export type { CatchEvent, ShinyHunt, HuntCounterMode };
 
 export function ownedKey(speciesId: number, formName?: string | null): string {
   return `${speciesId}-${formName ?? "base"}`;
@@ -26,17 +30,6 @@ export function ownedKey(speciesId: number, formName?: string | null): string {
 export const ALPHA_GAMES = new Set(["pla", "legends-za", "legends-za-hyperspace"]);
 
 export type HomeBoxMode = "normal" | "shiny" | "paired";
-
-export type CatchEvent = {
-  speciesId: number;
-  formName: string | null;
-  gameId: string;
-  date: string; // ISO timestamp
-  isShiny: boolean;
-  isAlpha: boolean;
-};
-
-export type { ShinyHunt, HuntCounterMode };
 
 const MAX_CATCH_LOG = 50;
 
@@ -339,6 +332,37 @@ function mergeGameHomeBoxRecords(
   return result;
 }
 
+function mergeShinyHunts(local: ShinyHunt[], remote: ShinyHunt[]): ShinyHunt[] {
+  const byId = new Map<string, ShinyHunt>();
+  for (const hunt of remote) byId.set(hunt.id, hunt);
+  for (const hunt of local) {
+    const existing = byId.get(hunt.id);
+    // Keep whichever version has the higher count (more encounters tracked).
+    byId.set(hunt.id, !existing || hunt.count >= existing.count ? hunt : existing);
+  }
+  return Array.from(byId.values()).sort(
+    (a, b) => a.startedAt.localeCompare(b.startedAt),
+  );
+}
+
+function mergeRecentCatches(
+  local: CatchEvent[],
+  remote: CatchEvent[],
+): CatchEvent[] {
+  const seen = new Set<string>();
+  const all: CatchEvent[] = [];
+  for (const c of [...local, ...remote]) {
+    const key = `${c.speciesId}-${c.formName ?? ""}-${c.gameId}-${c.date}`;
+    if (!seen.has(key)) {
+      seen.add(key);
+      all.push(c);
+    }
+  }
+  return all
+    .sort((a, b) => b.date.localeCompare(a.date))
+    .slice(0, MAX_CATCH_LOG);
+}
+
 // Helper to update a single entry in gameDex and sync the whole game's data.
 function patchGameEntry(
   state: PokedexState,
@@ -392,6 +416,8 @@ export const usePokedexStore = create<PokedexState>()(
           gameHomeBoxes: snapshot.gameHomeBoxes ?? {},
           availableGames: snapshot.availableGames,
           pinnedGameId: snapshot.pinnedGameId ?? null,
+          shinyHunts: snapshot.shinyHunts ?? [],
+          recentCatches: snapshot.recentCatches ?? [],
         });
       },
 
@@ -416,6 +442,14 @@ export const usePokedexStore = create<PokedexState>()(
             ),
           },
           pinnedGameId: current.pinnedGameId ?? snapshot.pinnedGameId ?? null,
+          shinyHunts: mergeShinyHunts(
+            current.shinyHunts,
+            snapshot.shinyHunts ?? [],
+          ),
+          recentCatches: mergeRecentCatches(
+            current.recentCatches,
+            snapshot.recentCatches ?? [],
+          ),
         };
         set({
           owned: merged.owned,
@@ -423,6 +457,8 @@ export const usePokedexStore = create<PokedexState>()(
           gameHomeBoxes: merged.gameHomeBoxes ?? {},
           availableGames: merged.availableGames,
           pinnedGameId: merged.pinnedGameId ?? null,
+          shinyHunts: merged.shinyHunts ?? [],
+          recentCatches: merged.recentCatches ?? [],
         });
         return merged;
       },
@@ -433,6 +469,8 @@ export const usePokedexStore = create<PokedexState>()(
         gameHomeBoxes: get().gameHomeBoxes,
         availableGames: get().availableGames,
         pinnedGameId: get().pinnedGameId,
+        shinyHunts: get().shinyHunts,
+        recentCatches: get().recentCatches,
       }),
 
       clearAll: () =>
@@ -496,23 +534,24 @@ export const usePokedexStore = create<PokedexState>()(
         set((state) => {
           const existing = state.owned[key];
           if (!existing) return {};
-          const next = { ...state.owned };
-          const updated: OwnedRecord = {
-            ...existing,
-            shiny_owned: false,
-            shiny_method: undefined,
-            shiny_game: undefined,
+          return {
+            owned: {
+              ...state.owned,
+              [key]: {
+                ...existing,
+                shiny_owned: false,
+                shiny_method: undefined,
+                shiny_game: undefined,
+              },
+            },
           };
-          if (updated.owned || updated.notes) {
-            next[key] = updated;
-          } else {
-            delete next[key];
-          }
-          return { owned: next };
         });
+        // Always sync the updated record rather than deleting it. Deleting the
+        // key from local state causes mergeProgressSnapshot to resurrect stale
+        // remote data on the next load, since the merge uses remote as the base
+        // and local wins only when the key exists locally.
         const record = get().owned[key];
         if (record) void syncRecord(record);
-        else void deleteRecord(speciesId, formName ?? null);
       },
 
       clearOwnership: (speciesId, formName) => {
@@ -520,22 +559,19 @@ export const usePokedexStore = create<PokedexState>()(
         set((state) => {
           const existing = state.owned[key];
           if (!existing) return {};
-          const next = { ...state.owned };
-          const updated: OwnedRecord = {
-            ...existing,
-            owned: false,
-            method: undefined,
+          return {
+            owned: {
+              ...state.owned,
+              [key]: {
+                ...existing,
+                owned: false,
+                method: undefined,
+              },
+            },
           };
-          if (updated.shiny_owned || updated.notes) {
-            next[key] = updated;
-          } else {
-            delete next[key];
-          }
-          return { owned: next };
         });
         const record = get().owned[key];
         if (record) void syncRecord(record);
-        else void deleteRecord(speciesId, formName ?? null);
       },
 
       isOwned: (speciesId, formName) =>
@@ -571,6 +607,7 @@ export const usePokedexStore = create<PokedexState>()(
             recentCatches: [event, ...state.recentCatches].slice(0, MAX_CATCH_LOG),
           };
         });
+        void syncRecentCatches(get().recentCatches);
       },
 
       clearOwnedInGame: (speciesId, gameId, formName) => {
@@ -621,6 +658,7 @@ export const usePokedexStore = create<PokedexState>()(
             recentCatches: [event, ...state.recentCatches].slice(0, MAX_CATCH_LOG),
           };
         });
+        void syncRecentCatches(get().recentCatches);
       },
 
       clearShinyOwnedInGame: (speciesId, gameId, formName) => {
@@ -670,6 +708,7 @@ export const usePokedexStore = create<PokedexState>()(
             recentCatches: [event, ...state.recentCatches].slice(0, MAX_CATCH_LOG),
           };
         });
+        void syncRecentCatches(get().recentCatches);
       },
 
       clearAlphaInGame: (speciesId, gameId, formName) => {
@@ -721,6 +760,7 @@ export const usePokedexStore = create<PokedexState>()(
             recentCatches: [event, ...state.recentCatches].slice(0, MAX_CATCH_LOG),
           };
         });
+        void syncRecentCatches(get().recentCatches);
       },
 
       clearShinyAlphaInGame: (speciesId, gameId, formName) => {
@@ -796,6 +836,7 @@ export const usePokedexStore = create<PokedexState>()(
             },
           ],
         }));
+        void syncShinyHunts(get().shinyHunts);
       },
 
       incrementShinyHunt: (id) => {
@@ -804,6 +845,7 @@ export const usePokedexStore = create<PokedexState>()(
             h.id === id ? { ...h, count: h.count + 1 } : h,
           ),
         }));
+        void syncShinyHunts(get().shinyHunts);
       },
 
       decrementShinyHunt: (id) => {
@@ -812,6 +854,7 @@ export const usePokedexStore = create<PokedexState>()(
             h.id === id ? { ...h, count: Math.max(0, h.count - 1) } : h,
           ),
         }));
+        void syncShinyHunts(get().shinyHunts);
       },
 
       setShinyHuntCounterMode: (id, counterMode) => {
@@ -820,12 +863,14 @@ export const usePokedexStore = create<PokedexState>()(
             h.id === id ? { ...h, counterMode } : h,
           ),
         }));
+        void syncShinyHunts(get().shinyHunts);
       },
 
       removeShinyHunt: (id) => {
         set((state) => ({
           shinyHunts: state.shinyHunts.filter((h) => h.id !== id),
         }));
+        void syncShinyHunts(get().shinyHunts);
       },
 
       completeShinyHunt: (id) => {
@@ -834,6 +879,7 @@ export const usePokedexStore = create<PokedexState>()(
         set((state) => ({
           shinyHunts: state.shinyHunts.filter((h) => h.id !== id),
         }));
+        void syncShinyHunts(get().shinyHunts);
         get().markShinyOwnedInGame(hunt.speciesId, hunt.gameId, hunt.formName);
       },
 
