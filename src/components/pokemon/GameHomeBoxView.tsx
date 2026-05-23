@@ -299,7 +299,7 @@ export function GameHomeBoxView({ gameId, gameName, onSelect }: Props) {
             className="scroll-mt-14 rounded-lg border border-gray-100 bg-gray-50 p-1.5 dark:border-gray-700/50 dark:bg-gray-800/60 sm:rounded-xl sm:p-3"
           >
             <p className="mb-1.5 text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500 sm:mb-2">
-              Box {boxIndex + 1}
+              {boxIndex * BOX_SIZE + 1}–{(boxIndex + 1) * BOX_SIZE}
             </p>
             <div className="grid grid-cols-6 gap-0.5 sm:gap-1">
               {box.map((entry, slotIndex) => {
