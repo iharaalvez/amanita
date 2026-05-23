@@ -574,13 +574,17 @@ export function HomeBoxView({ onSelect }: Props) {
       {/* Box grid */}
       <div className="grid grid-cols-1 gap-2 sm:gap-3 lg:grid-cols-2">
         {isPairedMode &&
-          visiblePairedBoxes.map(({ box, boxIndex }) => (
+          visiblePairedBoxes.map(({ box, boxIndex }) => {
+            const nonNull = box.filter((s): s is HomeBoxSlot => s !== null);
+            const first = nonNull[0]?.entry.speciesId ?? boxIndex * BOX_SIZE + 1;
+            const last = nonNull[nonNull.length - 1]?.entry.speciesId ?? (boxIndex + 1) * BOX_SIZE;
+            return (
             <section
               key={`p-${boxIndex}`}
               className="scroll-mt-14 rounded-lg border border-blue-100 bg-blue-50/40 p-1.5 dark:border-blue-900/40 dark:bg-blue-950/20 sm:rounded-xl sm:p-3"
             >
               <p className="mb-1.5 text-[10px] font-bold uppercase tracking-widest text-blue-500 dark:text-blue-400 sm:mb-2">
-                {boxIndex * BOX_SIZE + 1}–{(boxIndex + 1) * BOX_SIZE}
+                {first}–{last}
               </p>
               <div className="grid grid-cols-6 gap-0.5 sm:gap-1">
                 {box.map((slot, slotIndex) => {
@@ -608,9 +612,13 @@ export function HomeBoxView({ onSelect }: Props) {
                 })}
               </div>
             </section>
-          ))}
+            );
+          })}
         {!isPairedMode &&
           visibleBoxes.flatMap(({ box, boxIndex }) => {
+            const nonNull = box.filter((e): e is LivingDexEntry => e !== null);
+            const first = nonNull[0]?.speciesId ?? boxIndex * BOX_SIZE + 1;
+            const last = nonNull[nonNull.length - 1]?.speciesId ?? (boxIndex + 1) * BOX_SIZE;
             const renderGrid = (isShiny: boolean) =>
               box.map((entry, slotIndex) => {
                 const slotKey = entry ? getEntryKey(entry) : null;
@@ -643,7 +651,7 @@ export function HomeBoxView({ onSelect }: Props) {
                 className="scroll-mt-14 rounded-lg border border-gray-100 bg-gray-50 p-1.5 dark:border-gray-700/50 dark:bg-gray-800/60 sm:rounded-xl sm:p-3"
               >
                 <p className="mb-1.5 text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500 sm:mb-2">
-                  {boxIndex * BOX_SIZE + 1}–{(boxIndex + 1) * BOX_SIZE}
+                  {first}–{last}
                 </p>
                 <div className="grid grid-cols-6 gap-0.5 sm:gap-1">
                   {renderGrid(false)}
@@ -659,7 +667,7 @@ export function HomeBoxView({ onSelect }: Props) {
                 className="scroll-mt-14 rounded-lg border border-yellow-200/60 bg-yellow-50/30 p-1.5 dark:border-yellow-900/40 dark:bg-yellow-950/20 sm:rounded-xl sm:p-3"
               >
                 <p className="mb-1.5 text-[10px] font-bold uppercase tracking-widest text-yellow-500 dark:text-yellow-600 sm:mb-2">
-                  ✦ {boxIndex * BOX_SIZE + 1}–{(boxIndex + 1) * BOX_SIZE}
+                  ✦ {first}–{last}
                 </p>
                 <div className="grid grid-cols-6 gap-0.5 sm:gap-1">
                   {renderGrid(true)}

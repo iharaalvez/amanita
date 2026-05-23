@@ -293,13 +293,17 @@ export function GameHomeBoxView({ gameId, gameName, onSelect }: Props) {
       </div>
 
       <div className="grid grid-cols-1 gap-2 sm:gap-3 lg:grid-cols-2">
-        {visibleBoxes.map(({ box, boxIndex }) => (
+        {visibleBoxes.map(({ box, boxIndex }) => {
+          const nonNull = box.filter((e): e is GameHomeBoxEntry => e !== null);
+          const first = nonNull[0]?.entryNumber ?? boxIndex * BOX_SIZE + 1;
+          const last = nonNull[nonNull.length - 1]?.entryNumber ?? (boxIndex + 1) * BOX_SIZE;
+          return (
           <section
             key={boxIndex}
             className="scroll-mt-14 rounded-lg border border-gray-100 bg-gray-50 p-1.5 dark:border-gray-700/50 dark:bg-gray-800/60 sm:rounded-xl sm:p-3"
           >
             <p className="mb-1.5 text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500 sm:mb-2">
-              {boxIndex * BOX_SIZE + 1}–{(boxIndex + 1) * BOX_SIZE}
+              {first}–{last}
             </p>
             <div className="grid grid-cols-6 gap-0.5 sm:gap-1">
               {box.map((entry, slotIndex) => {
@@ -332,7 +336,8 @@ export function GameHomeBoxView({ gameId, gameName, onSelect }: Props) {
               })}
             </div>
           </section>
-        ))}
+          );
+        })}
 
         {visibleBoxes.length === 0 && (
           <div className="col-span-full py-12 text-center text-sm text-gray-400">
