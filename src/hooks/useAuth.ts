@@ -3,16 +3,24 @@
 import { useEffect, useState } from "react";
 import type { User } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
+import { reportAuthError } from "@/lib/authErrors";
 
 export function useAuth() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      setUser(user);
-      setLoading(false);
-    });
+    let active = true;
+    supabase.auth
+      .getUser()
+      .then(({ data: { user } }) => {
+        if (!active) return;
+        setUser(user);
+      })
+      .catch(reportAuthError)
+      .finally(() => {
+        if (active) setLoading(false);
+      });
 
     const {
       data: { subscription },
@@ -20,7 +28,10 @@ export function useAuth() {
       setUser(session?.user ?? null);
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      active = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
   return { user, loading };

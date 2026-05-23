@@ -90,12 +90,32 @@ const OWNERSHIP_METHODS: { value: OwnershipMethod; label: string }[] = [
 const SHINY_METHODS: { value: ShinyHuntMethod; label: string; odds: string }[] =
   [
     { value: "random", label: "Random", odds: "1/4096" },
+    { value: "overworld", label: "Overworld", odds: "1/4096" },
     { value: "masuda", label: "Masuda", odds: "1/683" },
+    { value: "breeding", label: "Breeding", odds: "varies" },
     { value: "soft-reset", label: "Soft Reset", odds: "1/4096" },
-    { value: "sos-chain", label: "SOS Chain", odds: "~1/315" },
     { value: "poke-radar", label: "Poke Radar", odds: "~1/99" },
+    { value: "chain-fishing", label: "Chain Fishing", odds: "varies" },
+    { value: "friend-safari", label: "Friend Safari", odds: "1/512" },
+    { value: "horde", label: "Horde", odds: "varies" },
     { value: "dex-nav", label: "DexNav", odds: "varies" },
+    { value: "sos-chain", label: "SOS Chain", odds: "~1/315" },
+    { value: "ultra-wormhole", label: "Ultra Wormhole", odds: "varies" },
+    { value: "lets-go-catch-combo", label: "Catch Combo", odds: "varies" },
     { value: "outbreak", label: "Outbreak", odds: "varies" },
+    {
+      value: "massive-mass-outbreak",
+      label: "Massive Mass Outbreak",
+      odds: "varies",
+    },
+    { value: "sandwich", label: "Sandwich", odds: "varies" },
+    { value: "isolated-encounter", label: "Isolated", odds: "varies" },
+    { value: "dynamax-adventures", label: "Dynamax Adv.", odds: "varies" },
+    { value: "max-raid", label: "Max Raid", odds: "varies" },
+    { value: "tera-raid", label: "Tera Raid", odds: "varies" },
+    { value: "alpha-reset", label: "Alpha Reset", odds: "varies" },
+    { value: "wild-zone-reset", label: "Wild Zone Reset", odds: "varies" },
+    { value: "charm-boosted", label: "Charm Boosted", odds: "varies" },
   ];
 
 function HBar({ pct, colorClass }: { pct: number; colorClass: string }) {

@@ -3,13 +3,16 @@ import { getGameById } from "@/config/games";
 import { api } from "@/lib/api";
 import type { GameDexEntry, GameHomeBoxEntry } from "@/types/pokemon";
 
-export function useGamePokedex(gameId: string) {
+export function useGamePokedex(
+  gameId: string,
+  options: { enabled?: boolean } = {},
+) {
   const entry = getGameById(gameId);
 
   return useQuery<GameDexEntry[]>({
     queryKey: ["game-pokedex", gameId],
     queryFn: () => api.getGameDex(gameId),
-    enabled: !!entry,
+    enabled: !!entry && (options.enabled ?? true),
     staleTime: Infinity,
   });
 }

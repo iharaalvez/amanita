@@ -13,7 +13,13 @@ import { useOpenPokemon } from "@/hooks/useOpenPokemon";
 import { usePokedexStore } from "@/store/pokedexStore";
 import type { GameDexEntry, GameDexFlags } from "@/types/pokemon";
 
-type Tab = "dex" | "boxes" | "guide" | "locations" | "hyperspace-dex" | "hyperspace-boxes";
+type Tab =
+  | "dex"
+  | "boxes"
+  | "guide"
+  | "locations"
+  | "hyperspace-dex"
+  | "hyperspace-boxes";
 
 const EMPTY_GAME_FLAGS: Record<string, GameDexFlags> = {};
 
@@ -68,9 +74,16 @@ function HuntTargetCard({
 
 function HuntGuideView({ gameId, gameName, onSelect }: HuntGuideProps) {
   const { data: gameDex, isLoading, error } = useGamePokedex(gameId);
-  const gameFlags = usePokedexStore((state) => state.gameDex[gameId] ?? EMPTY_GAME_FLAGS);
+  const gameFlags = usePokedexStore(
+    (state) => state.gameDex[gameId] ?? EMPTY_GAME_FLAGS,
+  );
   const registeredSet = useMemo(
-    () => new Set(Object.entries(gameFlags).filter(([, f]) => f.owned).map(([k]) => Number(k.split("-")[0]))),
+    () =>
+      new Set(
+        Object.entries(gameFlags)
+          .filter(([, f]) => f.owned)
+          .map(([k]) => Number(k.split("-")[0])),
+      ),
     [gameFlags],
   );
 
@@ -202,12 +215,14 @@ export default function GamePage() {
   const tabs: TabConfig[] = [
     { id: "dex", label: "National Dex" },
     { id: "boxes", label: "National Dex Boxes" },
+    ...dlcGames
+      .map((dlc) => [
+        { id: `hyperspace-dex` as Tab, label: `${dlc.name} Dex` },
+        { id: `hyperspace-boxes` as Tab, label: `${dlc.name} Boxes` },
+      ])
+      .flat(),
     { id: "guide", label: "Hunt Guide" },
     { id: "locations", label: "Locations" },
-    ...dlcGames.map((dlc) => [
-      { id: `hyperspace-dex` as Tab, label: `${dlc.name} Dex` },
-      { id: `hyperspace-boxes` as Tab, label: `${dlc.name} Boxes` },
-    ]).flat(),
   ];
 
   const hyperspaceGame = dlcGames[0];

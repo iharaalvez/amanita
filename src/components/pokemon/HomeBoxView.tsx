@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useLivingDexEntries } from "@/hooks/usePokemon";
 import {
   usePokedexStore,
@@ -18,9 +19,12 @@ import {
 } from "@/lib/livingDex";
 import { BoxSlot } from "./BoxSlot";
 import { HomeIcon, SparkleIcon, XIcon } from "@/components/ui";
-import type { LivingDexEntry } from "@/types/pokemon";
+import { api } from "@/lib/api";
+import type { GameHomeBoxFormRule, LivingDexEntry } from "@/types/pokemon";
+import { SlidersHorizontal } from "lucide-react";
 
 const BOX_SIZE = 30;
+const HOME_DEX_GAME_ID = "home";
 type HomeStatusFilter = "all" | "shiny" | "missing" | "owned";
 type HomeBoxSlot = {
   entry: LivingDexEntry;
@@ -71,12 +75,34 @@ function getSlotKey(slot: HomeBoxSlot): string {
   return `${getEntryKey(slot.entry)}-${slot.isShiny ? "shiny" : "normal"}`;
 }
 
+function formRuleKey(formName: string | null): string {
+  return formName ?? "base";
+}
+
+function buildRulesBySpecies(
+  rules: readonly GameHomeBoxFormRule[],
+): Map<number, Map<string, GameHomeBoxFormRule>> {
+  const bySpecies = new Map<number, Map<string, GameHomeBoxFormRule>>();
+  for (const rule of rules) {
+    const formRules = bySpecies.get(rule.speciesId) ?? new Map();
+    formRules.set(formRuleKey(rule.formName), rule);
+    bySpecies.set(rule.speciesId, formRules);
+  }
+  return bySpecies;
+}
+
 type Props = {
   onSelect: (speciesId: number, formName: string | null) => void;
 };
 
 export function HomeBoxView({ onSelect }: Props) {
   const { data, isLoading, error } = useLivingDexEntries();
+  const homeRulesQuery = useQuery({
+    queryKey: ["game-home-box-form-rules", HOME_DEX_GAME_ID],
+    queryFn: () =>
+      api.getGameHomeBoxFormRules(HOME_DEX_GAME_ID).catch(() => []),
+    staleTime: Infinity,
+  });
   const [statusFilter, setStatusFilter] = useState<HomeStatusFilter>("all");
   const [search, setSearch] = useState("");
   const ownedRecords = usePokedexStore((s) => s.owned);
@@ -90,12 +116,58 @@ export function HomeBoxView({ onSelect }: Props) {
   const isPairedMode = homeBoxMode === "paired";
   const activeStatusFilter =
     isShinyOnlyMode && statusFilter === "shiny" ? "owned" : statusFilter;
+  const homeRulesBySpecies = useMemo(
+    () => buildRulesBySpecies(homeRulesQuery.data ?? []),
+    [homeRulesQuery.data],
+  );
+
+  const isTrackedHomeEntry = useCallback(
+    (entry: LivingDexEntry) => {
+      if (
+        !isHomeTrackedEntry(
+          entry,
+          showCosmeticForms,
+          showGenderForms,
+        )
+      ) {
+        return false;
+      }
+
+      const speciesRules = homeRulesBySpecies.get(entry.speciesId);
+      if (!speciesRules?.size) return true;
+      return !!speciesRules.get(formRuleKey(entry.formName))?.allowed;
+    },
+    [
+      homeRulesBySpecies,
+      showCosmeticForms,
+      showGenderForms,
+    ],
+  );
+
+  const isShinyTrackedEntry = useCallback(
+    (entry: LivingDexEntry) => {
+      const speciesRules = homeRulesBySpecies.get(entry.speciesId);
+      const rule = speciesRules?.get(formRuleKey(entry.formName));
+      if (rule) return rule.showShiny;
+      return isShinyTargetEntry(entry);
+    },
+    [homeRulesBySpecies],
+  );
+
+  // Unlike isShinyTrackedEntry, this controls slot existence: locks keep a disabled slot; showShiny:false removes it.
+  const hasShinySlot = useCallback(
+    (entry: LivingDexEntry) => {
+      const speciesRules = homeRulesBySpecies.get(entry.speciesId);
+      if (!speciesRules?.size) return true;
+      const rule = speciesRules.get(formRuleKey(entry.formName));
+      return rule ? rule.showShiny : true;
+    },
+    [homeRulesBySpecies],
+  );
 
   const summary = useMemo(() => {
-    const entries = (data ?? []).filter((entry) =>
-      isHomeTrackedEntry(entry, showCosmeticForms, showGenderForms),
-    );
-    const shinyTargetEntries = entries.filter(isShinyTargetEntry);
+    const entries = (data ?? []).filter(isTrackedHomeEntry);
+    const shinyTargetEntries = entries.filter(isShinyTrackedEntry);
     const baseEntries = (data ?? []).filter(isLivingDexSpecies);
     const owned = getOwnedEntryCount(entries, ownedRecords);
     const shiny = getShinyEntryCount(shinyTargetEntries, ownedRecords);
@@ -106,12 +178,18 @@ export function HomeBoxView({ onSelect }: Props) {
       shiny,
       total: entries.length,
       shinyTotal: shinyTargetEntries.length,
+      shinySlotTotal: entries.length,
       shinyLocked: entries.length - shinyTargetEntries.length,
       baseOwned,
       baseTotal: baseEntries.length,
       includesForms: entries.length !== baseEntries.length,
     };
-  }, [data, ownedRecords, showCosmeticForms, showGenderForms]);
+  }, [
+    data,
+    ownedRecords,
+    isTrackedHomeEntry,
+    isShinyTrackedEntry,
+  ]);
 
   if (error) {
     return (
@@ -136,22 +214,14 @@ export function HomeBoxView({ onSelect }: Props) {
     );
   }
 
-  const filteredData = (data ?? []).filter((entry) =>
-    isHomeTrackedEntry(entry, showCosmeticForms, showGenderForms),
-  );
+  const filteredData = (data ?? []).filter(isTrackedHomeEntry);
 
   const orderedEntries = [...filteredData].toSorted(compareLivingDexEntries);
-  const homeBoxEntries = isShinyOnlyMode
-    ? orderedEntries.filter(isShinyTargetEntry)
-    : orderedEntries;
-  const pairedSlots: HomeBoxSlot[] = orderedEntries.flatMap((entry) =>
-    isShinyTargetEntry(entry)
-      ? [
-          { entry, isShiny: false },
-          { entry, isShiny: true },
-        ]
-      : [{ entry, isShiny: false }],
-  );
+  const homeBoxEntries = orderedEntries;
+  const pairedSlots: HomeBoxSlot[] = orderedEntries.flatMap((entry) => [
+    { entry, isShiny: false },
+    ...(hasShinySlot(entry) ? [{ entry, isShiny: true }] : []),
+  ]);
   const boxes = buildBoxes(homeBoxEntries);
   const pairedBoxes = buildSlotBoxes(pairedSlots);
 
@@ -160,7 +230,7 @@ export function HomeBoxView({ onSelect }: Props) {
     orderedEntries
       .filter((entry) => {
         const record = ownedRecords[ownedKey(entry.speciesId, entry.formName)];
-        const shinyTarget = isShinyTargetEntry(entry);
+        const shinyTarget = isShinyTrackedEntry(entry);
         const shinyOwned = !!record?.shiny_owned;
         const modeOwned = isShinyOnlyMode ? shinyOwned : record?.owned;
         if (isShinyOnlyMode && !shinyTarget && activeStatusFilter !== "all") {
@@ -184,18 +254,19 @@ export function HomeBoxView({ onSelect }: Props) {
       .filter((slot) => {
         const record =
           ownedRecords[ownedKey(slot.entry.speciesId, slot.entry.formName)];
+        const shinyTarget = isShinyTrackedEntry(slot.entry);
         const shinyOwned = !!record?.shiny_owned;
         const entryMatchesQuery =
           !q || matchingKeys.has(getEntryKey(slot.entry));
         if (!entryMatchesQuery) return false;
         if (activeStatusFilter === "shiny") {
-          return slot.isShiny && shinyOwned;
+          return slot.isShiny && shinyTarget && shinyOwned;
         }
         if (activeStatusFilter === "owned") {
           return slot.isShiny ? shinyOwned : !!record?.owned;
         }
         if (activeStatusFilter === "missing") {
-          return slot.isShiny ? !shinyOwned : !record?.owned;
+          return slot.isShiny ? shinyTarget && !shinyOwned : !record?.owned;
         }
         return true;
       })
@@ -227,14 +298,14 @@ export function HomeBoxView({ onSelect }: Props) {
     {
       value: "all",
       label: isShinyOnlyMode
-        ? "Shiny targets"
+        ? "Shiny slots"
         : isPairedMode
           ? "All slots"
           : "All species",
       count: isShinyOnlyMode
-        ? summary.shinyTotal
+        ? summary.shinySlotTotal
         : isPairedMode
-          ? summary.total + summary.shinyTotal
+          ? summary.total + summary.shinySlotTotal
           : summary.total,
       activeClass:
         "bg-slate-700 text-white dark:bg-slate-200 dark:text-slate-900",
@@ -286,6 +357,23 @@ export function HomeBoxView({ onSelect }: Props) {
     displayedSlotTotal > 0
       ? Math.min(100, (displayedOwnedTotal / displayedSlotTotal) * 100)
       : 0;
+  const enabledVariantCount = [showCosmeticForms, showGenderForms].filter(
+    Boolean,
+  ).length;
+  const variantOptions = [
+    {
+      label: "Forms",
+      enabled: showCosmeticForms,
+      onToggle: () => setShowCosmeticForms(!showCosmeticForms),
+      activeClass: "bg-teal-500",
+    },
+    {
+      label: "Gender",
+      enabled: showGenderForms,
+      onToggle: () => setShowGenderForms(!showGenderForms),
+      activeClass: "bg-purple-500",
+    },
+  ];
 
   return (
     <div className="mx-auto max-w-7xl px-2 pb-8 sm:px-4">
@@ -368,46 +456,44 @@ export function HomeBoxView({ onSelect }: Props) {
             ))}
           </div>
 
-          <div className="mt-1 grid w-full grid-cols-[auto_auto_minmax(0,1fr)] items-center gap-1.5 min-[520px]:mt-0 min-[520px]:flex min-[520px]:w-auto min-[520px]:gap-2">
-            {/* Forms toggle */}
-            <button
-              type="button"
-              onClick={() => setShowCosmeticForms(!showCosmeticForms)}
-              className={`rounded-full px-3 py-1.5 text-[11px] font-semibold leading-tight transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 sm:text-xs ${
-                showCosmeticForms
-                  ? "bg-teal-500 text-white"
-                  : "bg-gray-100 text-gray-500 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700"
-              }`}
-            >
-              <span className="hidden sm:inline">
-                Forms {showCosmeticForms ? "on" : "off"}
-              </span>
-              <span className="sm:hidden">
-                Forms
-                <br />
-                {showCosmeticForms ? "on" : "off"}
-              </span>
-            </button>
-
-            {/* Gender toggle */}
-            <button
-              type="button"
-              onClick={() => setShowGenderForms(!showGenderForms)}
-              className={`rounded-full px-3 py-1.5 text-[11px] font-semibold leading-tight transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 sm:text-xs ${
-                showGenderForms
-                  ? "bg-purple-500 text-white"
-                  : "bg-gray-100 text-gray-500 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700"
-              }`}
-            >
-              <span className="hidden sm:inline">
-                Gender {showGenderForms ? "on" : "off"}
-              </span>
-              <span className="sm:hidden">
-                Gender
-                <br />
-                {showGenderForms ? "on" : "off"}
-              </span>
-            </button>
+          <div className="mt-1 grid w-full grid-cols-[auto_minmax(0,1fr)] items-center gap-1.5 min-[520px]:mt-0 min-[520px]:flex min-[520px]:w-auto min-[520px]:gap-2">
+            <details className="group relative">
+              <summary className="flex h-8 cursor-pointer list-none items-center gap-1.5 rounded-full bg-gray-100 px-3 text-[11px] font-semibold text-gray-600 transition-colors hover:bg-gray-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 group-open:bg-slate-700 group-open:text-white dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 dark:group-open:bg-slate-200 dark:group-open:text-slate-900 sm:text-xs [&::-webkit-details-marker]:hidden">
+                <SlidersHorizontal className="h-3.5 w-3.5" />
+                <span>Variants</span>
+                {enabledVariantCount > 0 && (
+                  <span className="rounded-full bg-white/70 px-1.5 py-0.5 text-[10px] font-black text-slate-700 dark:bg-slate-900/20 dark:text-slate-900">
+                    {enabledVariantCount}
+                  </span>
+                )}
+              </summary>
+              <div className="absolute right-0 top-10 z-30 w-56 overflow-hidden rounded-lg border border-gray-200 bg-white p-1.5 shadow-xl shadow-black/10 dark:border-gray-700 dark:bg-gray-900 dark:shadow-black/40">
+                {variantOptions.map((option) => (
+                  <button
+                    key={option.label}
+                    type="button"
+                    onClick={option.onToggle}
+                    aria-pressed={option.enabled}
+                    className="flex h-10 w-full items-center justify-between gap-3 rounded-md px-2.5 text-left text-xs font-semibold text-gray-700 transition-colors hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-white/5"
+                  >
+                    <span>{option.label}</span>
+                    <span
+                      className={`relative h-5 w-9 rounded-full transition-colors ${
+                        option.enabled
+                          ? option.activeClass
+                          : "bg-gray-200 dark:bg-gray-700"
+                      }`}
+                    >
+                      <span
+                        className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow-sm transition-transform ${
+                          option.enabled ? "translate-x-4" : "translate-x-0.5"
+                        }`}
+                      />
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </details>
 
             {/* Search */}
             <div className="relative">
@@ -511,6 +597,11 @@ export function HomeBoxView({ onSelect }: Props) {
                         entry={slot?.entry ?? null}
                         onSelect={onSelect}
                         isShinySlot={slot?.isShiny ?? false}
+                        shinyLocked={
+                          slot?.isShiny && slot.entry
+                            ? !isShinyTrackedEntry(slot.entry)
+                            : undefined
+                        }
                       />
                     </div>
                   );
@@ -536,6 +627,11 @@ export function HomeBoxView({ onSelect }: Props) {
                       entry={entry}
                       onSelect={onSelect}
                       isShinySlot={isShiny}
+                      shinyLocked={
+                        isShiny && entry
+                          ? !isShinyTrackedEntry(entry)
+                          : undefined
+                      }
                     />
                   </div>
                 );

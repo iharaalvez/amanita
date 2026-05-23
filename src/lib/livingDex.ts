@@ -12,7 +12,9 @@ export function isHomeTrackedEntry(
   entry: LivingDexEntry,
   includeCosmeticForms: boolean,
   includeGenderDifferences: boolean,
+  includeGigantamaxForms = false,
 ): boolean {
+  if (isGigantamaxForm(entry)) return includeGigantamaxForms;
   if (isBattleOnlyForm(entry)) return false;
   if (isLivingDexSpecies(entry)) return true;
   if (isGenderDifferenceForm(entry)) return includeGenderDifferences;
@@ -21,6 +23,10 @@ export function isHomeTrackedEntry(
 
 export function isBattleOnlyForm(entry: LivingDexEntry): boolean {
   return !!entry.formName && BATTLE_ONLY_FORM_NAMES.has(entry.formName);
+}
+
+export function isGigantamaxForm(entry: LivingDexEntry): boolean {
+  return !!entry.formName && /(^|-)gmax($|-)/.test(entry.formName);
 }
 
 export function isGenderDifferenceForm(entry: LivingDexEntry): boolean {
@@ -33,6 +39,7 @@ export function isGenderDifferenceForm(entry: LivingDexEntry): boolean {
 function formSortRank(entry: LivingDexEntry): number {
   if (entry.formName === null) return 0;
   if (isGenderDifferenceForm(entry)) return 1;
+  if (isGigantamaxForm(entry)) return 3;
   return 2;
 }
 
@@ -44,6 +51,10 @@ export function compareLivingDexEntries(
 
   const rankDiff = formSortRank(a) - formSortRank(b);
   if (rankDiff !== 0) return rankDiff;
+
+  const aSortOrder = a.sortOrder ?? Infinity;
+  const bSortOrder = b.sortOrder ?? Infinity;
+  if (aSortOrder !== bSortOrder) return aSortOrder - bSortOrder;
 
   return a.displayName.localeCompare(b.displayName);
 }

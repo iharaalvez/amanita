@@ -5,41 +5,48 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { loadFromSupabase, syncAllRecords } from "@/lib/sync";
 import { usePokedexStore } from "@/store/pokedexStore";
+import { reportAuthError } from "@/lib/authErrors";
 
 function AuthSync() {
   const mergeProgressSnapshot = usePokedexStore((s) => s.mergeProgressSnapshot);
   const clearAll = usePokedexStore((s) => s.clearAll);
 
   useEffect(() => {
+    let active = true;
+
+    const loadAndSync = (userId: string) => {
+      loadFromSupabase(userId)
+        .then((snapshot) => {
+          if (!active || !snapshot) return;
+          const merged = mergeProgressSnapshot(snapshot);
+          void syncAllRecords(merged).catch(reportAuthError);
+        })
+        .catch(reportAuthError);
+    };
+
     // Load data for already-logged-in user on mount
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) {
-        loadFromSupabase(session.user.id).then((snapshot) => {
-          if (snapshot) {
-            const merged = mergeProgressSnapshot(snapshot);
-            void syncAllRecords(merged);
-          }
-        });
-      }
-    });
+    supabase.auth
+      .getSession()
+      .then(({ data: { session } }) => {
+        if (active && session?.user) loadAndSync(session.user.id);
+      })
+      .catch(reportAuthError);
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === "SIGNED_IN" && session?.user) {
-        loadFromSupabase(session.user.id).then((snapshot) => {
-          if (snapshot) {
-            const merged = mergeProgressSnapshot(snapshot);
-            void syncAllRecords(merged);
-          }
-        });
+        loadAndSync(session.user.id);
       }
       if (event === "SIGNED_OUT") {
         clearAll();
       }
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      active = false;
+      subscription.unsubscribe();
+    };
   }, [mergeProgressSnapshot, clearAll]);
 
   return null;

@@ -15,10 +15,16 @@ import {
   getDisplayNameWithoutFormLabel,
   getFormLabel,
 } from "@/lib/forms";
+import { isShinyLocked } from "@/config/pokemon-flags";
 import type { GameHomeBoxFormRule, LivingDexEntry } from "@/types/pokemon";
 
 const EMPTY_RULES: GameHomeBoxFormRule[] = [];
 const MEGA_FORM_PATTERN = /(^|-)mega($|-)/;
+const HOME_DEX_GAME_ID = "home";
+const HOME_DEX_GAME_OPTION = {
+  id: HOME_DEX_GAME_ID,
+  name: "HOME Dex",
+};
 
 type SpeciesOption = {
   speciesId: number;
@@ -32,6 +38,8 @@ type FormRuleRow = {
   rule: GameHomeBoxFormRule | undefined;
   hasDbRules: boolean;
   allowed: boolean;
+  showShiny: boolean;
+  hardShinyLocked: boolean;
 };
 
 function formKey(formName: string | null): string {
@@ -64,7 +72,10 @@ export default function AdminGameFormsPage() {
 
   const { data: livingEntries, isLoading: livingLoading } =
     useLivingDexEntries();
-  const { data: gameDex, isLoading: gameDexLoading } = useGamePokedex(gameId);
+  const isHomeDexRules = gameId === HOME_DEX_GAME_ID;
+  const { data: gameDex, isLoading: gameDexLoading } = useGamePokedex(gameId, {
+    enabled: !isHomeDexRules,
+  });
   const rulesQuery = useQuery({
     queryKey: ["game-home-box-form-rules", gameId],
     queryFn: () => api.getGameHomeBoxFormRules(gameId),
@@ -109,6 +120,16 @@ export default function AdminGameFormsPage() {
       if (!entry.formName) livingBySpecies.set(entry.speciesId, entry);
     }
 
+    if (isHomeDexRules) {
+      return Array.from(livingBySpecies.values())
+        .map((entry) => ({
+          speciesId: entry.speciesId,
+          entryNumber: entry.speciesId,
+          name: entry.displayName,
+        }))
+        .sort((a, b) => a.entryNumber - b.entryNumber);
+    }
+
     return (gameDex ?? [])
       .map((entry) => {
         const livingEntry = livingBySpecies.get(entry.speciesId);
@@ -125,7 +146,7 @@ export default function AdminGameFormsPage() {
         return firstIndex === index;
       })
       .sort((a, b) => a.entryNumber - b.entryNumber);
-  }, [gameDex, livingEntries]);
+  }, [gameDex, isHomeDexRules, livingEntries]);
 
   const speciesById = useMemo(
     () =>
@@ -180,11 +201,14 @@ export default function AdminGameFormsPage() {
           hasDbRules,
           allowed: hasDbRules
             ? !!rule?.allowed
-            : isAllowedGameHomeBoxForm(gameId, entry.speciesId, entry.formName),
+            : isHomeDexRules ||
+              isAllowedGameHomeBoxForm(gameId, entry.speciesId, entry.formName),
+          showShiny: rule ? rule.showShiny : true,
+          hardShinyLocked: isShinyLocked(entry.speciesId, entry.formName),
         };
       });
     });
-  }, [formsBySpecies, gameId, rulesBySpecies, speciesOptions]);
+  }, [formsBySpecies, gameId, isHomeDexRules, rulesBySpecies, speciesOptions]);
 
   const filteredRows = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -209,32 +233,38 @@ export default function AdminGameFormsPage() {
 
   const saveFullSpeciesRuleSet = async (
     target: LivingDexEntry,
-    allowed: boolean,
+    patch: { allowed?: boolean; showShiny?: boolean },
   ) => {
     const speciesForms = formsBySpecies.get(target.speciesId) ?? [];
     const formRules = rulesBySpecies.get(target.speciesId);
     const hasDbRules = !!formRules?.size;
-    const operations = speciesForms.map((entry) =>
-      upsertRule.mutateAsync({
+    const operations = speciesForms.map((entry) => {
+      const existingRule = formRules?.get(formKey(entry.formName));
+      const isTarget = entry.formName === target.formName;
+      return upsertRule.mutateAsync({
         gameId,
         speciesId: entry.speciesId,
         formName: entry.formName,
         allowed:
-          entry.formName === target.formName
-            ? allowed
+          isTarget && patch.allowed !== undefined
+            ? patch.allowed
             : hasDbRules
-              ? !!formRules?.get(formKey(entry.formName))?.allowed
-              : isAllowedGameHomeBoxForm(
+              ? !!existingRule?.allowed
+              : isHomeDexRules ||
+                isAllowedGameHomeBoxForm(
                   gameId,
                   entry.speciesId,
                   entry.formName,
                 ),
-        notes:
-          entry.formName === target.formName
-            ? "Edited from admin form rules UI."
-            : (formRules?.get(formKey(entry.formName))?.notes ?? null),
-      }),
-    );
+        showShiny:
+          isTarget && patch.showShiny !== undefined
+            ? patch.showShiny
+            : (existingRule?.showShiny ?? true),
+        notes: isTarget
+          ? "Edited from admin form rules UI."
+          : (existingRule?.notes ?? null),
+      });
+    });
     await Promise.all(operations);
   };
 
@@ -252,7 +282,10 @@ export default function AdminGameFormsPage() {
     );
   }
 
-  const loading = livingLoading || gameDexLoading || rulesQuery.isLoading;
+  const loading =
+    livingLoading ||
+    (!isHomeDexRules && gameDexLoading) ||
+    rulesQuery.isLoading;
   const dbRuleSpeciesCount = rulesBySpecies.size;
   const allowedCount = allRows.filter((row) => row.allowed).length;
 
@@ -268,6 +301,7 @@ export default function AdminGameFormsPage() {
           </h1>
           <p className="mt-1 max-w-2xl text-sm text-gray-500 dark:text-gray-400">
             Control which forms appear in each game&apos;s National Dex Boxes.
+            Choose HOME Dex to hide forms from the global HOME Boxes.
           </p>
         </div>
       </div>
@@ -288,7 +322,7 @@ export default function AdminGameFormsPage() {
                 onChange={(event) => setGameId(event.target.value)}
                 className="h-10 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm font-semibold text-gray-700 outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-100 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
               >
-                {GAME_LIST.map((game) => (
+                {[HOME_DEX_GAME_OPTION, ...GAME_LIST].map((game) => (
                   <option key={game.id} value={game.id}>
                     {game.name}
                   </option>
@@ -349,11 +383,12 @@ export default function AdminGameFormsPage() {
                 <thead className="sticky top-0 z-10">
                   <tr className="border-b border-gray-100 bg-gray-50 text-[10px] font-black uppercase tracking-widest text-gray-400 dark:border-gray-800 dark:bg-gray-900">
                     <th className="w-[10%] px-4 py-2 text-left">Dex</th>
-                    <th className="w-[24%] px-4 py-2 text-left">Pokemon</th>
-                    <th className="w-[24%] px-4 py-2 text-left">Form</th>
-                    <th className="w-[12%] px-4 py-2 text-left">Status</th>
-                    <th className="w-[12%] px-4 py-2 text-left">Source</th>
-                    <th className="w-[18%] px-4 py-2 text-right">Actions</th>
+                    <th className="w-[22%] px-4 py-2 text-left">Pokemon</th>
+                    <th className="w-[20%] px-4 py-2 text-left">Form</th>
+                    <th className="w-[10%] px-4 py-2 text-left">Status</th>
+                    <th className="w-[16%] px-4 py-2 text-left">Shiny</th>
+                    <th className="w-[10%] px-4 py-2 text-left">Source</th>
+                    <th className="w-[12%] px-4 py-2 text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
@@ -363,8 +398,26 @@ export default function AdminGameFormsPage() {
                       row={row}
                       disabled={upsertRule.isPending || resetRules.isPending}
                       onToggle={() =>
-                        void saveFullSpeciesRuleSet(row.entry, !row.allowed)
+                        void saveFullSpeciesRuleSet(row.entry, {
+                          allowed: !row.allowed,
+                        })
                       }
+                      onShinyToggle={() =>
+                        void saveFullSpeciesRuleSet(row.entry, {
+                          showShiny: !row.showShiny,
+                        })
+                      }
+                      onLockToggle={() => {
+                        const isOverridden =
+                          row.hardShinyLocked && !!row.rule && row.showShiny;
+                        if (isOverridden) {
+                          resetRules.mutate(row.entry.speciesId);
+                        } else {
+                          void saveFullSpeciesRuleSet(row.entry, {
+                            showShiny: true,
+                          });
+                        }
+                      }}
                       onReset={() => resetRules.mutate(row.entry.speciesId)}
                     />
                   ))}
@@ -379,8 +432,26 @@ export default function AdminGameFormsPage() {
                   row={row}
                   disabled={upsertRule.isPending || resetRules.isPending}
                   onToggle={() =>
-                    void saveFullSpeciesRuleSet(row.entry, !row.allowed)
+                    void saveFullSpeciesRuleSet(row.entry, {
+                      allowed: !row.allowed,
+                    })
                   }
+                  onShinyToggle={() =>
+                    void saveFullSpeciesRuleSet(row.entry, {
+                      showShiny: !row.showShiny,
+                    })
+                  }
+                  onLockToggle={() => {
+                    const isOverridden =
+                      row.hardShinyLocked && !!row.rule && row.showShiny;
+                    if (isOverridden) {
+                      resetRules.mutate(row.entry.speciesId);
+                    } else {
+                      void saveFullSpeciesRuleSet(row.entry, {
+                        showShiny: true,
+                      });
+                    }
+                  }}
                   onReset={() => resetRules.mutate(row.entry.speciesId)}
                 />
               ))}
@@ -418,13 +489,18 @@ function FormRuleTableRow({
   row,
   disabled,
   onToggle,
+  onShinyToggle,
+  onLockToggle,
   onReset,
 }: {
   row: FormRuleRow;
   disabled: boolean;
   onToggle: () => void;
+  onShinyToggle: () => void;
+  onLockToggle: () => void;
   onReset: () => void;
 }) {
+  const lockOverridden = row.hardShinyLocked && !!row.rule && row.showShiny;
   return (
     <tr className="transition-colors hover:bg-gray-50 dark:hover:bg-gray-800/40">
       <td className="px-4 py-3 align-middle">
@@ -449,10 +525,26 @@ function FormRuleTableRow({
         <StatusPill allowed={row.allowed} />
       </td>
       <td className="px-4 py-3 align-middle">
+        <div className="flex flex-wrap gap-1">
+          <ShinyPill
+            showShiny={row.showShiny}
+            disabled={disabled || !row.allowed}
+            onClick={onShinyToggle}
+          />
+          {row.hardShinyLocked && (
+            <LockPill
+              isOverridden={lockOverridden}
+              disabled={disabled}
+              onClick={onLockToggle}
+            />
+          )}
+        </div>
+      </td>
+      <td className="px-4 py-3 align-middle">
         <SourcePill rule={row.rule} hasDbRules={row.hasDbRules} />
       </td>
       <td className="px-4 py-3 align-middle">
-        <div className="flex justify-end gap-2">
+        <div className="flex justify-end gap-4">
           {row.hasDbRules && (
             <ResetButton disabled={disabled} onClick={onReset} compact />
           )}
@@ -471,13 +563,18 @@ function FormRuleMobileRow({
   row,
   disabled,
   onToggle,
+  onShinyToggle,
+  onLockToggle,
   onReset,
 }: {
   row: FormRuleRow;
   disabled: boolean;
   onToggle: () => void;
+  onShinyToggle: () => void;
+  onLockToggle: () => void;
   onReset: () => void;
 }) {
+  const lockOverridden = row.hardShinyLocked && !!row.rule && row.showShiny;
   return (
     <div className="grid gap-3 px-4 py-3 sm:grid-cols-[1fr_auto] sm:items-center">
       <div className="min-w-0">
@@ -494,6 +591,20 @@ function FormRuleMobileRow({
             {formLabel(row.entry)}
           </span>
           <StatusPill allowed={row.allowed} compact />
+          <ShinyPill
+            showShiny={row.showShiny}
+            disabled={disabled || !row.allowed}
+            onClick={onShinyToggle}
+            compact
+          />
+          {row.hardShinyLocked && (
+            <LockPill
+              isOverridden={lockOverridden}
+              disabled={disabled}
+              onClick={onLockToggle}
+              compact
+            />
+          )}
           <SourcePill rule={row.rule} hasDbRules={row.hasDbRules} compact />
         </div>
       </div>
@@ -565,6 +676,80 @@ function StatusPill({
   );
 }
 
+function ShinyPill({
+  showShiny,
+  disabled,
+  onClick,
+  compact = false,
+}: {
+  showShiny: boolean;
+  disabled: boolean;
+  onClick: () => void;
+  compact?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      title={
+        showShiny
+          ? "Shiny tracked — click to disable"
+          : "Shiny slot removed — click to restore"
+      }
+      className={`inline-flex items-center gap-1 rounded-full font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
+        compact
+          ? "px-2 py-0.5 text-[10px] uppercase tracking-wide"
+          : "px-2 py-1 text-xs"
+      } ${
+        showShiny
+          ? "bg-yellow-100 text-yellow-700 hover:bg-yellow-200 dark:bg-yellow-950/40 dark:text-yellow-300 dark:hover:bg-yellow-900/50"
+          : "bg-gray-100 text-gray-400 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-500 dark:hover:bg-gray-700"
+      }`}
+    >
+      <span>✦</span>
+      {showShiny ? "Shiny" : "No shiny"}
+    </button>
+  );
+}
+
+function LockPill({
+  isOverridden,
+  disabled,
+  onClick,
+  compact = false,
+}: {
+  isOverridden: boolean;
+  disabled: boolean;
+  onClick: () => void;
+  compact?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      title={
+        isOverridden
+          ? "Shiny lock overridden — click to revert to locked"
+          : "Shiny is hardcoded locked — click to override"
+      }
+      className={`inline-flex items-center gap-1 rounded-full font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
+        compact
+          ? "px-2 py-0.5 text-[10px] uppercase tracking-wide"
+          : "px-2 py-1 text-xs"
+      } ${
+        isOverridden
+          ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:hover:bg-emerald-900/50"
+          : "bg-amber-100 text-amber-700 hover:bg-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:hover:bg-amber-900/50"
+      }`}
+    >
+      {isOverridden ? "🔓" : "🔒"}
+      {isOverridden ? "Unlocked" : "Locked"}
+    </button>
+  );
+}
+
 function SourcePill({
   rule,
   hasDbRules,
@@ -607,7 +792,7 @@ function ResetButton({
       onClick={onClick}
       disabled={disabled}
       title="Reset this species to fallback rules"
-      className={`inline-flex items-center justify-center gap-1.5 rounded-lg border border-gray-200 font-bold text-gray-600 transition-colors hover:border-red-300 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-700 dark:text-gray-300 dark:hover:border-red-800 dark:hover:text-red-300 ${
+      className={`inline-flex items-center justify-center gap-1.5 rounded-lg font-bold text-gray-600 transition-colors hover:border-red-300 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-700 dark:text-gray-300 dark:hover:border-red-800 dark:hover:text-red-300 ${
         compact ? "h-9 w-9 px-0" : "h-9 px-3 text-xs"
       }`}
     >
@@ -632,14 +817,14 @@ function RuleToggleButton({
       onClick={onClick}
       disabled={disabled}
       title={allowed ? "Hide this form" : "Allow this form"}
-      className={`inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border px-3 text-xs font-black transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+      className={`inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border px-4 text-xs font-black transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
         allowed
           ? "border-red-200 bg-white text-red-600 hover:border-red-300 hover:bg-red-50 dark:border-red-900/70 dark:bg-gray-900 dark:text-red-300 dark:hover:bg-red-950/30"
           : "border-emerald-200 bg-white text-emerald-700 hover:border-emerald-300 hover:bg-emerald-50 dark:border-emerald-900/70 dark:bg-gray-900 dark:text-emerald-300 dark:hover:bg-emerald-950/30"
       }`}
     >
       {allowed ? <X className="h-4 w-4" /> : <Check className="h-4 w-4" />}
-      {allowed ? "Set hidden" : "Set allowed"}
+      {allowed ? "Hide" : "Allow"}
     </button>
   );
 }

@@ -17,6 +17,7 @@ type Props = {
   onSelect?: (speciesId: number, formName: string | null) => void;
   isShinySlot?: boolean;
   compact?: boolean;
+  shinyLocked?: boolean;
 };
 
 export function BoxSlot({
@@ -24,6 +25,7 @@ export function BoxSlot({
   onSelect,
   isShinySlot = false,
   compact = false,
+  shinyLocked: shinyLockedProp,
 }: Props) {
   const key = entry ? ownedKey(entry.speciesId, entry.formName) : "";
   const owned = usePokedexStore((s) => (entry ? !!s.owned[key]?.owned : false));
@@ -45,7 +47,10 @@ export function BoxSlot({
       : null;
   const formPill = regionLabel || cosmeticLabel;
   const slotName = getDisplayNameWithoutFormLabel(entry.displayName, formPill);
-  const shinyLocked = isShinyLocked(entry.speciesId, entry.formName);
+  const shinyLocked =
+    shinyLockedProp !== undefined
+      ? shinyLockedProp
+      : isShinyLocked(entry.speciesId, entry.formName);
 
   const spriteUrl =
     isShinySlot && !shinyLocked

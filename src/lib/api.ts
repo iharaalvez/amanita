@@ -23,6 +23,9 @@ const MYTHICAL_IDS = new Set([
   151, 251, 385, 386, 489, 490, 491, 492, 493, 494, 647, 648, 649, 719, 720,
   721, 801, 802, 807, 808, 809, 893, 1025,
 ]);
+const OPTIONAL_SHINY_CHARM_IDS_BY_GAME: Record<string, ReadonlySet<number>> = {
+  "legends-za": new Set([150]),
+};
 
 const SHINY_CHARM_GAME_IDS = new Set(
   GAME_LIST.filter((game) => game.hasShinyCharm).map((game) => game.id),
@@ -86,6 +89,7 @@ type RawGameHomeBoxFormRule = {
   species_id: number;
   form_name: string | null;
   allowed: boolean;
+  show_shiny: boolean;
   notes: string | null;
   updated_by: string | null;
   updated_at: string | null;
@@ -200,7 +204,11 @@ async function getRawGameDexEntries(
 }
 
 function isOptionalInGameDex(gameId: string, speciesId: number): boolean {
-  return SHINY_CHARM_GAME_IDS.has(gameId) && MYTHICAL_IDS.has(speciesId);
+  return (
+    SHINY_CHARM_GAME_IDS.has(gameId) &&
+    (MYTHICAL_IDS.has(speciesId) ||
+      !!OPTIONAL_SHINY_CHARM_IDS_BY_GAME[gameId]?.has(speciesId))
+  );
 }
 
 function mapGameDexEntry(
@@ -239,6 +247,7 @@ function mapGameHomeBoxFormRule(
     speciesId: row.species_id,
     formName: row.form_name,
     allowed: row.allowed,
+    showShiny: row.show_shiny,
     notes: row.notes,
     updatedBy: row.updated_by,
     updatedAt: row.updated_at,
@@ -475,7 +484,7 @@ export const api = {
     let query = supabase
       .from("game_home_box_form_rules")
       .select(
-        "id,game_id,species_id,form_name,allowed,notes,updated_by,updated_at",
+        "id,game_id,species_id,form_name,allowed,show_shiny,notes,updated_by,updated_at",
       )
       .order("game_id", { ascending: true })
       .order("species_id", { ascending: true })
@@ -499,6 +508,7 @@ export const api = {
         species_id: rule.speciesId,
         form_name: rule.formName,
         allowed: rule.allowed,
+        show_shiny: rule.showShiny,
         notes: rule.notes,
       },
       { onConflict: "game_id,species_id,form_name" },

@@ -63,9 +63,18 @@ export function PokemonGrid({ onSelect, search, filtersOpen }: Props) {
   const setShowCosmeticForms = usePokedexStore((s) => s.setShowCosmeticForms);
   const showGenderForms = usePokedexStore((s) => s.showGenderForms);
   const setShowGenderForms = usePokedexStore((s) => s.setShowGenderForms);
+  const showGigantamaxForms = usePokedexStore((s) => s.showGigantamaxForms);
+  const setShowGigantamaxForms = usePokedexStore(
+    (s) => s.setShowGigantamaxForms,
+  );
 
   const all = (data ?? []).filter((e) =>
-    isHomeTrackedEntry(e, showCosmeticForms, showGenderForms),
+    isHomeTrackedEntry(
+      e,
+      showCosmeticForms,
+      showGenderForms,
+      showGigantamaxForms,
+    ),
   );
   const byGen =
     generation === "all" ? all : all.filter((e) => e.generation === generation);
@@ -132,6 +141,17 @@ export function PokemonGrid({ onSelect, search, filtersOpen }: Props) {
                   }`}
                 >
                   Gender forms {showGenderForms ? "on" : "off"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowGigantamaxForms(!showGigantamaxForms)}
+                  className={`rounded-full px-3 py-1.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 sm:py-1 sm:text-sm ${
+                    showGigantamaxForms
+                      ? "bg-rose-500 text-white"
+                      : "bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
+                  }`}
+                >
+                  G-Max {showGigantamaxForms ? "on" : "off"}
                 </button>
               </div>
 

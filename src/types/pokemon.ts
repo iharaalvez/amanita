@@ -6,15 +6,38 @@ export type OwnershipMethod =
   | "event";
 
 export type ShinyHuntMethod =
+  | "random"
+  | "overworld"
   | "masuda"
-  | "sos-chain"
-  | "poke-radar"
-  | "dex-nav"
+  | "breeding"
   | "soft-reset"
+  | "poke-radar"
+  | "chain-fishing"
+  | "friend-safari"
+  | "horde"
+  | "dex-nav"
+  | "sos-chain"
+  | "ultra-wormhole"
+  | "lets-go-catch-combo"
   | "outbreak"
-  | "random";
+  | "massive-mass-outbreak"
+  | "sandwich"
+  | "isolated-encounter"
+  | "dynamax-adventures"
+  | "max-raid"
+  | "tera-raid"
+  | "alpha-reset"
+  | "wild-zone-reset"
+  | "charm-boosted";
 
-export type HuntCounterMode = "encounters" | "soft-resets";
+export type HuntCounterMode =
+  | "encounters"
+  | "soft-resets"
+  | "eggs"
+  | "raids"
+  | "outbreaks"
+  | "sandwiches"
+  | "checks";
 
 export type ShinyHunt = {
   id: string;
@@ -25,6 +48,7 @@ export type ShinyHunt = {
   counterMode: HuntCounterMode;
   count: number;
   startedAt: string; // ISO timestamp
+  completedAt?: string; // ISO timestamp
 };
 
 export type OwnedRecord = {
@@ -118,6 +142,7 @@ export type GameHomeBoxFormRule = {
   speciesId: number;
   formName: string | null;
   allowed: boolean;
+  showShiny: boolean;
   notes: string | null;
   updatedBy?: string | null;
   updatedAt?: string | null;

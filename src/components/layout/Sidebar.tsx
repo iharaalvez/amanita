@@ -2,8 +2,6 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import type { User } from "@supabase/supabase-js";
-import { supabase } from "@/lib/supabase";
 import { getGameById } from "@/config/games";
 import { usePokedexStore } from "@/store/pokedexStore";
 import {
@@ -11,9 +9,7 @@ import {
   Gamepad2,
   Grid3X3,
   LayoutDashboard,
-  LogOut,
   Pin,
-  Settings,
   Wrench,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -59,18 +55,10 @@ const NAV_ITEMS: NavItem[] = [
   },
 ];
 
-type SidebarProps = {
-  user: User;
-};
-
-export function Sidebar({ user }: SidebarProps) {
+export function Sidebar() {
   const pathname = usePathname();
   const pinnedGameId = usePokedexStore((s) => s.pinnedGameId);
   const pinnedGame = pinnedGameId ? getGameById(pinnedGameId) : undefined;
-  const userLabel =
-    (user.user_metadata?.display_name as string | undefined) ??
-    user.email ??
-    "Trainer";
 
   return (
     <>
@@ -116,33 +104,6 @@ export function Sidebar({ user }: SidebarProps) {
             </div>
           )}
         </nav>
-
-        <div className="border-t border-[#2f2b40] px-4 py-4">
-          <div className="mb-2 flex items-center gap-2.5">
-            <p className="min-w-0 flex-1 truncate text-xs font-semibold text-[#8f8799]">
-              {userLabel}
-            </p>
-            <Link
-              href="/settings"
-              aria-label="Open settings"
-              className={`grid h-9 w-9 shrink-0 place-items-center rounded-lg transition-colors ${
-                pathname === "/settings"
-                  ? "bg-[#4e367f] text-[#f8f0df]"
-                  : "text-[#c9c1d7] hover:bg-white/5 hover:text-[#f8f0df]"
-              }`}
-            >
-              <Settings className="h-4 w-4" strokeWidth={2.2} />
-            </Link>
-          </div>
-          <button
-            type="button"
-            onClick={() => supabase.auth.signOut()}
-            className="flex h-10 w-full items-center gap-3 rounded-lg px-3.5 text-left text-sm font-semibold text-[#c9c1d7] transition-colors hover:bg-white/5 hover:text-[#f8f0df]"
-          >
-            <LogOut className="h-4 w-4" strokeWidth={2.2} />
-            Sign out
-          </button>
-        </div>
       </aside>
 
       <nav className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-5 border-t border-[#2f2b40] bg-[#151520] pb-[env(safe-area-inset-bottom)] sm:hidden">

@@ -49,6 +49,8 @@ type PokedexState = {
   setShowCosmeticForms: (value: boolean) => void;
   showGenderForms: boolean;
   setShowGenderForms: (value: boolean) => void;
+  showGigantamaxForms: boolean;
+  setShowGigantamaxForms: (value: boolean) => void;
   showShinyDex: boolean;
   setShowShinyDex: (value: boolean) => void;
   homeBoxMode: HomeBoxMode;
@@ -173,8 +175,16 @@ type PokedexState = {
     method: ShinyHuntMethod,
     counterMode: HuntCounterMode,
   ) => void;
+  updateShinyHunt: (
+    id: string,
+    patch: Pick<
+      ShinyHunt,
+      "speciesId" | "formName" | "gameId" | "method" | "counterMode"
+    >,
+  ) => void;
   incrementShinyHunt: (id: string) => void;
   decrementShinyHunt: (id: string) => void;
+  setShinyHuntCount: (id: string, count: number) => void;
   setShinyHuntCounterMode: (id: string, counterMode: HuntCounterMode) => void;
   removeShinyHunt: (id: string) => void;
   completeShinyHunt: (id: string) => void;
@@ -337,12 +347,32 @@ function mergeShinyHunts(local: ShinyHunt[], remote: ShinyHunt[]): ShinyHunt[] {
   for (const hunt of remote) byId.set(hunt.id, hunt);
   for (const hunt of local) {
     const existing = byId.get(hunt.id);
-    // Keep whichever version has the higher count (more encounters tracked).
-    byId.set(hunt.id, !existing || hunt.count >= existing.count ? hunt : existing);
+    if (!existing) {
+      byId.set(hunt.id, hunt);
+      continue;
+    }
+    byId.set(hunt.id, {
+      ...existing,
+      ...hunt,
+      count: Math.max(existing.count, hunt.count),
+      startedAt:
+        existing.startedAt.localeCompare(hunt.startedAt) <= 0
+          ? existing.startedAt
+          : hunt.startedAt,
+      completedAt:
+        existing.completedAt && hunt.completedAt
+          ? existing.completedAt.localeCompare(hunt.completedAt) >= 0
+            ? existing.completedAt
+            : hunt.completedAt
+          : existing.completedAt ?? hunt.completedAt,
+    });
   }
-  return Array.from(byId.values()).sort(
-    (a, b) => a.startedAt.localeCompare(b.startedAt),
-  );
+  return Array.from(byId.values()).sort((a, b) => {
+    if (!!a.completedAt !== !!b.completedAt) return a.completedAt ? 1 : -1;
+    return (b.completedAt ?? b.startedAt).localeCompare(
+      a.completedAt ?? a.startedAt,
+    );
+  });
 }
 
 function mergeRecentCatches(
@@ -402,6 +432,8 @@ export const usePokedexStore = create<PokedexState>()(
       setShowCosmeticForms: (value) => set({ showCosmeticForms: value }),
       showGenderForms: false,
       setShowGenderForms: (value) => set({ showGenderForms: value }),
+      showGigantamaxForms: false,
+      setShowGigantamaxForms: (value) => set({ showGigantamaxForms: value }),
       showShinyDex: false,
       setShowShinyDex: (value) =>
         set({ showShinyDex: value, homeBoxMode: value ? "paired" : "normal" }),
@@ -839,6 +871,15 @@ export const usePokedexStore = create<PokedexState>()(
         void syncShinyHunts(get().shinyHunts);
       },
 
+      updateShinyHunt: (id, patch) => {
+        set((state) => ({
+          shinyHunts: state.shinyHunts.map((h) =>
+            h.id === id ? { ...h, ...patch } : h,
+          ),
+        }));
+        void syncShinyHunts(get().shinyHunts);
+      },
+
       incrementShinyHunt: (id) => {
         set((state) => ({
           shinyHunts: state.shinyHunts.map((h) =>
@@ -852,6 +893,16 @@ export const usePokedexStore = create<PokedexState>()(
         set((state) => ({
           shinyHunts: state.shinyHunts.map((h) =>
             h.id === id ? { ...h, count: Math.max(0, h.count - 1) } : h,
+          ),
+        }));
+        void syncShinyHunts(get().shinyHunts);
+      },
+
+      setShinyHuntCount: (id, count) => {
+        const safeCount = Math.max(0, Math.floor(count));
+        set((state) => ({
+          shinyHunts: state.shinyHunts.map((h) =>
+            h.id === id ? { ...h, count: safeCount } : h,
           ),
         }));
         void syncShinyHunts(get().shinyHunts);
@@ -877,7 +928,11 @@ export const usePokedexStore = create<PokedexState>()(
         const hunt = get().shinyHunts.find((h) => h.id === id);
         if (!hunt) return;
         set((state) => ({
-          shinyHunts: state.shinyHunts.filter((h) => h.id !== id),
+          shinyHunts: state.shinyHunts.map((h) =>
+            h.id === id
+              ? { ...h, completedAt: h.completedAt ?? new Date().toISOString() }
+              : h,
+          ),
         }));
         void syncShinyHunts(get().shinyHunts);
         get().markShinyOwnedInGame(hunt.speciesId, hunt.gameId, hunt.formName);
@@ -903,7 +958,7 @@ export const usePokedexStore = create<PokedexState>()(
     }),
     {
       name: "living-pokedex-v1",
-      version: 10,
+      version: 11,
       migrate: (persistedState, version) => {
         if (!isRecord(persistedState)) return persistedState;
 
@@ -1010,6 +1065,12 @@ export const usePokedexStore = create<PokedexState>()(
           persistedState.shinyHunts = [];
         }
 
+        if (version < 11 && Array.isArray(persistedState.shinyHunts)) {
+          persistedState.shinyHunts = persistedState.shinyHunts.map((hunt) =>
+            isRecord(hunt) ? { ...hunt } : hunt,
+          );
+        }
+
         return persistedState;
       },
       merge: (persistedState, currentState) => {
@@ -1077,6 +1138,7 @@ export const usePokedexStore = create<PokedexState>()(
           getProgressSnapshot: currentState.getProgressSnapshot,
           setShowCosmeticForms: currentState.setShowCosmeticForms,
           setShowGenderForms: currentState.setShowGenderForms,
+          setShowGigantamaxForms: currentState.setShowGigantamaxForms,
           setShowShinyDex: currentState.setShowShinyDex,
           setHomeBoxMode: currentState.setHomeBoxMode,
           setPinnedGameId: currentState.setPinnedGameId,

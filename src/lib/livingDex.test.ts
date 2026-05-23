@@ -67,12 +67,17 @@ describe("Living Dex entry rules", () => {
 
   it("excludes battle-only forms from HOME boxes even when forms are enabled", () => {
     const mega = entry(6, "Charizard Mega X", "charizard-mega-x");
-    const gmax = entry(6, "Charizard G-Max", "charizard-gmax");
     const primal = entry(383, "Groudon Primal", "groudon-primal");
 
     assert.equal(isHomeTrackedEntry(mega, true, true), false);
-    assert.equal(isHomeTrackedEntry(gmax, true, true), false);
     assert.equal(isHomeTrackedEntry(primal, true, true), false);
+  });
+
+  it("tracks Gigantamax forms only when the G-Max option is enabled", () => {
+    const gmax = entry(6, "Charizard G-Max", "charizard-gmax");
+
+    assert.equal(isHomeTrackedEntry(gmax, true, true, false), false);
+    assert.equal(isHomeTrackedEntry(gmax, false, false, true), true);
   });
 
   it("sorts base species before forms for stable HOME ordering", () => {

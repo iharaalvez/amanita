@@ -145,7 +145,7 @@ function MainLayoutContent({ children }: { children: React.ReactNode }) {
       <AppHeader user={user} />
 
       <div className="flex min-h-0 flex-1 overflow-hidden">
-        <Sidebar user={user} />
+        <Sidebar />
 
         <main className="min-w-0 flex-1 overflow-y-auto pb-[calc(4.25rem+env(safe-area-inset-bottom))] sm:pb-0">
           {children}
@@ -213,7 +213,7 @@ function AppHeader({ user }: { user: SupabaseUser }) {
   }, [menuOpen]);
 
   return (
-    <header className="flex h-14 shrink-0 items-center justify-between border-b border-[#d9d1c2] bg-[#f4f0e8]/95 px-4 shadow-sm shadow-black/[0.03] backdrop-blur sm:h-16 sm:px-5 dark:border-[#2f2b40] dark:bg-[#151520]/95">
+    <header className="relative z-40 flex h-14 shrink-0 items-center justify-between border-b border-[#d9d1c2] bg-[#f4f0e8]/95 px-4 shadow-sm shadow-black/[0.03] backdrop-blur sm:h-16 sm:px-5 dark:border-[#2f2b40] dark:bg-[#151520]/95">
       <div className="flex items-center gap-2 text-[#10131d] dark:text-[#f8f0df]">
         <span className="grid h-8 w-8 place-items-center rounded-full border border-[#9b84c8]/45 text-[12px] font-black text-[#7c5db0] dark:text-[#c7a7ff]">
           A
@@ -247,7 +247,7 @@ function AppHeader({ user }: { user: SupabaseUser }) {
         {menuOpen && (
           <div
             role="menu"
-            className="absolute right-0 top-12 z-50 w-64 overflow-hidden rounded-lg border border-[#d9d1c2] bg-white shadow-xl shadow-black/10 dark:border-[#2f2b40] dark:bg-[#151520] dark:shadow-black/40"
+            className="fixed right-4 top-14 z-50 w-64 overflow-hidden rounded-lg border border-[#d9d1c2] bg-white shadow-xl shadow-black/10 sm:right-5 sm:top-16 dark:border-[#2f2b40] dark:bg-[#151520] dark:shadow-black/40"
           >
             <div className="border-b border-[#eee7dc] px-4 py-3 dark:border-[#2f2b40]">
               <p className="truncate text-sm font-black text-[#10131d] dark:text-[#f8f0df]">

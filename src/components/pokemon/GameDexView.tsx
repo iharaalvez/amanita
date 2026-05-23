@@ -12,6 +12,10 @@ import { isShinyLocked } from "@/config/pokemon-flags";
 import type { GameDexEntry, GameDexFlags } from "@/types/pokemon";
 
 const EMPTY_GAME_FLAGS: Record<string, GameDexFlags> = {};
+const GAME_SHINY_CHARM_NOTES: Record<string, string> = {
+  "legends-za":
+    "Legends: Z-A Shiny Charm progress also depends on Mable's Research requests.",
+};
 
 type GameSlotProps = {
   entry: GameDexEntry;
@@ -384,13 +388,10 @@ export function GameDexView({ gameId, onSelect }: Props) {
   } = useGamePokedex(gameId);
   const selectedGame = getGameById(gameId);
 
-  const requiredSpecies = useMemo(() => {
-    return new Set(
-      (gameDex ?? [])
-        .filter((entry) => !entry.optional)
-        .map((entry) => entry.speciesId),
-    );
-  }, [gameDex]);
+  const requiredEntries = useMemo(
+    () => (gameDex ?? []).filter((entry) => !entry.optional),
+    [gameDex],
+  );
 
   const filteredGamePokemon = useMemo(() => {
     const normalizedQuery = searchQuery.trim().toLowerCase();
@@ -399,8 +400,12 @@ export function GameDexView({ gameId, onSelect }: Props) {
     return entries.filter((entry) => {
       const key = `${entry.speciesId}-${entry.formName ?? "base"}`;
       const registered = !!gameFlags[key]?.owned;
-      if (completionFilter === "missing" && registered) return false;
-      if (completionFilter === "registered" && !registered) return false;
+      if (completionFilter === "missing" && registered) {
+        return false;
+      }
+      if (completionFilter === "registered" && !registered) {
+        return false;
+      }
       if (!normalizedQuery) return true;
       const displayName = entry.displayName.toLowerCase();
       const formName = entry.formName?.toLowerCase() ?? "";
@@ -413,12 +418,19 @@ export function GameDexView({ gameId, onSelect }: Props) {
     });
   }, [completionFilter, gameDex, gameFlags, searchQuery]);
 
-  const totalInGame = requiredSpecies.size;
-  const ownedInGame = Array.from(requiredSpecies).filter((speciesId) => {
-    const key = `${speciesId}-base`;
+  const totalDexEntries = gameDex?.length ?? 0;
+  const registeredDexEntries = (gameDex ?? []).filter((entry) => {
+    const key = `${entry.speciesId}-${entry.formName ?? "base"}`;
     return !!gameFlags[key]?.owned;
   }).length;
-  const progressPct = totalInGame > 0 ? (ownedInGame / totalInGame) * 100 : 0;
+  const missingDexEntries = Math.max(0, totalDexEntries - registeredDexEntries);
+  const totalInGame = requiredEntries.length;
+  const ownedInGame = requiredEntries.filter((entry) => {
+    const key = `${entry.speciesId}-${entry.formName ?? "base"}`;
+    return !!gameFlags[key]?.owned;
+  }).length;
+  const progressPct =
+    totalDexEntries > 0 ? (registeredDexEntries / totalDexEntries) * 100 : 0;
   const shinyCharmReady =
     selectedGame?.hasShinyCharm &&
     ownedInGame >= totalInGame &&
@@ -428,16 +440,16 @@ export function GameDexView({ gameId, onSelect }: Props) {
   const charmStatusLabel = shinyCharmReady
     ? "Charm unlocked"
     : "Shiny Charm target";
-  const progressLabel = hasShinyCharmTarget ? "remaining to charm" : "missing";
+  const shinyCharmNote = GAME_SHINY_CHARM_NOTES[gameId];
 
   const completionFilters: {
     value: CompletionFilter;
     label: string;
     count: number;
   }[] = [
-    { value: "all", label: "All", count: totalInGame },
-    { value: "missing", label: "Missing", count: missingInGame },
-    { value: "registered", label: "Registered", count: ownedInGame },
+    { value: "all", label: "All", count: totalDexEntries },
+    { value: "missing", label: "Missing", count: missingDexEntries },
+    { value: "registered", label: "Registered", count: registeredDexEntries },
   ];
 
   return (
@@ -465,34 +477,44 @@ export function GameDexView({ gameId, onSelect }: Props) {
           <>
             <div className="mb-2 h-2.5 overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700">
               <div
-                className={`h-full rounded-full transition-all duration-500 ${hasShinyCharmTarget ? "bg-yellow-400" : "bg-green-400"}`}
+                className="h-full rounded-full bg-green-400 transition-all duration-500"
                 style={{ width: `${progressPct}%` }}
               />
             </div>
             <p className="text-xs text-gray-500 dark:text-gray-400">
               <span className="font-bold tabular-nums text-green-600 dark:text-green-400">
-                {ownedInGame}
+                {registeredDexEntries}
               </span>
               <span className="mx-1 text-gray-300 dark:text-gray-600">/</span>
-              <span className="tabular-nums">{totalInGame}</span>
+              <span className="tabular-nums">{totalDexEntries}</span>
               {" · "}
-              <span
-                className={`font-semibold tabular-nums ${hasShinyCharmTarget ? "text-yellow-600 dark:text-yellow-400" : ""}`}
-              >
-                {missingInGame}
+              <span className="font-semibold tabular-nums">
+                {missingDexEntries}
               </span>{" "}
-              {progressLabel}
+              missing
               {" · "}
               <span className="tabular-nums">{progressPct.toFixed(1)}%</span>
+              {hasShinyCharmTarget && totalDexEntries > totalInGame && (
+                <>
+                  {" · "}
+                  <span className="tabular-nums">
+                    {totalDexEntries - totalInGame}
+                  </span>{" "}
+                  optional
+                </>
+              )}
             </p>
 
-            {shinyCharmReady && (
-              <div className="mt-3 flex items-center gap-2 rounded-lg border border-yellow-300 bg-yellow-50 px-3 py-2.5 dark:border-yellow-700 dark:bg-yellow-950/30">
-                <SparkleIcon className="h-4 w-4 shrink-0 text-yellow-500" />
-                <span className="text-sm font-bold text-yellow-700 dark:text-yellow-400">
-                  Shiny Charm unlocked — all {totalInGame} registered!
-                </span>
-              </div>
+            {hasShinyCharmTarget && (
+              <p className="mt-2 text-[11px] font-medium leading-snug text-gray-500 dark:text-gray-400">
+                Shiny Charm target:{" "}
+                <span className="font-bold tabular-nums text-yellow-600 dark:text-yellow-400">
+                  {ownedInGame}/{totalInGame}
+                </span>{" "}
+                required registered
+                {missingInGame > 0 ? ` (${missingInGame} remaining)` : ""}.
+                {shinyCharmNote ? ` ${shinyCharmNote}` : ""}
+              </p>
             )}
           </>
         )}
