@@ -16,9 +16,15 @@ import {
 } from "@/config/game-pokemon-location-overrides";
 import { GAME_LIST } from "@/config/games";
 import {
+  getLivingDexCatchRecommendations,
+  isDefaultRecommendationForm,
+} from "@/lib/livingDexCatchRecommendations";
+import {
   ArrowRightIcon,
   CheckIcon,
   ChevronDownIcon,
+  CompassIcon,
+  GamepadIcon,
   SparkleIcon,
   XIcon,
 } from "@/components/ui";
@@ -470,6 +476,9 @@ export function PokemonDetailModal({
     (sum, stat) => sum + (stat ?? 0),
     0,
   );
+  const catchRecommendations = selectedEntry
+    ? getLivingDexCatchRecommendations(selectedEntry)
+    : [];
 
   const availableGameOptions = GAME_LIST.filter(
     (game) => availableGames[game.id],
@@ -984,6 +993,75 @@ export function PokemonDetailModal({
             )}
 
             <hr className="border-gray-100 dark:border-gray-700" />
+
+            {catchRecommendations.length > 0 && (
+              <>
+                <section className="px-6 py-4">
+                  <div className="mb-3 flex items-center gap-2">
+                    <CompassIcon className="h-4 w-4 text-emerald-600 dark:text-emerald-300" />
+                    <h3 className="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                      Recommended Living Dex route
+                    </h3>
+                  </div>
+
+                  <div className="flex flex-col gap-2">
+                    {catchRecommendations.map((recommendation) => (
+                      <div
+                        key={[
+                          recommendation.form,
+                          recommendation.primaryGame,
+                          recommendation.location,
+                          recommendation.method,
+                        ].join("-")}
+                        className="rounded-xl border border-emerald-100 bg-emerald-50/70 p-3 dark:border-emerald-900/70 dark:bg-emerald-950/20"
+                      >
+                        <div className="flex flex-wrap items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <p className="flex items-center gap-1.5 text-sm font-semibold text-emerald-900 dark:text-emerald-100">
+                              <GamepadIcon className="h-3.5 w-3.5 shrink-0" />
+                              {recommendation.primaryGame}
+                            </p>
+                            <p className="mt-1 text-xs text-emerald-700 dark:text-emerald-300">
+                              {recommendation.location &&
+                              recommendation.location !== "N/A"
+                                ? recommendation.location
+                                : "Location varies"}
+                            </p>
+                          </div>
+                          <span className="rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-emerald-700 shadow-sm dark:bg-emerald-900/70 dark:text-emerald-100">
+                            {recommendation.method}
+                          </span>
+                        </div>
+
+                        <div className="mt-2 flex flex-wrap gap-1.5 text-[11px]">
+                          {!isDefaultRecommendationForm(
+                            recommendation.form,
+                          ) && (
+                            <span className="rounded-md bg-white/80 px-2 py-1 font-medium text-emerald-700 dark:bg-emerald-900/60 dark:text-emerald-200">
+                              {recommendation.form}
+                            </span>
+                          )}
+                          {recommendation.secondaryGame &&
+                            recommendation.secondaryGame !== "N/A" && (
+                              <span className="rounded-md bg-white/80 px-2 py-1 font-medium text-gray-600 dark:bg-gray-700/70 dark:text-gray-200">
+                                Also {recommendation.secondaryGame}
+                              </span>
+                            )}
+                        </div>
+
+                        {recommendation.notes && (
+                          <p className="mt-2 text-[11px] leading-relaxed text-gray-500 dark:text-gray-400">
+                            {recommendation.notes}
+                          </p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </section>
+
+                <hr className="border-gray-100 dark:border-gray-700" />
+              </>
+            )}
 
             <section className="px-6 py-4">
               <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">

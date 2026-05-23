@@ -16,7 +16,6 @@ type Props = {
   entry: LivingDexEntry | null;
   onSelect?: (speciesId: number, formName: string | null) => void;
   isShinySlot?: boolean;
-  hasShinyPair?: boolean;
   compact?: boolean;
 };
 
@@ -24,7 +23,6 @@ export function BoxSlot({
   entry,
   onSelect,
   isShinySlot = false,
-  hasShinyPair = false,
   compact = false,
 }: Props) {
   const key = entry ? ownedKey(entry.speciesId, entry.formName) : "";
@@ -55,13 +53,7 @@ export function BoxSlot({
       : entry.spriteUrl;
 
   const isActive =
-    isShinySlot && shinyLocked
-      ? false
-      : isShinySlot
-        ? shinyOwned
-        : hasShinyPair
-          ? owned
-          : owned || shinyOwned;
+    isShinySlot && shinyLocked ? false : isShinySlot ? shinyOwned : owned;
   const toggleActive = isShinySlot ? shinyOwned : owned;
 
   const toggleSlot = (event?: MouseEvent<HTMLButtonElement>) => {

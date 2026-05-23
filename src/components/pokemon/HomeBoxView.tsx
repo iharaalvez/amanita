@@ -10,7 +10,6 @@ import {
 import {
   compareLivingDexEntries,
   getOwnedEntryCount,
-  getOwnedOrShinyEntryCount,
   getShinyEntryCount,
   getSpeciesOwnedCount,
   isHomeTrackedEntry,
@@ -99,13 +98,11 @@ export function HomeBoxView({ onSelect }: Props) {
     const shinyTargetEntries = entries.filter(isShinyTargetEntry);
     const baseEntries = (data ?? []).filter(isLivingDexSpecies);
     const owned = getOwnedEntryCount(entries, ownedRecords);
-    const ownedOrShiny = getOwnedOrShinyEntryCount(entries, ownedRecords);
     const shiny = getShinyEntryCount(shinyTargetEntries, ownedRecords);
     const baseOwned = getSpeciesOwnedCount(baseEntries, ownedRecords);
 
     return {
       owned,
-      ownedOrShiny,
       shiny,
       total: entries.length,
       shinyTotal: shinyTargetEntries.length,
@@ -249,7 +246,7 @@ export function HomeBoxView({ onSelect }: Props) {
         ? summary.shiny
         : isPairedMode
           ? summary.owned + summary.shiny
-          : summary.ownedOrShiny,
+          : summary.owned,
       activeClass: isShinyOnlyMode
         ? "bg-yellow-400 text-white"
         : "bg-green-500 text-white",
@@ -261,7 +258,7 @@ export function HomeBoxView({ onSelect }: Props) {
         ? summary.shinyTotal - summary.shiny
         : isPairedMode
           ? summary.total + summary.shinyTotal - summary.owned - summary.shiny
-          : summary.total - summary.ownedOrShiny,
+          : summary.total - summary.owned,
       activeClass:
         "bg-slate-600 text-white dark:bg-slate-300 dark:text-slate-900",
     },
@@ -284,7 +281,7 @@ export function HomeBoxView({ onSelect }: Props) {
     ? summary.shiny
     : isPairedMode
       ? summary.owned + summary.shiny
-      : summary.ownedOrShiny;
+      : summary.owned;
   const completionPct =
     displayedSlotTotal > 0
       ? Math.min(100, (displayedOwnedTotal / displayedSlotTotal) * 100)
@@ -514,7 +511,6 @@ export function HomeBoxView({ onSelect }: Props) {
                         entry={slot?.entry ?? null}
                         onSelect={onSelect}
                         isShinySlot={slot?.isShiny ?? false}
-                        hasShinyPair={slot ? !slot.isShiny : false}
                       />
                     </div>
                   );
@@ -540,7 +536,6 @@ export function HomeBoxView({ onSelect }: Props) {
                       entry={entry}
                       onSelect={onSelect}
                       isShinySlot={isShiny}
-                      hasShinyPair={!isShiny && isPairedMode}
                     />
                   </div>
                 );

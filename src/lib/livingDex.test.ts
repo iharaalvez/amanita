@@ -111,6 +111,19 @@ describe("Living Dex entry rules", () => {
     assert.equal(getOwnedEntryCount(entries, ownedRecords), 1);
   });
 
+  it("keeps shiny-only gender variants out of normal Living Dex ownership", () => {
+    const entries = [entry(3, "Venusaur")];
+    const ownedRecords = {
+      "3-venusaur-female": owned(3, "venusaur-female", {
+        owned: false,
+        shiny_owned: true,
+      }),
+    };
+
+    assert.equal(getOwnedEntryCount(entries, ownedRecords), 0);
+    assert.equal(getShinyEntryCount(entries, ownedRecords), 1);
+  });
+
   it("excludes shiny-locked species from shiny targets and shiny counts", () => {
     const entries = [
       entry(25, "Pikachu"),
