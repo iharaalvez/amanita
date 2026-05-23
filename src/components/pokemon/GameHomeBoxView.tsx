@@ -185,14 +185,14 @@ export function GameHomeBoxView({ gameId, gameName, onSelect }: Props) {
 
   return (
     <div className="mx-auto max-w-7xl px-2 pb-8 sm:px-4">
-      <header className="py-4 sm:py-5">
+      <header className="py-3 sm:py-5">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex min-w-0 items-center gap-3">
             <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-green-50 text-green-500 dark:bg-green-950/40 dark:text-green-300">
               <HomeIcon className="h-6 w-6" />
             </div>
             <div className="min-w-0">
-              <h1 className="text-2xl font-black tracking-tight text-gray-950 dark:text-white">
+              <h1 className="text-xl font-black tracking-tight text-gray-950 dark:text-white sm:text-2xl">
                 National Dex Boxes
               </h1>
               <p className="mt-1 max-w-2xl text-sm text-gray-500 dark:text-gray-400">
@@ -202,25 +202,25 @@ export function GameHomeBoxView({ gameId, gameName, onSelect }: Props) {
             </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-2 sm:min-w-80">
-            <div className="rounded-lg border border-green-100 bg-green-50 px-3 py-2 dark:border-green-900/40 dark:bg-green-950/30">
-              <p className="text-lg font-black tabular-nums text-green-600 dark:text-green-400">
+          <div className="grid grid-cols-3 gap-1.5 sm:min-w-80 sm:gap-2">
+            <div className="rounded-lg border border-green-100 bg-green-50 px-2 py-2 dark:border-green-900/40 dark:bg-green-950/30 sm:px-3">
+              <p className="text-base font-black tabular-nums text-green-600 dark:text-green-400 sm:text-lg">
                 {boxedCount}
               </p>
               <p className="text-[10px] font-bold uppercase tracking-wide text-green-700/70 dark:text-green-300/70">
                 Boxed
               </p>
             </div>
-            <div className="rounded-lg border border-gray-100 bg-gray-50 px-3 py-2 dark:border-gray-800 dark:bg-gray-900">
-              <p className="text-lg font-black tabular-nums text-gray-950 dark:text-white">
+            <div className="rounded-lg border border-gray-100 bg-gray-50 px-2 py-2 dark:border-gray-800 dark:bg-gray-900 sm:px-3">
+              <p className="text-base font-black tabular-nums text-gray-950 dark:text-white sm:text-lg">
                 {entries.length}
               </p>
               <p className="text-[10px] font-bold uppercase tracking-wide text-gray-400">
                 Slots
               </p>
             </div>
-            <div className="rounded-lg border border-amber-100 bg-amber-50 px-3 py-2 dark:border-amber-900/40 dark:bg-amber-950/30">
-              <p className="text-lg font-black tabular-nums text-amber-600 dark:text-amber-400">
+            <div className="rounded-lg border border-amber-100 bg-amber-50 px-2 py-2 dark:border-amber-900/40 dark:bg-amber-950/30 sm:px-3">
+              <p className="text-base font-black tabular-nums text-amber-600 dark:text-amber-400 sm:text-lg">
                 {missingCount}
               </p>
               <p className="text-[10px] font-bold uppercase tracking-wide text-amber-700/70 dark:text-amber-300/70">

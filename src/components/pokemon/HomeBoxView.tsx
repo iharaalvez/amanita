@@ -289,14 +289,14 @@ export function HomeBoxView({ onSelect }: Props) {
 
   return (
     <div className="mx-auto max-w-7xl px-2 pb-8 sm:px-4">
-      <header className="py-4 sm:py-5">
+      <header className="py-3 sm:py-5">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex min-w-0 items-center gap-3">
             <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-green-50 text-green-500 dark:bg-green-950/40 dark:text-green-300">
               <HomeIcon className="h-6 w-6" />
             </div>
             <div className="min-w-0">
-              <h1 className="text-2xl font-black tracking-tight text-gray-950 dark:text-white">
+              <h1 className="text-xl font-black tracking-tight text-gray-950 dark:text-white sm:text-2xl">
                 HOME Boxes
               </h1>
               <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
@@ -305,25 +305,25 @@ export function HomeBoxView({ onSelect }: Props) {
             </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-2 sm:min-w-80">
-            <div className="rounded-lg border border-green-100 bg-green-50 px-3 py-2 dark:border-green-900/40 dark:bg-green-950/30">
-              <p className="text-lg font-black tabular-nums text-green-600 dark:text-green-400">
+          <div className="grid grid-cols-3 gap-1.5 sm:min-w-80 sm:gap-2">
+            <div className="rounded-lg border border-green-100 bg-green-50 px-2 py-2 dark:border-green-900/40 dark:bg-green-950/30 sm:px-3">
+              <p className="text-base font-black tabular-nums text-green-600 dark:text-green-400 sm:text-lg">
                 {displayedOwnedTotal}/{displayedSlotTotal}
               </p>
               <p className="text-[10px] font-bold uppercase tracking-wide text-green-700/70 dark:text-green-300/70">
                 Owned
               </p>
             </div>
-            <div className="rounded-lg border border-blue-100 bg-blue-50 px-3 py-2 dark:border-blue-900/40 dark:bg-blue-950/30">
-              <p className="text-lg font-black tabular-nums text-blue-950 dark:text-white">
+            <div className="rounded-lg border border-blue-100 bg-blue-50 px-2 py-2 dark:border-blue-900/40 dark:bg-blue-950/30 sm:px-3">
+              <p className="text-base font-black tabular-nums text-blue-950 dark:text-white sm:text-lg">
                 {summary.baseOwned}/{summary.baseTotal}
               </p>
               <p className="text-[10px] font-bold uppercase tracking-wide text-blue-400">
                 Species Dex
               </p>
             </div>
-            <div className="rounded-lg border border-yellow-100 bg-yellow-50 px-3 py-2 dark:border-yellow-900/40 dark:bg-yellow-950/30">
-              <p className="flex items-center gap-1 text-lg font-black tabular-nums text-yellow-600 dark:text-yellow-400">
+            <div className="rounded-lg border border-yellow-100 bg-yellow-50 px-2 py-2 dark:border-yellow-900/40 dark:bg-yellow-950/30 sm:px-3">
+              <p className="flex items-center gap-1 text-base font-black tabular-nums text-yellow-600 dark:text-yellow-400 sm:text-lg">
                 <SparkleIcon className="h-4 w-4" />
                 {summary.shiny}
               </p>

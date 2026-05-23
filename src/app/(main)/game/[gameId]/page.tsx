@@ -214,14 +214,14 @@ export default function GamePage() {
 
   return (
     <div>
-      <div className="sticky top-0 z-10 border-b border-gray-100 bg-white/95 px-4 backdrop-blur dark:border-gray-800 dark:bg-gray-950/95">
-        <div className="flex gap-1 overflow-x-auto pt-2">
+      <div className="sticky top-0 z-30 border-b border-gray-100 bg-white/95 px-2 backdrop-blur dark:border-gray-800 dark:bg-gray-950/95 sm:px-4">
+        <div className="flex gap-1 overflow-x-auto pt-1.5 sm:pt-2">
           {tabs.map((tab) => (
             <button
               key={tab.id}
               type="button"
               onClick={() => setActiveTab(tab.id)}
-              className={`shrink-0 rounded-t-lg px-4 py-2 text-sm font-semibold transition-colors ${
+              className={`shrink-0 rounded-t-lg px-3 py-2 text-xs font-semibold transition-colors sm:px-4 sm:text-sm ${
                 activeTab === tab.id
                   ? "border-b-2 border-blue-500 text-blue-600 dark:text-blue-400"
                   : "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"

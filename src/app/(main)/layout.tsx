@@ -1,7 +1,10 @@
 "use client";
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
+import type { User as SupabaseUser } from "@supabase/supabase-js";
+import { ChevronDown, LogOut, Settings } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { LandingPage } from "@/components/LandingPage";
 import { AuthModal } from "@/components/auth/AuthModal";
@@ -11,6 +14,7 @@ import { useUIStore } from "@/store/uiStore";
 import { usePokedexStore } from "@/store/pokedexStore";
 import { useLivingDexEntries } from "@/hooks/usePokemon";
 import { getOwnedEntryCount, isLivingDexSpecies } from "@/lib/livingDex";
+import { supabase } from "@/lib/supabase";
 
 const SHOWN_MILESTONES_KEY = "living-pokedex-shown-milestones-v1";
 
@@ -138,12 +142,12 @@ function MainLayoutContent({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex h-dvh flex-col overflow-hidden bg-[#f4f0e8] dark:bg-[#0d0f18]">
-      <AppHeader />
+      <AppHeader user={user} />
 
       <div className="flex min-h-0 flex-1 overflow-hidden">
         <Sidebar user={user} />
 
-        <main className="min-w-0 flex-1 overflow-y-auto pb-[calc(4rem+env(safe-area-inset-bottom))] sm:pb-0">
+        <main className="min-w-0 flex-1 overflow-y-auto pb-[calc(4.25rem+env(safe-area-inset-bottom))] sm:pb-0">
           {children}
         </main>
       </div>
@@ -176,14 +180,108 @@ function MainLayoutContent({ children }: { children: React.ReactNode }) {
   );
 }
 
-function AppHeader() {
+function AppHeader({ user }: { user: SupabaseUser }) {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const userLabel =
+    (user.user_metadata?.display_name as string | undefined) ??
+    user.email ??
+    "Trainer";
+  const initial = userLabel.trim().charAt(0).toUpperCase() || "T";
+
+  useEffect(() => {
+    if (!menuOpen) return;
+
+    const onPointerDown = (event: PointerEvent) => {
+      if (
+        menuRef.current &&
+        !menuRef.current.contains(event.target as Node)
+      ) {
+        setMenuOpen(false);
+      }
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setMenuOpen(false);
+    };
+
+    document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [menuOpen]);
+
   return (
-    <header className="flex h-14 shrink-0 items-center border-b border-[#d9d1c2] bg-[#f4f0e8]/95 px-4 shadow-sm shadow-black/[0.03] backdrop-blur sm:h-16 sm:px-5 dark:border-[#2f2b40] dark:bg-[#151520]/95">
+    <header className="flex h-14 shrink-0 items-center justify-between border-b border-[#d9d1c2] bg-[#f4f0e8]/95 px-4 shadow-sm shadow-black/[0.03] backdrop-blur sm:h-16 sm:px-5 dark:border-[#2f2b40] dark:bg-[#151520]/95">
       <div className="flex items-center gap-2 text-[#10131d] dark:text-[#f8f0df]">
         <span className="grid h-8 w-8 place-items-center rounded-full border border-[#9b84c8]/45 text-[12px] font-black text-[#7c5db0] dark:text-[#c7a7ff]">
           A
         </span>
         <span className="text-lg font-black tracking-tight">Amanita</span>
+      </div>
+
+      <div ref={menuRef} className="relative">
+        <button
+          type="button"
+          onClick={() => setMenuOpen((open) => !open)}
+          aria-label="Open user menu"
+          aria-haspopup="menu"
+          aria-expanded={menuOpen}
+          className="flex h-10 items-center gap-2 rounded-full border border-[#d9d1c2] bg-white/70 pl-1.5 pr-2 text-[#10131d] shadow-sm transition-colors hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#9b84c8] dark:border-[#2f2b40] dark:bg-[#1a1a27] dark:text-[#f8f0df] dark:hover:bg-[#211b32]"
+        >
+          <span className="grid h-7 w-7 place-items-center rounded-full bg-[#151520] text-xs font-black text-[#b9ec86] dark:bg-[#0d0f18]">
+            {initial}
+          </span>
+          <span className="hidden max-w-36 truncate text-sm font-bold sm:block">
+            {userLabel}
+          </span>
+          <ChevronDown
+            className={`h-4 w-4 text-[#8f8799] transition-transform ${
+              menuOpen ? "rotate-180" : ""
+            }`}
+            strokeWidth={2.2}
+          />
+        </button>
+
+        {menuOpen && (
+          <div
+            role="menu"
+            className="absolute right-0 top-12 z-50 w-64 overflow-hidden rounded-lg border border-[#d9d1c2] bg-white shadow-xl shadow-black/10 dark:border-[#2f2b40] dark:bg-[#151520] dark:shadow-black/40"
+          >
+            <div className="border-b border-[#eee7dc] px-4 py-3 dark:border-[#2f2b40]">
+              <p className="truncate text-sm font-black text-[#10131d] dark:text-[#f8f0df]">
+                {userLabel}
+              </p>
+              {user.email && (
+                <p className="mt-0.5 truncate text-xs font-medium text-[#8f8799]">
+                  {user.email}
+                </p>
+              )}
+            </div>
+
+            <div className="p-1.5">
+              <Link
+                href="/settings"
+                role="menuitem"
+                onClick={() => setMenuOpen(false)}
+                className="flex h-10 items-center gap-3 rounded-md px-3 text-sm font-semibold text-[#514874] transition-colors hover:bg-[#f4f0e8] dark:text-[#c9c1d7] dark:hover:bg-white/5"
+              >
+                <Settings className="h-4 w-4" strokeWidth={2.2} />
+                Settings
+              </Link>
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => supabase.auth.signOut()}
+                className="flex h-10 w-full items-center gap-3 rounded-md px-3 text-left text-sm font-semibold text-[#514874] transition-colors hover:bg-[#f4f0e8] dark:text-[#c9c1d7] dark:hover:bg-white/5"
+              >
+                <LogOut className="h-4 w-4" strokeWidth={2.2} />
+                Sign out
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </header>
   );

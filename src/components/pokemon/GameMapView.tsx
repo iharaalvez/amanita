@@ -132,7 +132,7 @@ export function GameMapView({
           </a>
         </div>
 
-        <div className="h-[520px] bg-gray-100 dark:bg-gray-950 lg:h-[640px]">
+        <div className="h-[420px] bg-gray-100 dark:bg-gray-950 sm:h-[520px] lg:h-[640px]">
           <iframe
             title={`${externalMap.title} map`}
             src={externalMap.embedUrl}
@@ -147,7 +147,7 @@ export function GameMapView({
 
   if (isLoading) {
     return (
-      <div className="flex h-[520px] items-center justify-center rounded-xl border border-gray-200 bg-gray-50 dark:border-gray-800 dark:bg-gray-900">
+      <div className="flex h-[420px] items-center justify-center rounded-xl border border-gray-200 bg-gray-50 dark:border-gray-800 dark:bg-gray-900 sm:h-[520px]">
         <div className="space-y-3 text-center">
           <div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
           <p className="text-sm text-gray-500 dark:text-gray-400">
@@ -210,7 +210,7 @@ export function GameMapView({
         </div>
       )}
 
-      <div className="relative isolate h-[520px] overflow-hidden bg-[radial-gradient(circle_at_center,_#0f1b2f_0%,_#07111f_72%)] lg:h-[640px]">
+      <div className="relative isolate h-[420px] overflow-hidden bg-[radial-gradient(circle_at_center,_#0f1b2f_0%,_#07111f_72%)] sm:h-[520px] lg:h-[640px]">
         <div className="absolute inset-0 z-0">
           <LeafletMap
             gameId={gameId}
@@ -223,7 +223,7 @@ export function GameMapView({
         </div>
 
         {activeLocation && (
-          <div className="absolute right-0 top-0 z-20 flex h-full w-72 max-w-[85%] flex-col bg-slate-900/95 shadow-xl backdrop-blur-sm">
+          <div className="absolute inset-x-0 bottom-0 z-20 flex h-[62%] max-h-[360px] flex-col rounded-t-xl bg-slate-900/95 shadow-xl backdrop-blur-sm sm:inset-x-auto sm:right-0 sm:top-0 sm:h-full sm:max-h-none sm:w-72 sm:max-w-[85%] sm:rounded-none">
             <div className="flex items-start justify-between border-b border-slate-700 px-4 py-3">
               <div>
                 <h3 className="text-sm font-semibold text-white">
@@ -246,7 +246,7 @@ export function GameMapView({
             </div>
 
             <div className="flex-1 overflow-y-auto p-3">
-              <div className="grid grid-cols-4 gap-1">
+              <div className="grid grid-cols-4 gap-1 min-[420px]:grid-cols-5 sm:grid-cols-4">
                 {activeLocation.pokemon.map((pokemon) => {
                   const isRegistered = registeredSet.has(pokemon.speciesId);
                   return (
@@ -284,7 +284,7 @@ export function GameMapView({
         )}
       </div>
 
-      <div className="flex flex-wrap items-center gap-4 border-t border-gray-200 bg-white px-4 py-2 dark:border-gray-800 dark:bg-gray-900">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-gray-200 bg-white px-3 py-2 dark:border-gray-800 dark:bg-gray-900 sm:px-4">
         <span className="flex items-center gap-1.5 text-xs">
           <span className="h-2.5 w-2.5 rounded-sm bg-amber-400" />
           <span className="text-gray-500 dark:text-gray-400">Has missing</span>
@@ -297,7 +297,7 @@ export function GameMapView({
           <span className="h-2.5 w-2.5 rounded-sm bg-slate-500" />
           <span className="text-gray-500 dark:text-gray-400">Not tracked</span>
         </span>
-        <span className="ml-auto text-[11px] text-gray-400">
+        <span className="w-full text-[11px] text-gray-400 sm:ml-auto sm:w-auto">
           Click a zone to see Pokémon · Scroll or pinch to zoom
         </span>
       </div>

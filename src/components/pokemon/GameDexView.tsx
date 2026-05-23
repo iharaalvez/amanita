@@ -139,7 +139,7 @@ function GameSlot({ entry, gameId, onSelect }: GameSlotProps) {
 
   return (
     <div
-      className={`group relative flex flex-col overflow-hidden rounded-xl border transition-all sm:w-[140px] ${visual.frame}`}
+      className={`group relative flex min-w-0 flex-col overflow-hidden rounded-xl border transition-all sm:w-[140px] ${visual.frame}`}
     >
       <button
         onClick={() => onSelect(entry.speciesId, entry.formName)}
@@ -149,7 +149,7 @@ function GameSlot({ entry, gameId, onSelect }: GameSlotProps) {
             ? `${paddedGameNumber} - ${entry.displayName} (${paddedNationalNumber}) · ${exclusiveVersion} exclusive`
             : `${paddedGameNumber} - ${entry.displayName} (${paddedNationalNumber})`
         }
-        className={`relative flex h-[164px] w-full cursor-pointer flex-col items-center justify-center gap-1 rounded-xl p-2 pb-6 transition-all focus-visible:outline-none focus-visible:ring-2 ${visual.button}`}
+        className={`relative flex h-[132px] w-full cursor-pointer flex-col items-center justify-center gap-0.5 rounded-xl p-1.5 pb-5 transition-all focus-visible:outline-none focus-visible:ring-2 sm:h-[164px] sm:gap-1 sm:p-2 sm:pb-6 ${visual.button}`}
       >
         {exclusiveVersion && (
           <span
@@ -160,7 +160,7 @@ function GameSlot({ entry, gameId, onSelect }: GameSlotProps) {
           </span>
         )}
         <span
-          className={`grid h-[84px] w-[84px] place-items-center rounded-full transition-transform duration-200 group-hover:scale-105 ${visual.spriteHalo}`}
+          className={`grid h-[64px] w-[64px] place-items-center rounded-full transition-transform duration-200 group-hover:scale-105 sm:h-[84px] sm:w-[84px] ${visual.spriteHalo}`}
           aria-hidden
         >
           <PokemonSprite
@@ -169,7 +169,7 @@ function GameSlot({ entry, gameId, onSelect }: GameSlotProps) {
             width={88}
             height={88}
             style={{ imageRendering: "pixelated" }}
-            className={`h-[78px] w-[78px] object-contain transition-all duration-200 ${
+            className={`h-[58px] w-[58px] object-contain transition-all duration-200 sm:h-[78px] sm:w-[78px] ${
               anyOwned ? "" : "grayscale opacity-55"
             }`}
           />
@@ -177,7 +177,7 @@ function GameSlot({ entry, gameId, onSelect }: GameSlotProps) {
         <span className="text-[10px] text-gray-400 tabular-nums">
           {paddedGameNumber}
         </span>
-        <span className="min-h-[28px] w-full px-1 text-center text-[11px] font-medium leading-tight text-gray-600 line-clamp-2 dark:text-gray-300">
+        <span className="min-h-[24px] w-full px-1 text-center text-[10px] font-medium leading-tight text-gray-600 line-clamp-2 dark:text-gray-300 sm:min-h-[28px] sm:text-[11px]">
           {entry.displayName}
         </span>
         {visual.statusLabel && (
@@ -189,8 +189,8 @@ function GameSlot({ entry, gameId, onSelect }: GameSlotProps) {
         )}
       </button>
       <div
-        className={`grid justify-items-center gap-0.5 px-0.5 pb-2 sm:gap-1 sm:px-1 ${
-          isAlphaGame ? "grid-cols-4" : "grid-cols-2"
+        className={`grid justify-items-center gap-1 px-1 pb-2 ${
+          isAlphaGame ? "grid-cols-2 sm:grid-cols-4" : "grid-cols-2"
         }`}
       >
         <QuickToggle
@@ -351,7 +351,7 @@ function QuickToggle({
         event.stopPropagation();
         onClick();
       }}
-      className={`grid h-6 w-6 place-items-center rounded-full border shadow-sm transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 disabled:cursor-not-allowed disabled:opacity-40 sm:h-7 sm:w-7 ${className}`}
+      className={`grid h-8 w-8 place-items-center rounded-full border shadow-sm transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 disabled:cursor-not-allowed disabled:opacity-40 sm:h-7 sm:w-7 ${className}`}
     >
       {children}
     </button>
@@ -441,16 +441,16 @@ export function GameDexView({ gameId, onSelect }: Props) {
   ];
 
   return (
-    <div className="mx-auto max-w-7xl px-4 pb-8">
+    <div className="mx-auto max-w-7xl px-3 pb-8 sm:px-4">
       {/* Game header / progress */}
-      <div className="mb-4 rounded-xl border border-gray-100 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-800">
-        <div className="mb-3 flex items-center justify-between gap-2">
-          <h2 className="text-lg font-bold dark:text-white">
+      <div className="mb-4 rounded-xl border border-gray-100 bg-gray-50 p-3 dark:border-gray-700 dark:bg-gray-800 sm:p-4">
+        <div className="mb-3 flex flex-col gap-2 min-[420px]:flex-row min-[420px]:items-center min-[420px]:justify-between">
+          <h2 className="text-base font-bold dark:text-white sm:text-lg">
             {selectedGame?.name ?? gameId}
           </h2>
           {hasShinyCharmTarget && (
             <span
-              className={`flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-bold ${
+              className={`flex w-fit items-center gap-1 rounded-full px-2.5 py-1 text-xs font-bold ${
                 shinyCharmReady
                   ? "bg-yellow-400 text-white"
                   : "bg-yellow-50 text-yellow-600 dark:bg-yellow-950/40 dark:text-yellow-400"
@@ -512,9 +512,9 @@ export function GameDexView({ gameId, onSelect }: Props) {
             placeholder={`Search ${selectedGame?.name ?? "this game"}`}
             className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 outline-none transition-colors placeholder:text-gray-400 focus:border-blue-400 focus:ring-2 focus:ring-blue-100 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 dark:focus:border-blue-400 dark:focus:ring-blue-950 lg:max-w-sm"
           />
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex min-w-0 flex-col gap-2 min-[430px]:flex-row min-[430px]:items-center">
             <div
-              className="flex rounded-lg bg-gray-100 p-1 dark:bg-gray-800"
+              className="grid grid-cols-3 rounded-lg bg-gray-100 p-1 dark:bg-gray-800 min-[430px]:flex"
               aria-label="Completion filter"
             >
               {completionFilters.map(({ value, label, count }) => (
@@ -523,13 +523,13 @@ export function GameDexView({ gameId, onSelect }: Props) {
                   type="button"
                   onClick={() => setCompletionFilter(value)}
                   aria-pressed={completionFilter === value}
-                  className={`rounded-md px-3 py-1.5 text-xs font-semibold transition-colors ${
+                  className={`min-w-0 rounded-md px-2 py-1.5 text-xs font-semibold transition-colors sm:px-3 ${
                     completionFilter === value
                       ? "bg-blue-500 text-white"
                       : "text-gray-500 hover:text-gray-800 dark:text-gray-300 dark:hover:text-white"
                   }`}
                 >
-                  {label}{" "}
+                  <span className="truncate">{label}</span>{" "}
                   <span className="tabular-nums opacity-75">({count})</span>
                 </button>
               ))}
@@ -553,16 +553,16 @@ export function GameDexView({ gameId, onSelect }: Props) {
           Failed to load Pokédex for this game. Try refreshing.
         </div>
       ) : dexLoading ? (
-        <div className="grid grid-cols-3 gap-2 sm:grid-cols-[repeat(auto-fill,minmax(132px,140px))]">
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(96px,1fr))] gap-2 sm:grid-cols-[repeat(auto-fill,minmax(132px,140px))]">
           {Array.from({ length: 48 }).map((_, i) => (
             <div
               key={i}
-              className="h-[202px] w-full animate-pulse rounded-xl bg-gray-200 sm:w-[140px] dark:bg-gray-700"
+              className="h-[188px] w-full animate-pulse rounded-xl bg-gray-200 sm:h-[202px] sm:w-[140px] dark:bg-gray-700"
             />
           ))}
         </div>
       ) : (
-        <div className="grid grid-cols-3 gap-2 sm:grid-cols-[repeat(auto-fill,minmax(132px,140px))]">
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(96px,1fr))] gap-2 sm:grid-cols-[repeat(auto-fill,minmax(132px,140px))]">
           {filteredGamePokemon.map((entry) => (
             <GameSlot
               key={`${entry.speciesId}-${entry.formName ?? "base"}`}

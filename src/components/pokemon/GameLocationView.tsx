@@ -374,14 +374,14 @@ export function GameLocationView({ gameId, gameName, onSelect }: Props) {
   }
 
   return (
-    <div className="mx-auto max-w-6xl px-4 pb-10">
-      <section className="mb-5 rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
+    <div className="mx-auto max-w-6xl px-3 pb-10 sm:px-4">
+      <section className="mb-5 rounded-xl border border-gray-200 bg-white p-3 dark:border-gray-800 dark:bg-gray-900 sm:p-4">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <div className="mb-2 flex h-11 w-11 items-center justify-center rounded-lg bg-blue-100 text-blue-600 dark:bg-blue-950 dark:text-blue-400">
               <CompassIcon className="h-6 w-6" />
             </div>
-            <h2 className="text-xl font-black text-gray-950 dark:text-white">
+            <h2 className="text-lg font-black text-gray-950 dark:text-white sm:text-xl">
               Locations - {gameName}
             </h2>
             <p className="mt-1 max-w-2xl text-sm text-gray-500 dark:text-gray-400">
@@ -438,7 +438,7 @@ export function GameLocationView({ gameId, gameName, onSelect }: Props) {
           {viewMode === "list" ? "Location List" : "Map View"}
         </span>
         <div
-          className="flex rounded-lg bg-gray-100 p-1 dark:bg-gray-800"
+          className="grid grid-cols-2 rounded-lg bg-gray-100 p-1 dark:bg-gray-800"
           aria-label="Switch between list and map view"
         >
           <button
@@ -506,7 +506,7 @@ export function GameLocationView({ gameId, gameName, onSelect }: Props) {
           </div>
 
           <div
-            className="flex w-fit rounded-lg bg-gray-100 p-1 dark:bg-gray-800"
+            className="grid w-full grid-cols-3 rounded-lg bg-gray-100 p-1 dark:bg-gray-800 min-[520px]:w-fit"
             aria-label="Location completion filter"
           >
             {filters.map(({ value, label, count }) => (
@@ -515,13 +515,13 @@ export function GameLocationView({ gameId, gameName, onSelect }: Props) {
                 type="button"
                 onClick={() => setFilter(value)}
                 aria-pressed={filter === value}
-                className={`rounded-md px-3 py-1.5 text-xs font-semibold transition-colors ${
+                className={`min-w-0 rounded-md px-2 py-1.5 text-xs font-semibold transition-colors sm:px-3 ${
                   filter === value
                     ? "bg-blue-500 text-white"
                     : "text-gray-500 hover:text-gray-800 dark:text-gray-300 dark:hover:text-white"
                 }`}
               >
-                {label}{" "}
+                <span className="truncate">{label}</span>{" "}
                 <span className="tabular-nums opacity-75">({count})</span>
               </button>
             ))}
@@ -555,7 +555,7 @@ export function GameLocationView({ gameId, gameName, onSelect }: Props) {
             ))}
           </div>
 
-          <div className="flex flex-col gap-2 min-[520px]:flex-row min-[520px]:items-center">
+          <div className="flex w-full flex-col gap-2 min-[520px]:flex-row min-[520px]:items-center lg:w-auto">
             {versionOptions.length > 0 && (
               <>
                 <label htmlFor="version-filter" className="sr-only">
@@ -565,7 +565,7 @@ export function GameLocationView({ gameId, gameName, onSelect }: Props) {
                   id="version-filter"
                   value={versionFilter}
                   onChange={(event) => setVersionFilter(event.target.value)}
-                  className="h-9 rounded-lg border border-gray-200 bg-white px-3 text-sm font-medium text-gray-600 outline-none transition-colors focus:border-blue-400 focus:ring-2 focus:ring-blue-100 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:focus:border-blue-400 dark:focus:ring-blue-950"
+                  className="h-9 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm font-medium text-gray-600 outline-none transition-colors focus:border-blue-400 focus:ring-2 focus:ring-blue-100 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:focus:border-blue-400 dark:focus:ring-blue-950 min-[520px]:w-auto"
                 >
                   <option value="all">Any version</option>
                   {versionOptions.map(({ version, count }) => (
@@ -584,7 +584,7 @@ export function GameLocationView({ gameId, gameName, onSelect }: Props) {
               id="method-filter"
               value={methodFilter}
               onChange={(event) => setMethodFilter(event.target.value)}
-              className="h-9 rounded-lg border border-gray-200 bg-white px-3 text-sm font-medium text-gray-600 outline-none transition-colors focus:border-blue-400 focus:ring-2 focus:ring-blue-100 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:focus:border-blue-400 dark:focus:ring-blue-950"
+              className="h-9 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm font-medium text-gray-600 outline-none transition-colors focus:border-blue-400 focus:ring-2 focus:ring-blue-100 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:focus:border-blue-400 dark:focus:ring-blue-950 min-[520px]:w-auto"
             >
               <option value="all">Any method</option>
               {methodOptions.map(({ method, count }) => (

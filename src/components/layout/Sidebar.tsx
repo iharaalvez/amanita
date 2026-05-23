@@ -145,8 +145,8 @@ export function Sidebar({ user }: SidebarProps) {
         </div>
       </aside>
 
-      <nav className="fixed inset-x-0 bottom-0 z-40 flex border-t border-[#2f2b40] bg-[#151520] pb-[env(safe-area-inset-bottom)] sm:hidden">
-        {NAV_ITEMS.slice(0, 4).map((item) => {
+      <nav className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-5 border-t border-[#2f2b40] bg-[#151520] pb-[env(safe-area-inset-bottom)] sm:hidden">
+        {NAV_ITEMS.map((item) => {
           const active = isActive(pathname, item);
           const Icon = item.Icon;
 
@@ -154,12 +154,12 @@ export function Sidebar({ user }: SidebarProps) {
             <Link
               key={`${item.label}-mobile`}
               href={item.href}
-              className={`flex flex-1 flex-col items-center gap-1 py-2.5 text-[10px] font-semibold transition-colors ${
+              className={`flex min-h-14 min-w-0 flex-col items-center justify-center gap-1 px-1 py-2 text-[10px] font-semibold transition-colors ${
                 active ? "text-[#b9ec86]" : "text-[#8f8799]"
               }`}
             >
               <Icon className="h-5 w-5" strokeWidth={2.2} />
-              {item.shortLabel}
+              <span className="max-w-full truncate">{item.shortLabel}</span>
             </Link>
           );
         })}

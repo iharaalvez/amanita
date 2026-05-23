@@ -210,13 +210,13 @@ export function DashboardView() {
           <div className="mb-2.5 flex items-center justify-between">
             <p className="text-[10px] font-black">Your Games</p>
             <Link
-              href="/games"
+              href="/game"
               className="text-[9px] text-[#8f8799] transition-colors hover:text-[#f8f0df]"
             >
               Manage →
             </Link>
           </div>
-          <div className="flex flex-wrap items-end gap-x-4 gap-y-2">
+          <div className="-mx-1 flex items-end gap-x-3 gap-y-2 overflow-x-auto px-1 pb-1 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0 sm:pb-0 lg:gap-x-4">
             {availableGameIds.length > 0 ? (
               availableGameIds.map((gameId) => {
                 const game = getGameById(gameId);
@@ -230,7 +230,7 @@ export function DashboardView() {
                     key={gameId}
                     href={`/game/${gameId}`}
                     title={game.name}
-                    className={`flex flex-col items-center gap-1 rounded-lg px-2 py-1 transition-colors hover:bg-white/5 ${
+                    className={`flex shrink-0 flex-col items-center gap-1 rounded-lg px-2 py-1 transition-colors hover:bg-white/5 ${
                       isPinned ? "bg-[#b9ec86]/5 ring-1 ring-[#b9ec86]/30" : ""
                     }`}
                   >
@@ -275,7 +275,7 @@ export function DashboardView() {
               })
             ) : (
               <Link
-                href="/games"
+                href="/game"
                 className="text-[10px] text-[#8f8799] transition-colors hover:text-[#f8f0df]"
               >
                 No games added yet — click to get started →
@@ -294,7 +294,7 @@ export function DashboardView() {
                 recentCatches.map((pokemon) => (
                   <div
                     key={`${pokemon.id}-${pokemon.name}-${pokemon.isShiny ? "shiny" : "normal"}`}
-                    className="grid min-h-14 grid-cols-[44px_1fr_auto] items-center gap-4 border-t border-[#2f2b40]/70 py-3 first:border-t-0"
+                    className="grid min-h-14 grid-cols-[44px_minmax(0,1fr)] items-center gap-x-3 gap-y-1 border-t border-[#2f2b40]/70 py-3 first:border-t-0 min-[420px]:grid-cols-[44px_1fr_auto] min-[420px]:gap-4"
                   >
                     <Image
                       src={pokemon.spriteUrl}
@@ -329,7 +329,7 @@ export function DashboardView() {
                         )}
                       </div>
                     </div>
-                    <p className="text-xs font-semibold text-[#d4cedb]">
+                    <p className="col-start-2 text-xs font-semibold text-[#d4cedb] min-[420px]:col-start-auto">
                       {pokemon.dateLabel}
                     </p>
                   </div>
