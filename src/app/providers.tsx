@@ -24,13 +24,26 @@ function AuthSync() {
         .catch(reportAuthError);
     };
 
-    // Load data for already-logged-in user on mount
-    supabase.auth
-      .getSession()
-      .then(({ data: { session } }) => {
-        if (active && session?.user) loadAndSync(session.user.id);
-      })
-      .catch(reportAuthError);
+    const syncCurrentSession = () => {
+      supabase.auth
+        .getSession()
+        .then(({ data: { session } }) => {
+          if (active && session?.user) loadAndSync(session.user.id);
+        })
+        .catch(reportAuthError);
+    };
+
+    const syncVisibleSession = () => {
+      if (document.visibilityState === "visible") {
+        syncCurrentSession();
+      }
+    };
+
+    // Load data for already-logged-in user on mount, then refresh when an
+    // existing tab becomes active so progress changed elsewhere appears here.
+    syncCurrentSession();
+    window.addEventListener("focus", syncCurrentSession);
+    document.addEventListener("visibilitychange", syncVisibleSession);
 
     const {
       data: { subscription },
@@ -45,6 +58,8 @@ function AuthSync() {
 
     return () => {
       active = false;
+      window.removeEventListener("focus", syncCurrentSession);
+      document.removeEventListener("visibilitychange", syncVisibleSession);
       subscription.unsubscribe();
     };
   }, [mergeProgressSnapshot, clearAll]);

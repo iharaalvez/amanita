@@ -9,6 +9,7 @@ import {
   syncShinyHunts,
   syncRecentCatches,
 } from "@/lib/sync";
+import { mergeOwnedRecords } from "@/lib/progressMerge";
 import type {
   OwnedRecord,
   OwnershipMethod,
@@ -456,7 +457,7 @@ export const usePokedexStore = create<PokedexState>()(
       mergeProgressSnapshot: (snapshot) => {
         const current = get();
         const merged: ProgressSnapshot = {
-          owned: { ...snapshot.owned, ...current.owned },
+          owned: mergeOwnedRecords(current.owned, snapshot.owned),
           gameDex: mergeGameDexRecords(current.gameDex, snapshot.gameDex),
           gameHomeBoxes: mergeGameHomeBoxRecords(
             current.gameHomeBoxes,
@@ -520,6 +521,7 @@ export const usePokedexStore = create<PokedexState>()(
 
       markOwned: (speciesId, formName, method) => {
         const key = ownedKey(speciesId, formName);
+        const updatedAt = new Date().toISOString();
         set((state) => {
           const existing = state.owned[key];
           return {
@@ -530,6 +532,7 @@ export const usePokedexStore = create<PokedexState>()(
                 form_name: formName ?? null,
                 owned: true,
                 shiny_owned: existing?.shiny_owned ?? false,
+                updated_at: updatedAt,
                 notes: existing?.notes,
                 method,
                 date_obtained: existing?.date_obtained ?? new Date().toISOString(),
@@ -543,6 +546,7 @@ export const usePokedexStore = create<PokedexState>()(
 
       markShinyOwned: (speciesId, formName, huntMethod, game) => {
         const key = ownedKey(speciesId, formName);
+        const updatedAt = new Date().toISOString();
         set((state) => ({
           owned: {
             ...state.owned,
@@ -551,6 +555,7 @@ export const usePokedexStore = create<PokedexState>()(
               form_name: formName ?? null,
               owned: state.owned[key]?.owned ?? false,
               shiny_owned: true,
+              updated_at: updatedAt,
               notes: state.owned[key]?.notes,
               method: state.owned[key]?.method,
               shiny_method: huntMethod,
@@ -563,6 +568,7 @@ export const usePokedexStore = create<PokedexState>()(
 
       clearShinyOwned: (speciesId, formName) => {
         const key = ownedKey(speciesId, formName);
+        const updatedAt = new Date().toISOString();
         set((state) => {
           const existing = state.owned[key];
           if (!existing) return {};
@@ -572,22 +578,22 @@ export const usePokedexStore = create<PokedexState>()(
               [key]: {
                 ...existing,
                 shiny_owned: false,
+                updated_at: updatedAt,
                 shiny_method: undefined,
                 shiny_game: undefined,
               },
             },
           };
         });
-        // Always sync the updated record rather than deleting it. Deleting the
-        // key from local state causes mergeProgressSnapshot to resurrect stale
-        // remote data on the next load, since the merge uses remote as the base
-        // and local wins only when the key exists locally.
+        // Always sync the updated record rather than deleting it, so the clear
+        // has its own timestamp and can win against older remote data.
         const record = get().owned[key];
         if (record) void syncRecord(record);
       },
 
       clearOwnership: (speciesId, formName) => {
         const key = ownedKey(speciesId, formName);
+        const updatedAt = new Date().toISOString();
         set((state) => {
           const existing = state.owned[key];
           if (!existing) return {};
@@ -597,6 +603,7 @@ export const usePokedexStore = create<PokedexState>()(
               [key]: {
                 ...existing,
                 owned: false,
+                updated_at: updatedAt,
                 method: undefined,
               },
             },

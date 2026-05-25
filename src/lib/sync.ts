@@ -18,6 +18,7 @@ type SupabaseRow = {
   form_name: string | null;
   owned: boolean;
   shiny_owned: boolean;
+  updated_at: string | null;
   method: string | null;
   shiny_method: string | null;
   shiny_game: string | null;
@@ -65,6 +66,7 @@ export async function loadFromSupabase(
       form_name: row.form_name,
       owned: row.owned,
       shiny_owned: row.shiny_owned,
+      updated_at: row.updated_at ?? undefined,
       method: (row.method as OwnershipMethod) ?? undefined,
       shiny_method: (row.shiny_method as ShinyHuntMethod) ?? undefined,
       shiny_game: row.shiny_game ?? undefined,
@@ -172,6 +174,8 @@ export async function syncRecord(record: OwnedRecord): Promise<void> {
   } = await supabase.auth.getUser();
   if (!user) return;
 
+  const updatedAt = record.updated_at ?? new Date().toISOString();
+
   await supabase.from("pokedex").upsert(
     {
       user_id: user.id,
@@ -184,7 +188,7 @@ export async function syncRecord(record: OwnedRecord): Promise<void> {
       shiny_game: record.shiny_game ?? null,
       date_obtained: record.date_obtained ?? null,
       game: record.game ?? null,
-      updated_at: new Date().toISOString(),
+      updated_at: updatedAt,
     },
     { onConflict: "user_id,species_id,form_name" },
   );
@@ -306,6 +310,7 @@ export async function syncAllRecords(
   } = await supabase.auth.getUser();
   if (!user) return;
 
+  const syncStartedAt = new Date().toISOString();
   const rows = Object.values(snapshot.owned).map((record) => ({
     user_id: user.id,
     species_id: record.pokedex_number,
@@ -317,7 +322,7 @@ export async function syncAllRecords(
     shiny_game: record.shiny_game ?? null,
     date_obtained: record.date_obtained ?? null,
     game: record.game ?? null,
-    updated_at: new Date().toISOString(),
+    updated_at: record.updated_at ?? syncStartedAt,
   }));
 
   if (rows.length > 0) {

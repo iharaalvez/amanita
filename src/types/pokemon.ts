@@ -56,6 +56,7 @@ export type OwnedRecord = {
   form_name: string | null; // null = base form, e.g. 'vulpix-alola' for regional
   owned: boolean; // has this species in the Living Dex (HOME)
   shiny_owned: boolean; // has this species in the Shiny Living Dex (HOME)
+  updated_at?: string; // last ownership edit, used to resolve cross-device sync
   method?: OwnershipMethod;
   notes?: string;
   date_obtained?: string;
