@@ -3,57 +3,38 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
-import { loadFromSupabase, syncAllRecords } from "@/lib/sync";
+import { loadFromSupabase } from "@/lib/sync";
 import { usePokedexStore } from "@/store/pokedexStore";
 import { reportAuthError } from "@/lib/authErrors";
 
-// Batches rapid multi-row updates (e.g. bulk toggles) into a single round-trip.
 const REALTIME_DEBOUNCE_MS = 2000;
-// After we write to Supabase, ignore Realtime events for this window so we
-// don't re-fetch data we just pushed ourselves.
-const WRITE_COOLDOWN_MS = 6000;
 
 function AuthSync() {
   const mergeProgressSnapshot = usePokedexStore((s) => s.mergeProgressSnapshot);
   const clearAll = usePokedexStore((s) => s.clearAll);
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const isSyncingRef = useRef(false);
-  const lastWriteTimeRef = useRef(0);
+  const isMergingRef = useRef(false);
 
   useEffect(() => {
     let active = true;
     let realtimeChannel: ReturnType<typeof supabase.channel> | null = null;
 
-    // Full sync: fetch remote, merge with local, push merged state back.
-    // Used on login / tab-focus. Deduped with isSyncingRef so concurrent
-    // calls (mount getSession + onAuthStateChange SIGNED_IN) collapse into one.
-    const loadAndSync = (userId: string) => {
-      if (isSyncingRef.current) return;
-      isSyncingRef.current = true;
-      loadFromSupabase(userId)
-        .then(async (snapshot) => {
-          if (!active || !snapshot) return;
-          const merged = mergeProgressSnapshot(snapshot);
-          await syncAllRecords(merged).catch(reportAuthError);
-          // Mark when we last wrote so Realtime self-triggers are suppressed.
-          lastWriteTimeRef.current = Date.now();
-        })
-        .catch(reportAuthError)
-        .finally(() => {
-          isSyncingRef.current = false;
-        });
-    };
-
-    // Lightweight sync: fetch remote and merge locally — no write-back.
-    // Used for Realtime events. Skipped if we just wrote (self-trigger guard).
-    const loadAndApply = (userId: string) => {
-      if (Date.now() - lastWriteTimeRef.current < WRITE_COOLDOWN_MS) return;
+    // Fetch remote state and merge into local Zustand store.
+    // No write-back — individual user actions (syncRecord, syncGameDex, etc.)
+    // already write to Supabase immediately. Doing a bulk write here would
+    // flood the Realtime channel with one event per pokemon row.
+    const loadAndMerge = (userId: string) => {
+      if (isMergingRef.current) return;
+      isMergingRef.current = true;
       loadFromSupabase(userId)
         .then((snapshot) => {
           if (!active || !snapshot) return;
           mergeProgressSnapshot(snapshot);
         })
-        .catch(reportAuthError);
+        .catch(reportAuthError)
+        .finally(() => {
+          isMergingRef.current = false;
+        });
     };
 
     const setupRealtime = (userId: string) => {
@@ -64,7 +45,7 @@ function AuthSync() {
         if (!active) return;
         if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
         debounceTimerRef.current = setTimeout(
-          () => loadAndApply(userId),
+          () => loadAndMerge(userId),
           REALTIME_DEBOUNCE_MS,
         );
       };
@@ -92,26 +73,24 @@ function AuthSync() {
         .then(({ data: { session } }) => {
           if (!active) return;
           if (session?.user) {
-            loadAndSync(session.user.id);
+            loadAndMerge(session.user.id);
             setupRealtime(session.user.id);
           }
         })
         .catch(reportAuthError);
     };
 
-    const syncVisibleSession = () => {
-      if (document.visibilityState === "visible") syncCurrentSession();
-    };
-
     syncCurrentSession();
     window.addEventListener("focus", syncCurrentSession);
-    document.addEventListener("visibilitychange", syncVisibleSession);
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible") syncCurrentSession();
+    });
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === "SIGNED_IN" && session?.user) {
-        loadAndSync(session.user.id);
+        loadAndMerge(session.user.id);
         setupRealtime(session.user.id);
       }
       if (event === "SIGNED_OUT") {
@@ -124,7 +103,6 @@ function AuthSync() {
     return () => {
       active = false;
       window.removeEventListener("focus", syncCurrentSession);
-      document.removeEventListener("visibilitychange", syncVisibleSession);
       subscription.unsubscribe();
       realtimeChannel?.unsubscribe();
       if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
