@@ -13,7 +13,6 @@ function AuthSync() {
   const mergeProgressSnapshot = usePokedexStore((s) => s.mergeProgressSnapshot);
   const clearAll = usePokedexStore((s) => s.clearAll);
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const isMergingRef = useRef(false);
 
   useEffect(() => {
     let active = true;
@@ -21,20 +20,14 @@ function AuthSync() {
 
     // Fetch remote state and merge into local Zustand store.
     // No write-back — individual user actions (syncRecord, syncGameDex, etc.)
-    // already write to Supabase immediately. Doing a bulk write here would
-    // flood the Realtime channel with one event per pokemon row.
+    // already write to Supabase immediately on every toggle.
     const loadAndMerge = (userId: string) => {
-      if (isMergingRef.current) return;
-      isMergingRef.current = true;
       loadFromSupabase(userId)
         .then((snapshot) => {
           if (!active || !snapshot) return;
           mergeProgressSnapshot(snapshot);
         })
-        .catch(reportAuthError)
-        .finally(() => {
-          isMergingRef.current = false;
-        });
+        .catch(reportAuthError);
     };
 
     const setupRealtime = (userId: string) => {
