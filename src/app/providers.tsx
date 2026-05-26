@@ -18,16 +18,23 @@ function AuthSync() {
     let active = true;
     let realtimeChannel: ReturnType<typeof supabase.channel> | null = null;
 
-    // Fetch remote state and merge into local Zustand store.
-    // No write-back — individual user actions (syncRecord, syncGameDex, etc.)
-    // already write to Supabase immediately on every toggle.
     const loadAndMerge = (userId: string) => {
+      console.log("[Sync] loadAndMerge called, active=", active);
       loadFromSupabase(userId)
         .then((snapshot) => {
+          console.log("[Sync] loadFromSupabase returned, active=", active, "snapshot=", snapshot ? "ok" : "null");
           if (!active || !snapshot) return;
+          const before = usePokedexStore.getState().gameDex;
+          console.log("[Sync] gameDex BEFORE merge (keys):", Object.keys(before));
           mergeProgressSnapshot(snapshot);
+          const after = usePokedexStore.getState().gameDex;
+          console.log("[Sync] gameDex AFTER merge (keys):", Object.keys(after));
+          console.log("[Sync] snapshot.gameDex (keys):", Object.keys(snapshot.gameDex));
         })
-        .catch(reportAuthError);
+        .catch((err) => {
+          console.error("[Sync] loadAndMerge error:", err);
+          reportAuthError(err);
+        });
     };
 
     const setupRealtime = (userId: string) => {
