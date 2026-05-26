@@ -8,44 +8,45 @@ import { usePokedexStore } from "@/store/pokedexStore";
 import { reportAuthError } from "@/lib/authErrors";
 
 const REALTIME_DEBOUNCE_MS = 2000;
+const POLL_INTERVAL_MS = 10_000;
 
 function AuthSync() {
-  const mergeProgressSnapshot = usePokedexStore((s) => s.mergeProgressSnapshot);
+  const setProgressSnapshot = usePokedexStore((s) => s.setProgressSnapshot);
   const clearAll = usePokedexStore((s) => s.clearAll);
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     let active = true;
     let realtimeChannel: ReturnType<typeof supabase.channel> | null = null;
 
-    const loadAndMerge = (userId: string) => {
-      console.log("[Sync] loadAndMerge called, active=", active);
+    // Fetch remote state and apply as the source of truth.
+    // No write-back: individual user actions (syncRecord, syncGameDex, etc.)
+    // already write to Supabase immediately on every toggle.
+    const loadAndApply = (userId: string) => {
       loadFromSupabase(userId)
         .then((snapshot) => {
-          console.log("[Sync] loadFromSupabase returned, active=", active, "snapshot=", snapshot ? "ok" : "null");
           if (!active || !snapshot) return;
-          const before = usePokedexStore.getState().gameDex;
-          console.log("[Sync] gameDex BEFORE merge (keys):", Object.keys(before));
-          mergeProgressSnapshot(snapshot);
-          const after = usePokedexStore.getState().gameDex;
-          console.log("[Sync] gameDex AFTER merge (keys):", Object.keys(after));
-          console.log("[Sync] snapshot.gameDex (keys):", Object.keys(snapshot.gameDex));
+          setProgressSnapshot(snapshot);
         })
-        .catch((err) => {
-          console.error("[Sync] loadAndMerge error:", err);
-          reportAuthError(err);
-        });
+        .catch(reportAuthError);
+    };
+
+    const startPolling = (userId: string) => {
+      if (pollTimerRef.current) return;
+      pollTimerRef.current = setInterval(() => {
+        if (active) loadAndApply(userId);
+      }, POLL_INTERVAL_MS);
     };
 
     const setupRealtime = (userId: string) => {
       if (realtimeChannel) return;
 
-      const handleChange = (payload: unknown) => {
-        console.log("[Realtime] change received:", payload);
+      const handleChange = () => {
         if (!active) return;
         if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
         debounceTimerRef.current = setTimeout(
-          () => loadAndMerge(userId),
+          () => loadAndApply(userId),
           REALTIME_DEBOUNCE_MS,
         );
       };
@@ -54,17 +55,25 @@ function AuthSync() {
         .channel(`user-data-${userId}`)
         .on(
           "postgres_changes",
-          { event: "*", schema: "public", table: "pokedex", filter: `user_id=eq.${userId}` },
+          {
+            event: "*",
+            schema: "public",
+            table: "pokedex",
+            filter: `user_id=eq.${userId}`,
+          },
           handleChange,
         )
         .on(
           "postgres_changes",
-          { event: "*", schema: "public", table: "user_settings", filter: `user_id=eq.${userId}` },
+          {
+            event: "*",
+            schema: "public",
+            table: "user_settings",
+            filter: `user_id=eq.${userId}`,
+          },
           handleChange,
         )
-        .subscribe((status, err) => {
-          console.log("[Realtime] status:", status, err ?? "");
-        });
+        .subscribe();
     };
 
     const syncCurrentSession = () => {
@@ -73,8 +82,9 @@ function AuthSync() {
         .then(({ data: { session } }) => {
           if (!active) return;
           if (session?.user) {
-            loadAndMerge(session.user.id);
+            loadAndApply(session.user.id);
             setupRealtime(session.user.id);
+            startPolling(session.user.id);
           }
         })
         .catch(reportAuthError);
@@ -82,32 +92,40 @@ function AuthSync() {
 
     syncCurrentSession();
     window.addEventListener("focus", syncCurrentSession);
-    document.addEventListener("visibilitychange", () => {
+    const handleVisibilityChange = () => {
       if (document.visibilityState === "visible") syncCurrentSession();
-    });
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === "SIGNED_IN" && session?.user) {
-        loadAndMerge(session.user.id);
+        loadAndApply(session.user.id);
         setupRealtime(session.user.id);
+        startPolling(session.user.id);
       }
       if (event === "SIGNED_OUT") {
         clearAll();
         realtimeChannel?.unsubscribe();
         realtimeChannel = null;
+        if (pollTimerRef.current) {
+          clearInterval(pollTimerRef.current);
+          pollTimerRef.current = null;
+        }
       }
     });
 
     return () => {
       active = false;
       window.removeEventListener("focus", syncCurrentSession);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
       subscription.unsubscribe();
       realtimeChannel?.unsubscribe();
       if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+      if (pollTimerRef.current) clearInterval(pollTimerRef.current);
     };
-  }, [mergeProgressSnapshot, clearAll]);
+  }, [setProgressSnapshot, clearAll]);
 
   return null;
 }

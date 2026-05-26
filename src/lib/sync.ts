@@ -8,6 +8,7 @@ import type {
   ShinyHuntMethod,
   GameDexFlags,
 } from "@/types/pokemon";
+import { reportAuthError } from "@/lib/authErrors";
 
 function ownedKey(speciesId: number, formName: string | null): string {
   return `${speciesId}-${formName ?? "base"}`;
@@ -30,6 +31,14 @@ type SupabaseRow = {
   shiny_alpha_owned?: boolean;
   game_dex?: Record<string, boolean>;
 };
+
+type SupabaseMutationResult = {
+  error: unknown;
+};
+
+function reportMutationError(result: SupabaseMutationResult): void {
+  if (result.error) reportAuthError(result.error);
+}
 
 export async function loadFromSupabase(
   userId?: string,
@@ -55,6 +64,7 @@ export async function loadFromSupabase(
   ]);
 
   if (pokemonResult.error) throw pokemonResult.error;
+  if (settingsResult.error) throw settingsResult.error;
 
   const rows = (pokemonResult.data ?? []) as SupabaseRow[];
   const owned: Record<string, OwnedRecord> = {};
@@ -176,7 +186,7 @@ export async function syncRecord(record: OwnedRecord): Promise<void> {
 
   const updatedAt = record.updated_at ?? new Date().toISOString();
 
-  await supabase.from("pokedex").upsert(
+  const result = await supabase.from("pokedex").upsert(
     {
       user_id: user.id,
       species_id: record.pokedex_number,
@@ -192,6 +202,7 @@ export async function syncRecord(record: OwnedRecord): Promise<void> {
     },
     { onConflict: "user_id,species_id,form_name" },
   );
+  reportMutationError(result);
 }
 
 export async function deleteRecord(
@@ -208,11 +219,11 @@ export async function deleteRecord(
     .delete()
     .eq("user_id", user.id)
     .eq("species_id", speciesId);
-  if (formName === null) {
-    await query.is("form_name", null);
-  } else {
-    await query.eq("form_name", formName);
-  }
+  const result =
+    formName === null
+      ? await query.is("form_name", null)
+      : await query.eq("form_name", formName);
+  reportMutationError(result);
 }
 
 export async function syncGameDex(
@@ -223,9 +234,10 @@ export async function syncGameDex(
   } = await supabase.auth.getUser();
   if (!user) return;
 
-  await supabase
+  const result = await supabase
     .from("user_settings")
     .upsert({ user_id: user.id, game_dex: gameDex }, { onConflict: "user_id" });
+  reportMutationError(result);
 }
 
 export async function syncGameHomeBoxes(
@@ -236,12 +248,13 @@ export async function syncGameHomeBoxes(
   } = await supabase.auth.getUser();
   if (!user) return;
 
-  await supabase
+  const result = await supabase
     .from("user_settings")
     .upsert(
       { user_id: user.id, game_home_boxes: gameHomeBoxes },
       { onConflict: "user_id" },
     );
+  reportMutationError(result);
 }
 
 export async function syncAvailableGames(
@@ -252,12 +265,13 @@ export async function syncAvailableGames(
   } = await supabase.auth.getUser();
   if (!user) return;
 
-  await supabase
+  const result = await supabase
     .from("user_settings")
     .upsert(
       { user_id: user.id, available_games: games },
       { onConflict: "user_id" },
     );
+  reportMutationError(result);
 }
 
 export async function syncPinnedGameId(gameId: string | null): Promise<void> {
@@ -266,12 +280,13 @@ export async function syncPinnedGameId(gameId: string | null): Promise<void> {
   } = await supabase.auth.getUser();
   if (!user) return;
 
-  await supabase
+  const result = await supabase
     .from("user_settings")
     .upsert(
       { user_id: user.id, pinned_game_id: gameId },
       { onConflict: "user_id" },
     );
+  reportMutationError(result);
 }
 
 export async function syncShinyHunts(hunts: ShinyHunt[]): Promise<void> {
@@ -280,12 +295,13 @@ export async function syncShinyHunts(hunts: ShinyHunt[]): Promise<void> {
   } = await supabase.auth.getUser();
   if (!user) return;
 
-  await supabase
+  const result = await supabase
     .from("user_settings")
     .upsert(
       { user_id: user.id, shiny_hunts: hunts },
       { onConflict: "user_id" },
     );
+  reportMutationError(result);
 }
 
 export async function syncRecentCatches(catches: CatchEvent[]): Promise<void> {
@@ -294,12 +310,13 @@ export async function syncRecentCatches(catches: CatchEvent[]): Promise<void> {
   } = await supabase.auth.getUser();
   if (!user) return;
 
-  await supabase
+  const result = await supabase
     .from("user_settings")
     .upsert(
       { user_id: user.id, recent_catches: catches },
       { onConflict: "user_id" },
     );
+  reportMutationError(result);
 }
 
 export async function syncAllRecords(
@@ -326,9 +343,10 @@ export async function syncAllRecords(
   }));
 
   if (rows.length > 0) {
-    await supabase
+    const result = await supabase
       .from("pokedex")
       .upsert(rows, { onConflict: "user_id,species_id,form_name" });
+    reportMutationError(result);
   }
   await Promise.all([
     syncAvailableGames(snapshot.availableGames),
