@@ -11,6 +11,7 @@ import {
   isShinyTargetEntry,
 } from "@/lib/livingDex";
 import { isProgressSnapshot } from "@/lib/progressSnapshot";
+import { syncAllRecords } from "@/lib/sync";
 import { SparkleIcon } from "@/components/ui";
 import type {
   LivingDexEntry,
@@ -284,6 +285,7 @@ export function StatsView() {
       );
       if (!confirmed) return;
       setProgressSnapshot(parsed);
+      await syncAllRecords(parsed);
       setImportMessage(
         `Backup restored. ${importedOwnedCount} owned records loaded.`,
       );

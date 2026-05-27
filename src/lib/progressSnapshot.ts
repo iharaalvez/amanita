@@ -54,6 +54,51 @@ function isOwnedRecordMap(
   return isRecord(value) && Object.values(value).every(isOwnedRecord);
 }
 
+function isSpeciesFormRef(value: unknown): value is {
+  speciesId: number;
+  formName: string | null;
+} {
+  if (!isRecord(value)) return false;
+  return (
+    typeof value.speciesId === "number" &&
+    Number.isInteger(value.speciesId) &&
+    (typeof value.formName === "string" || value.formName === null)
+  );
+}
+
+function isShinyHunt(value: unknown): boolean {
+  if (!isSpeciesFormRef(value) || !isRecord(value)) return false;
+  return (
+    typeof value.id === "string" &&
+    typeof value.gameId === "string" &&
+    typeof value.method === "string" &&
+    typeof value.counterMode === "string" &&
+    typeof value.count === "number" &&
+    Number.isInteger(value.count) &&
+    value.count >= 0 &&
+    typeof value.startedAt === "string" &&
+    (value.completedAt === undefined || typeof value.completedAt === "string")
+  );
+}
+
+function isCatchEvent(value: unknown): boolean {
+  if (!isSpeciesFormRef(value) || !isRecord(value)) return false;
+  return (
+    typeof value.gameId === "string" &&
+    typeof value.date === "string" &&
+    typeof value.isShiny === "boolean" &&
+    typeof value.isAlpha === "boolean"
+  );
+}
+
+function isShinyHuntArray(value: unknown): boolean {
+  return Array.isArray(value) && value.every(isShinyHunt);
+}
+
+function isCatchEventArray(value: unknown): boolean {
+  return Array.isArray(value) && value.every(isCatchEvent);
+}
+
 export function isProgressSnapshot(value: unknown): value is ProgressSnapshot {
   if (!isRecord(value)) return false;
 
@@ -65,6 +110,9 @@ export function isProgressSnapshot(value: unknown): value is ProgressSnapshot {
     isBooleanRecord(value.availableGames) &&
     (value.pinnedGameId === undefined ||
       value.pinnedGameId === null ||
-      typeof value.pinnedGameId === "string")
+      typeof value.pinnedGameId === "string") &&
+    (value.shinyHunts === undefined || isShinyHuntArray(value.shinyHunts)) &&
+    (value.recentCatches === undefined ||
+      isCatchEventArray(value.recentCatches))
   );
 }

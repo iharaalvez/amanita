@@ -27,6 +27,28 @@ const validSnapshot: ProgressSnapshot = {
   availableGames: {
     "scarlet-violet": true,
   },
+  shinyHunts: [
+    {
+      id: "hunt-1",
+      speciesId: 1,
+      formName: null,
+      gameId: "scarlet-violet",
+      method: "outbreak",
+      counterMode: "encounters",
+      count: 42,
+      startedAt: "2026-05-20T10:00:00.000Z",
+    },
+  ],
+  recentCatches: [
+    {
+      speciesId: 1,
+      formName: null,
+      gameId: "scarlet-violet",
+      date: "2026-05-20T10:00:00.000Z",
+      isShiny: false,
+      isAlpha: false,
+    },
+  ],
 };
 
 describe("progress snapshot validation", () => {
@@ -92,6 +114,36 @@ describe("progress snapshot validation", () => {
             "1-base": "yes",
           },
         },
+      }),
+      false,
+    );
+  });
+
+  it("rejects malformed shiny hunt entries", () => {
+    assert.equal(
+      isProgressSnapshot({
+        ...validSnapshot,
+        shinyHunts: [
+          {
+            ...validSnapshot.shinyHunts![0],
+            count: -1,
+          },
+        ],
+      }),
+      false,
+    );
+  });
+
+  it("rejects malformed recent catch entries", () => {
+    assert.equal(
+      isProgressSnapshot({
+        ...validSnapshot,
+        recentCatches: [
+          {
+            ...validSnapshot.recentCatches![0],
+            isShiny: "no",
+          },
+        ],
       }),
       false,
     );
