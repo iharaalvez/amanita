@@ -54,11 +54,7 @@ function isOwnedRecordMap(
   return isRecord(value) && Object.values(value).every(isOwnedRecord);
 }
 
-function isSpeciesFormRef(value: unknown): value is {
-  speciesId: number;
-  formName: string | null;
-} {
-  if (!isRecord(value)) return false;
+function isSpeciesFormRef(value: Record<string, unknown>): boolean {
   return (
     typeof value.speciesId === "number" &&
     Number.isInteger(value.speciesId) &&
@@ -67,7 +63,7 @@ function isSpeciesFormRef(value: unknown): value is {
 }
 
 function isShinyHunt(value: unknown): boolean {
-  if (!isSpeciesFormRef(value) || !isRecord(value)) return false;
+  if (!isRecord(value) || !isSpeciesFormRef(value)) return false;
   return (
     typeof value.id === "string" &&
     typeof value.gameId === "string" &&
@@ -82,7 +78,7 @@ function isShinyHunt(value: unknown): boolean {
 }
 
 function isCatchEvent(value: unknown): boolean {
-  if (!isSpeciesFormRef(value) || !isRecord(value)) return false;
+  if (!isRecord(value) || !isSpeciesFormRef(value)) return false;
   return (
     typeof value.gameId === "string" &&
     typeof value.date === "string" &&
