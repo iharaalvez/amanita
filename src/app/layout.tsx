@@ -29,8 +29,6 @@ export const metadata: Metadata = {
   title: "Amanita",
   description: "Your Living Dex, organized.",
   icons: {
-    icon: "/icon.png",
-    shortcut: "/icon.png",
     apple: "/app-icon-180x180.png",
   },
 };
