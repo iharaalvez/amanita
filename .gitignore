@@ -38,6 +38,9 @@ next-dev-*.log
 # local env files
 .env*.local
 
+# supabase
+supabase/.temp/
+
 # vercel
 .vercel
 

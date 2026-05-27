@@ -1,119 +1,108 @@
-# Living Pokedex Tracker
+# Amanita
 
-A personal tracker for building a Living Pokedex: one of every Pokemon species, personally caught or bred, from Gen I to Gen IX.
-
-Built with Next.js, TypeScript, Tailwind CSS, Zustand, TanStack Query, and Supabase.
-
----
+Amanita is a Living Pokedex tracker for Pokemon collectors. It helps you track one personally caught or bred Pokemon per species, organize HOME-style boxes, follow per-game National Dex progress for Shiny Charm goals, and keep shiny hunts and recent catches synced across devices.
 
 ## Features
 
-### Pokedex View
+- Living Dex tracking for base species and supported forms
+- HOME box view with 30-slot grids inspired by Pokemon HOME
+- Missing Pokemon silhouettes instead of empty slots
+- Shiny Living Dex tracking and shiny hunt counters
+- Per-game National Dex views for Shiny Charm progress
+- Game-origin HOME box tracking, separate from in-game dex registration
+- Recent catches, pinned games, and available-game preferences
+- Supabase auth and cloud sync with localStorage persistence
+- JSON export/import for backups
+- Sandwich and donut helper tools
 
-- Full grid of all Pokemon species, base forms, and regional variants
-- Filter by generation, ownership status, shiny status, pending transfer, planned status, and type
-- Sort by Pokedex order, name A-Z, or missing-first
-- Search by name or Pokedex number
-- Per-generation progress and overall completion percentage
+## Stack
 
-### HOME Box View
+- Next.js App Router
+- React and TypeScript
+- Tailwind CSS
+- Zustand for user state
+- TanStack Query for cached API/reference data
+- Supabase for auth, Postgres, RLS, and sync
+- PokeAPI v2 for external Pokemon data patterns
 
-- 30-slot box layout inspired by Pokemon HOME
-- Color-coded slots: in HOME, pending transfer, shiny, planned, and missing
-- Search across HOME boxes
-- Header summary for stored in HOME, owned, and pending transfer counts
+## Domain Notes
 
-### Game Dex Tracker
+- `owned` means the Pokemon was personally caught or bred by the user, not traded for.
+- A Living Dex means one of each species.
+- HOME boxes are 30-slot grids matching Pokemon HOME's layout.
+- National Dex progress is tracked per game for Shiny Charm eligibility.
+- PokeAPI data is cached through TanStack Query and should not be stored in Zustand.
+- User progress lives in Zustand and syncs to Supabase when authenticated.
 
-- Per-game Pokedex completion across mainline titles
-- Shiny Charm progress surfaced prominently
-- Missing / registered segmented view
-- Catch-location guidance from seeded PokeAPI encounter data
+When adding data-fetching work, check the PokeAPI documentation first. For "which games" availability, use `/pokemon/{id}/encounters` and its version-specific encounter data.
 
-### Pokemon Detail Modal
+## Getting Started
 
-- Sprite, types, stats, and ownership status
-- Status toggles for owned, shiny, in HOME, planned, and game registrations
-- Catch locations per game where seeded encounter data exists
-- Data-quality note for incomplete PokeAPI encounter coverage
-
-### Stats Dashboard
-
-- Living Dex and Shiny Living Dex progress
-- Per-generation breakdowns
-- Acquisition and shiny hunt method summaries
-- JSON export/import for backup and restore
-
----
-
-## Tech Stack
-
-| Layer             | Tool                   |
-| ----------------- | ---------------------- |
-| Framework         | Next.js 14+ App Router |
-| Language          | TypeScript strict      |
-| Styling           | Tailwind CSS           |
-| State             | Zustand + localStorage |
-| Server state      | TanStack Query         |
-| Auth and database | Supabase               |
-| External source   | PokeAPI v2             |
-
----
-
-## Local Development
+Install dependencies:
 
 ```bash
 npm install
-npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000).
-
-Required environment variables:
+Create `.env.local`:
 
 ```txt
 NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_ANON_KEY=
 ```
 
-The production app runs on Vercel + Supabase. There is no app backend service in this repo; the Python seeder is only for local reference-data maintenance.
+Run the dev server:
 
----
+```bash
+npm run dev
+```
 
-## Data Seeding
+Open `http://localhost:3000`.
 
-Reference Pokemon data is stored in Supabase and refreshed with the Python seeder in `seeder`.
+## Scripts
 
-See [docs/seed-data.md](docs/seed-data.md).
+```bash
+npm run dev          # Start local Next.js dev server
+npm run build        # Production build
+npm run lint         # ESLint
+npm test             # Node test suite
+npm run seed         # Run the Python Supabase reference-data seeder
+npm run seed:forms   # Seed cosmetic form rules
+npm run import:pokedb # Import PokeDB JSON exports
+```
 
----
+## Project Layout
 
-## Ownership States
+```txt
+src/app/              App Router pages and layouts
+src/components/       UI, dashboard, and Pokemon feature components
+src/hooks/            TanStack Query and app hooks
+src/store/            Zustand stores
+src/lib/              API, sync, merge, and domain helpers
+src/config/           Game and form configuration
+src/data/             Curated app data
+public/               App icons, game icons, maps, and tool assets
+supabase/migrations/  Database schema and data migrations
+seeder/               Python reference-data seeder
+scripts/              Maintenance/import scripts
+docs/                 Data and seeding notes
+```
 
-| Color  | State   | Meaning                     |
-| ------ | ------- | --------------------------- |
-| Green  | In HOME | Transferred to Pokemon HOME |
-| Blue   | Pending | Owned but not yet in HOME   |
-| Gold   | Shiny   | Shiny variant owned         |
-| Violet | Planned | Marked as a target to catch |
-| Gray   | Missing | Not yet obtained            |
+## Sync Model
 
----
+Reference data and Pokemon metadata are fetched/cached as server state. User-owned progress is local-first in Zustand and persisted in localStorage. When a user is signed in, changes sync to Supabase:
 
-## Supported Games
+- `pokedex` stores Living Dex ownership rows
+- `user_settings` stores available games, game dex flags, HOME boxes, pinned game, shiny hunts, and recent catches
 
-All mainline titles from Generation I through IX:
+On sign-in, local and remote progress are merged, then the merged snapshot is written back to Supabase. Realtime updates and polling keep active sessions current.
 
-| Gen  | Games                                                                  |
-| ---- | ---------------------------------------------------------------------- |
-| I    | Red / Blue, Yellow                                                     |
-| II   | Gold / Silver, Crystal                                                 |
-| III  | Ruby / Sapphire, Emerald, FireRed / LeafGreen                          |
-| IV   | Diamond / Pearl, Platinum, HeartGold / SoulSilver                      |
-| V    | Black / White, Black 2 / White 2\*                                     |
-| VI   | X / Y*, Omega Ruby / Alpha Sapphire*                                   |
-| VII  | Sun / Moon*, Ultra Sun / Ultra Moon*                                   |
-| VIII | Sword / Shield*, Brilliant Diamond / Shining Pearl*, Legends: Arceus\* |
-| IX   | Scarlet / Violet*, Legends: Z-A*                                       |
+## Testing
 
-`*` Completing the Pokedex in these games unlocks the Shiny Charm.
+Before pushing app changes, run:
+
+```bash
+npm test
+npm run lint
+npm run build
+```
