@@ -1,6 +1,7 @@
 "use client";
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { User as SupabaseUser } from "@supabase/supabase-js";
@@ -215,8 +216,15 @@ function AppHeader({ user }: { user: SupabaseUser }) {
   return (
     <header className="relative z-40 flex h-14 shrink-0 items-center justify-between border-b border-[#d9d1c2] bg-[#f4f0e8]/95 px-4 shadow-sm shadow-black/[0.03] backdrop-blur sm:h-16 sm:px-5 dark:border-[#2f2b40] dark:bg-[#151520]/95">
       <div className="flex items-center gap-2 text-[#10131d] dark:text-[#f8f0df]">
-        <span className="grid h-8 w-8 place-items-center rounded-full border border-[#9b84c8]/45 text-[12px] font-black text-[#7c5db0] dark:text-[#c7a7ff]">
-          A
+        <span className="grid h-8 w-8 shrink-0 place-items-center overflow-hidden rounded-lg border border-[#9b84c8]/45 bg-white/75 shadow-sm dark:bg-[#0d0f18]">
+          <Image
+            src="/icon.png"
+            alt=""
+            aria-hidden="true"
+            width={32}
+            height={32}
+            className="h-full w-full object-cover"
+          />
         </span>
         <span className="text-lg font-black tracking-tight">Amanita</span>
       </div>

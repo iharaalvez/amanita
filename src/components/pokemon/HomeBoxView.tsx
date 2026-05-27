@@ -430,7 +430,7 @@ export function HomeBoxView({ onSelect }: Props) {
       </header>
 
       {/* Controls */}
-      <div className="sticky top-0 z-20 -mx-2 mb-3 space-y-2.5 rounded-b-lg border-b border-gray-100 bg-white/95 p-3 backdrop-blur dark:border-gray-800 dark:bg-[#0f172a]/95 sm:-mx-4 sm:px-4">
+      <div className="sticky top-0 z-20 mb-3 space-y-2.5 rounded-lg border border-gray-100 bg-white/95 p-3 backdrop-blur dark:border-gray-800 dark:bg-[#0f172a]/95 sm:px-4">
         {/* Row 1: filters left, search + forms right */}
         <div className="flex flex-wrap items-center justify-between gap-2 sm:gap-2">
           <div className="grid w-full grid-cols-2 gap-1.5 min-[430px]:flex min-[430px]:w-auto min-[430px]:flex-wrap min-[430px]:items-center sm:gap-1.5">
