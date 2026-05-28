@@ -23,7 +23,7 @@ function AuthSync() {
     let realtimeChannel: ReturnType<typeof supabase.channel> | null = null;
 
     // Fetch remote state and apply as the source of truth.
-    // No write-back: individual user actions (syncRecord, syncGameDex, etc.)
+    // No write-back: individual user actions write to Supabase immediately.
     // already write to Supabase immediately on every toggle.
     const loadAndApply = (userId: string) => {
       loadFromSupabase(userId)
@@ -81,6 +81,56 @@ function AuthSync() {
             event: "*",
             schema: "public",
             table: "user_settings",
+            filter: `user_id=eq.${userId}`,
+          },
+          handleChange,
+        )
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "user_games",
+            filter: `user_id=eq.${userId}`,
+          },
+          handleChange,
+        )
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "user_game_dex",
+            filter: `user_id=eq.${userId}`,
+          },
+          handleChange,
+        )
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "user_game_home_boxes",
+            filter: `user_id=eq.${userId}`,
+          },
+          handleChange,
+        )
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "user_shiny_hunts",
+            filter: `user_id=eq.${userId}`,
+          },
+          handleChange,
+        )
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "user_recent_catches",
             filter: `user_id=eq.${userId}`,
           },
           handleChange,
