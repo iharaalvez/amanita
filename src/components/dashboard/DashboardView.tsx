@@ -93,6 +93,7 @@ type RecentCatch = {
   gameName: string | null;
   isShiny: boolean;
   isAlpha: boolean;
+  event: CatchEvent;
 };
 
 export function DashboardView() {
@@ -117,7 +118,9 @@ export function DashboardView() {
   const setShinyHuntCount = usePokedexStore((s) => s.setShinyHuntCount);
   const removeShinyHunt = usePokedexStore((s) => s.removeShinyHunt);
   const completeShinyHunt = usePokedexStore((s) => s.completeShinyHunt);
+  const removeRecentCatch = usePokedexStore((s) => s.removeRecentCatch);
   const availableGames = usePokedexStore((s) => s.availableGames);
+  const removeGameAvailable = usePokedexStore((s) => s.removeGameAvailable);
   const availableGameIds = useMemo(() => {
     const gameOrder = new Map(GAME_LIST.map((g, i) => [g.id, i]));
     return Object.entries(availableGames)
@@ -320,51 +323,64 @@ export function DashboardView() {
                 ).length;
                 const isPinned = gameId === pinnedGameId;
                 return (
-                  <Link
+                  <div
                     key={gameId}
-                    href={`/game/${gameId}`}
-                    title={game.name}
-                    className={`flex shrink-0 flex-col items-center gap-1 rounded-lg px-2 py-1 transition-colors hover:bg-white/5 ${
+                    className={`group relative flex shrink-0 flex-col items-center rounded-lg transition-colors hover:bg-white/5 ${
                       isPinned ? "bg-[#b9ec86]/5 ring-1 ring-[#b9ec86]/30" : ""
                     }`}
                   >
-                    {GAME_ALT_LOGOS.has(gameId) ? (
-                      <div className="flex items-end">
-                        <Image
-                          src={`/icons/games/${gameId}-alt.png`}
-                          alt=""
-                          width={150}
-                          height={52}
-                          unoptimized
-                          className="h-12 w-auto max-w-[150px] object-contain opacity-80 -mr-6"
-                        />
+                    <Link
+                      href={`/game/${gameId}`}
+                      title={game.name}
+                      className="flex flex-col items-center gap-1 px-2 py-1"
+                    >
+                      {GAME_ALT_LOGOS.has(gameId) ? (
+                        <div className="flex items-end">
+                          <Image
+                            src={`/icons/games/${gameId}-alt.png`}
+                            alt=""
+                            width={150}
+                            height={52}
+                            unoptimized
+                            className="h-12 w-auto max-w-[150px] object-contain opacity-80 -mr-6"
+                          />
+                          <Image
+                            src={`/icons/games/${gameId}.png`}
+                            alt={game.name}
+                            width={160}
+                            height={64}
+                            unoptimized
+                            className="relative z-10 h-16 w-auto max-w-[160px] object-contain"
+                          />
+                        </div>
+                      ) : (
                         <Image
                           src={`/icons/games/${gameId}.png`}
                           alt={game.name}
-                          width={160}
+                          width={180}
                           height={64}
                           unoptimized
-                          className="relative z-10 h-16 w-auto max-w-[160px] object-contain"
+                          className="h-16 w-auto max-w-[180px] object-contain"
                         />
-                      </div>
-                    ) : (
-                      <Image
-                        src={`/icons/games/${gameId}.png`}
-                        alt={game.name}
-                        width={180}
-                        height={64}
-                        unoptimized
-                        className="h-16 w-auto max-w-[180px] object-contain"
-                      />
-                    )}
-                    {caught > 0 && (
-                      <span
-                        className={`text-[9px] font-semibold ${isPinned ? "text-[#b9ec86]" : "text-[#8f8799]"}`}
-                      >
-                        {caught}
-                      </span>
-                    )}
-                  </Link>
+                      )}
+                      {caught > 0 && (
+                        <span
+                          className={`text-[9px] font-semibold ${isPinned ? "text-[#b9ec86]" : "text-[#8f8799]"}`}
+                        >
+                          {caught}
+                        </span>
+                      )}
+                    </Link>
+                    <button
+                      type="button"
+                      onClick={() => removeGameAvailable(gameId)}
+                      aria-label={`Remove ${game.name} from your games`}
+                      title={`Remove ${game.name}`}
+                      className="absolute -right-1 -top-1 grid h-5 w-5 place-items-center rounded-full bg-[#151520] text-[#8f8799] opacity-0 ring-1 ring-[#2f2b40] transition hover:text-[#f8f0df] group-hover:opacity-100 focus:opacity-100"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
                 );
               })
             ) : (
@@ -372,7 +388,7 @@ export function DashboardView() {
                 href="/game"
                 className="text-[10px] text-[#8f8799] transition-colors hover:text-[#f8f0df]"
               >
-                No games added yet — click to get started →
+                No games added yet - click to get started
               </Link>
             )}
           </div>
@@ -381,7 +397,7 @@ export function DashboardView() {
         {/* Main content: 2-col */}
         <div className="mt-4 grid items-start gap-4 lg:grid-cols-[1.35fr_1fr]">
           {/* Recent Catches */}
-          <section className="rounded-lg border border-[#2f2b40] bg-[#1a1a27]/80 p-4">
+          <section className="order-3 rounded-lg border border-[#2f2b40] bg-[#1a1a27]/80 p-4 lg:col-start-2 lg:row-start-2">
             <h2 className="mb-3 text-xs font-black">Recent Catches</h2>
             <div>
               {recentCatches.length > 0 ? (
@@ -406,7 +422,7 @@ export function DashboardView() {
                         </p>
                         {pokemon.isShiny && (
                           <span className="shrink-0 text-xs font-bold text-[#f8d85a]">
-                            ✦
+                            shiny
                           </span>
                         )}
                       </div>
@@ -418,28 +434,39 @@ export function DashboardView() {
                         )}
                         {pokemon.isAlpha && (
                           <span className="text-xs font-bold text-[#c084fc]">
-                            α
+                            alpha
                           </span>
                         )}
                       </div>
                     </div>
-                    <p className="col-start-2 text-xs font-semibold text-[#d4cedb] min-[420px]:col-start-auto">
-                      {pokemon.dateLabel}
-                    </p>
+                    <div className="col-start-2 flex items-center justify-between gap-2 min-[420px]:col-start-auto">
+                      <p className="text-xs font-semibold text-[#d4cedb]">
+                        {pokemon.dateLabel}
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => removeRecentCatch(pokemon.event)}
+                        aria-label={`Delete ${pokemon.name} from recent catches`}
+                        title="Delete recent catch"
+                        className="grid h-7 w-7 place-items-center rounded-lg text-[#8f8799] transition-colors hover:bg-white/5 hover:text-[#f8f0df]"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
                   </div>
                 ))
               ) : (
                 <p className="py-6 text-center text-[10px] text-[#8f8799]">
-                  No catches yet — mark Pokémon in a game dex to get started.
+                  No catches yet - mark Pokemon in a game dex to get started.
                 </p>
               )}
             </div>
           </section>
 
           {/* Right column */}
-          <div className="flex flex-col gap-4">
+          <div className="contents">
             {/* Progress */}
-            <section className="rounded-lg border border-[#2f2b40] bg-[#1a1a27]/80 p-4">
+            <section className="order-2 rounded-lg border border-[#2f2b40] bg-[#1a1a27]/80 p-4 lg:col-start-2 lg:row-start-1">
               <h2 className="mb-3 text-xs font-black">Living Dex Progress</h2>
               <div className="flex items-center gap-5">
                 <div
@@ -492,7 +519,7 @@ export function DashboardView() {
             </section>
 
             {/* Shiny Hunts */}
-            <section className="overflow-hidden rounded-lg border border-[#2f2b40] bg-[#1a1a27]/80">
+            <section className="order-1 overflow-hidden rounded-lg border border-[#2f2b40] bg-[#1a1a27]/80 lg:col-start-1 lg:row-start-1">
               <div className="flex items-center justify-between gap-3 border-b border-[#2f2b40]/70 px-4 py-3">
                 <div>
                   <h2 className="text-xs font-black">Shiny Hunts</h2>
@@ -554,6 +581,7 @@ export function DashboardView() {
                           entry={entryByKey.get(
                             ownedKey(hunt.speciesId, hunt.formName),
                           )}
+                          onRemove={() => removeShinyHunt(hunt.id)}
                         />
                       ))}
                     </div>
@@ -894,9 +922,11 @@ function ShinyHuntCard({
 function CompletedHuntRow({
   hunt,
   entry,
+  onRemove,
 }: {
   hunt: ShinyHunt;
   entry?: LivingDexEntry;
+  onRemove: () => void;
 }) {
   const spriteUrl = entry?.shinySpriteUrl ?? entry?.spriteUrl;
   const methodLabel = METHOD_LABELS[hunt.method] ?? titleCaseLabel(hunt.method);
@@ -924,8 +954,19 @@ function CompletedHuntRow({
           {formatDuration(hunt.startedAt, hunt.completedAt)} · {methodLabel}
         </span>
       </span>
-      <span className="rounded-full bg-[#f8d85a]/10 px-2 py-1 font-mono text-[10px] font-black text-[#f8d85a]">
-        {hunt.count.toLocaleString()}
+      <span className="flex items-center gap-1.5">
+        <span className="rounded-full bg-[#f8d85a]/10 px-2 py-1 font-mono text-[10px] font-black text-[#f8d85a]">
+          {hunt.count.toLocaleString()}
+        </span>
+        <button
+          type="button"
+          onClick={onRemove}
+          aria-label="Delete hunt history entry"
+          title="Delete hunt history entry"
+          className="grid h-7 w-7 place-items-center rounded-lg text-[#8f8799] transition-colors hover:bg-white/5 hover:text-[#f8f0df]"
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+        </button>
       </span>
     </div>
   );
@@ -993,6 +1034,7 @@ function getRecentCatches(
       gameName: getGameById(event.gameId)?.name ?? event.gameId,
       isShiny: event.isShiny,
       isAlpha: event.isAlpha,
+      event,
     });
   }
   return results;

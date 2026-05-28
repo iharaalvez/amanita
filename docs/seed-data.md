@@ -17,6 +17,11 @@ User data lives separately in:
 
 - `pokedex`
 - `user_settings`
+- `user_games`
+- `user_game_dex`
+- `user_game_home_boxes`
+- `user_shiny_hunts`
+- `user_recent_catches`
 
 The seeder should only refresh reference tables. It should not touch user progress tables.
 
@@ -112,6 +117,11 @@ It does not truncate:
 
 - `pokedex`
 - `user_settings`
+- `user_games`
+- `user_game_dex`
+- `user_game_home_boxes`
+- `user_shiny_hunts`
+- `user_recent_catches`
 
 ## Refresh Manual Game Dexes
 

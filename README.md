@@ -93,7 +93,12 @@ docs/                 Data and seeding notes
 Reference data and Pokemon metadata are fetched/cached as server state. User-owned progress is local-first in Zustand and persisted in localStorage. When a user is signed in, changes sync to Supabase:
 
 - `pokedex` stores Living Dex ownership rows
-- `user_settings` stores available games, game dex flags, HOME boxes, pinned game, shiny hunts, and recent catches
+- `user_games` stores available game selections
+- `user_game_dex` stores per-game National Dex, shiny, alpha, and shiny-alpha flags
+- `user_game_home_boxes` stores per-game HOME transfer box progress
+- `user_shiny_hunts` stores shiny hunt counters and completion state
+- `user_recent_catches` stores the recent catch log
+- `user_settings` stores small preferences such as the pinned game
 
 On sign-in, local and remote progress are merged, then the merged snapshot is written back to Supabase. Realtime updates and polling keep active sessions current.
 
