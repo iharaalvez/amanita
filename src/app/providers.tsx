@@ -120,6 +120,16 @@ function AuthSync() {
           {
             event: "*",
             schema: "public",
+            table: "user_home_box_layouts",
+            filter: `user_id=eq.${userId}`,
+          },
+          handleChange,
+        )
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
             table: "user_shiny_hunts",
             filter: `user_id=eq.${userId}`,
           },

@@ -384,6 +384,16 @@ function mergeGameDexRecords(
   return result;
 }
 
+function mergeHomeBoxLayouts(
+  local: HomeBoxLayoutProfile[],
+  remote: HomeBoxLayoutProfile[],
+): HomeBoxLayoutProfile[] {
+  const byId = new Map<string, HomeBoxLayoutProfile>();
+  for (const layout of remote) byId.set(layout.id, layout);
+  for (const layout of local) byId.set(layout.id, layout);
+  return Array.from(byId.values());
+}
+
 function mergeGameHomeBoxRecords(
   local: Record<string, Record<string, boolean>>,
   remote: Record<string, Record<string, boolean>> | undefined,
@@ -657,10 +667,10 @@ export const usePokedexStore = create<PokedexState>()(
             ),
           },
           pinnedGameId: current.pinnedGameId ?? snapshot.pinnedGameId ?? null,
-          homeBoxLayouts:
-            current.homeBoxLayouts.length > 0
-              ? current.homeBoxLayouts
-              : normalizeHomeBoxLayouts(snapshot.homeBoxLayouts),
+          homeBoxLayouts: mergeHomeBoxLayouts(
+            current.homeBoxLayouts,
+            normalizeHomeBoxLayouts(snapshot.homeBoxLayouts),
+          ),
           activeHomeBoxLayoutId:
             current.activeHomeBoxLayoutId ||
             snapshot.activeHomeBoxLayoutId ||

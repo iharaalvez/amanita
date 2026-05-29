@@ -61,7 +61,6 @@ type SupabaseRow = {
 
 type SettingsRow = {
   pinned_game_id?: string | null;
-  home_box_layouts?: unknown;
   active_home_box_layout_id?: string | null;
 };
 
@@ -84,6 +83,14 @@ type UserGameHomeBoxRow = {
   game_id: string;
   species_id: number;
   form_name: string;
+};
+
+type UserHomeBoxLayoutRow = {
+  id: string;
+  name: string;
+  mode: string;
+  show_cosmetic_forms: boolean;
+  show_gender_forms: boolean;
 };
 
 type UserShinyHuntRow = {
@@ -179,23 +186,19 @@ function isHomeBoxMode(value: unknown): value is HomeBoxMode {
   return value === "normal" || value === "shiny" || value === "paired";
 }
 
-function isHomeBoxLayoutProfile(value: unknown): value is HomeBoxLayoutProfile {
-  if (typeof value !== "object" || value === null || Array.isArray(value)) {
-    return false;
-  }
-  const layout = value as Record<string, unknown>;
-  return (
-    typeof layout.id === "string" &&
-    typeof layout.name === "string" &&
-    isHomeBoxMode(layout.mode) &&
-    typeof layout.showCosmeticForms === "boolean" &&
-    typeof layout.showGenderForms === "boolean"
-  );
-}
-
-function homeBoxLayoutsFromSettings(value: unknown): HomeBoxLayoutProfile[] {
-  if (!Array.isArray(value)) return [];
-  return value.filter(isHomeBoxLayoutProfile);
+function homeBoxLayoutsFromRows(
+  rows: UserHomeBoxLayoutRow[],
+): HomeBoxLayoutProfile[] {
+  return rows.flatMap((row) => {
+    if (!isHomeBoxMode(row.mode)) return [];
+    return {
+      id: row.id,
+      name: row.name,
+      mode: row.mode,
+      showCosmeticForms: row.show_cosmetic_forms,
+      showGenderForms: row.show_gender_forms,
+    };
+  });
 }
 
 function flattenGameDex(
@@ -256,13 +259,14 @@ export async function loadFromSupabase(
     userGamesResult,
     gameDexResult,
     gameHomeBoxesResult,
+    homeBoxLayoutsResult,
     shinyHuntsResult,
     recentCatchesResult,
   ] = await Promise.all([
     supabase.from("pokedex").select("*").eq("user_id", resolvedUserId),
     supabase
       .from("user_settings")
-      .select("pinned_game_id, home_box_layouts, active_home_box_layout_id")
+      .select("pinned_game_id, active_home_box_layout_id")
       .eq("user_id", resolvedUserId)
       .maybeSingle(),
     supabase
@@ -279,6 +283,11 @@ export async function loadFromSupabase(
       .from("user_game_home_boxes")
       .select("game_id, species_id, form_name")
       .eq("user_id", resolvedUserId),
+    supabase
+      .from("user_home_box_layouts")
+      .select("id, name, mode, show_cosmetic_forms, show_gender_forms")
+      .eq("user_id", resolvedUserId)
+      .order("created_at", { ascending: true }),
     supabase
       .from("user_shiny_hunts")
       .select(
@@ -299,6 +308,7 @@ export async function loadFromSupabase(
   if (userGamesResult.error) throw userGamesResult.error;
   if (gameDexResult.error) throw gameDexResult.error;
   if (gameHomeBoxesResult.error) throw gameHomeBoxesResult.error;
+  if (homeBoxLayoutsResult.error) throw homeBoxLayoutsResult.error;
   if (shinyHuntsResult.error) throw shinyHuntsResult.error;
   if (recentCatchesResult.error) throw recentCatchesResult.error;
 
@@ -346,7 +356,9 @@ export async function loadFromSupabase(
   const recentCatches = recentCatchesFromRows(
     (recentCatchesResult.data ?? []) as UserRecentCatchRow[],
   );
-  const homeBoxLayouts = homeBoxLayoutsFromSettings(settings?.home_box_layouts);
+  const homeBoxLayouts = homeBoxLayoutsFromRows(
+    (homeBoxLayoutsResult.data ?? []) as UserHomeBoxLayoutRow[],
+  );
   const activeHomeBoxLayoutId =
     typeof settings?.active_home_box_layout_id === "string" &&
     homeBoxLayouts.some(
@@ -632,15 +644,37 @@ export async function syncHomeBoxLayouts(
       ? activeLayoutId
       : null;
 
-  const result = await supabase.from("user_settings").upsert(
+  const deleteResult = await supabase
+    .from("user_home_box_layouts")
+    .delete()
+    .eq("user_id", user.id);
+  reportMutationError(deleteResult);
+  if (deleteResult.error) return;
+
+  if (layouts.length > 0) {
+    const layoutResult = await supabase.from("user_home_box_layouts").upsert(
+      layouts.map((layout) => ({
+        user_id: user.id,
+        id: layout.id,
+        name: layout.name,
+        mode: layout.mode,
+        show_cosmetic_forms: layout.showCosmeticForms,
+        show_gender_forms: layout.showGenderForms,
+      })),
+      { onConflict: "user_id,id" },
+    );
+    reportMutationError(layoutResult);
+    if (layoutResult.error) return;
+  }
+
+  const settingsResult = await supabase.from("user_settings").upsert(
     {
       user_id: user.id,
-      home_box_layouts: layouts,
       active_home_box_layout_id: normalizedActiveId,
     },
     { onConflict: "user_id" },
   );
-  reportMutationError(result);
+  reportMutationError(settingsResult);
 }
 
 export async function syncShinyHunts(hunts: ShinyHunt[]): Promise<void> {
