@@ -194,10 +194,7 @@ function AppHeader({ user }: { user: SupabaseUser }) {
     if (!menuOpen) return;
 
     const onPointerDown = (event: PointerEvent) => {
-      if (
-        menuRef.current &&
-        !menuRef.current.contains(event.target as Node)
-      ) {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
         setMenuOpen(false);
       }
     };
@@ -220,7 +217,7 @@ function AppHeader({ user }: { user: SupabaseUser }) {
         aria-label="Amanita home"
         className="flex min-w-0 items-center gap-2.5"
       >
-        <span className="grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-xl border border-[#9b84c8]/45 bg-white/75 p-0.5 shadow-sm dark:bg-[#0d0f18]">
+        <span className="grid h-12 w-12 shrink-0 place-items-center overflow-hidden rounded-xl">
           <Image
             src="/brand/180x180.png"
             alt=""

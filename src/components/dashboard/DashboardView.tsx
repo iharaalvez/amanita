@@ -398,7 +398,15 @@ export function DashboardView() {
         <div className="mt-4 grid items-start gap-4 lg:grid-cols-[1.35fr_1fr]">
           {/* Recent Catches */}
           <section className="order-3 rounded-lg border border-[#2f2b40] bg-[#1a1a27]/80 p-4 lg:col-start-2 lg:row-start-2">
-            <h2 className="mb-3 text-xs font-black">Recent Catches</h2>
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <h2 className="text-xs font-black">Recent Catches</h2>
+              <Link
+                href="/history"
+                className="text-[10px] font-bold text-[#8f8799] transition-colors hover:text-[#f8f0df]"
+              >
+                View all
+              </Link>
+            </div>
             <div>
               {recentCatches.length > 0 ? (
                 recentCatches.map((pokemon) => (
@@ -519,7 +527,7 @@ export function DashboardView() {
             </section>
 
             {/* Shiny Hunts */}
-            <section className="order-1 overflow-hidden rounded-lg border border-[#2f2b40] bg-[#1a1a27]/80 lg:col-start-1 lg:row-start-1">
+            <section className="order-1 overflow-hidden rounded-lg border border-[#2f2b40] bg-[#1a1a27]/80 lg:col-start-1 lg:row-span-2 lg:row-start-1">
               <div className="flex items-center justify-between gap-3 border-b border-[#2f2b40]/70 px-4 py-3">
                 <div>
                   <h2 className="text-xs font-black">Shiny Hunts</h2>
@@ -528,13 +536,21 @@ export function DashboardView() {
                     {completedShinyHunts.length} recent complete
                   </p>
                 </div>
-                <button
-                  onClick={openAddHuntModal}
-                  className="inline-flex items-center gap-1 rounded-full bg-[#f8d85a]/10 px-2.5 py-1 text-[10px] font-black text-[#f8d85a] transition-colors hover:bg-[#f8d85a]/20"
-                >
-                  <Plus className="h-3 w-3" />
-                  Add
-                </button>
+                <div className="flex items-center gap-2">
+                  <Link
+                    href="/history"
+                    className="text-[10px] font-bold text-[#8f8799] transition-colors hover:text-[#f8f0df]"
+                  >
+                    View all
+                  </Link>
+                  <button
+                    onClick={openAddHuntModal}
+                    className="inline-flex items-center gap-1 rounded-full bg-[#f8d85a]/10 px-2.5 py-1 text-[10px] font-black text-[#f8d85a] transition-colors hover:bg-[#f8d85a]/20"
+                  >
+                    <Plus className="h-3 w-3" />
+                    Add
+                  </button>
+                </div>
               </div>
 
               <div className="p-4">
@@ -803,12 +819,12 @@ function ShinyHuntCard({
   };
 
   return (
-    <article className="relative overflow-hidden rounded-xl border border-[#3b3350] bg-[radial-gradient(circle_at_50%_0%,rgba(248,216,90,0.18),transparent_42%),#151520] shadow-sm">
-      <div className="flex flex-col items-center px-4 pb-3 pt-5 text-center">
+    <article className="relative overflow-hidden rounded-xl border border-[#3b3350] bg-[radial-gradient(circle_at_50%_0%,rgba(248,216,90,0.16),transparent_38%),#151520] shadow-sm">
+      <div className="flex flex-col items-center px-3 pb-3 pt-4 text-center">
         <button
           type="button"
           onClick={onIncrement}
-          className="relative grid h-24 w-24 place-items-center rounded-2xl bg-[#0f101a] ring-1 ring-[#f8d85a]/25 transition-transform hover:scale-[1.03]"
+          className="relative grid h-20 w-20 place-items-center rounded-2xl bg-[#0f101a] ring-1 ring-[#f8d85a]/25 transition-transform hover:scale-[1.03]"
           aria-label="Add one shiny hunt check"
         >
           {spriteUrl && (
@@ -818,16 +834,16 @@ function ShinyHuntCard({
               width={96}
               height={96}
               unoptimized
-              className="h-20 w-20 object-contain [image-rendering:pixelated]"
+              className="h-16 w-16 object-contain [image-rendering:pixelated]"
             />
           )}
           <Sparkles className="absolute right-2 top-2 h-4 w-4 text-[#f8d85a]" />
         </button>
 
-        <div className="mt-3 w-full min-w-0">
+        <div className="mt-2.5 w-full min-w-0">
           <div className="flex min-w-0 flex-col items-center gap-2">
             <div className="max-w-full min-w-0 text-center">
-              <p className="truncate text-base font-black">
+              <p className="truncate text-sm font-black">
                 {entry?.displayName ??
                   `#${String(hunt.speciesId).padStart(4, "0")}`}
               </p>
@@ -837,11 +853,11 @@ function ShinyHuntCard({
             </div>
           </div>
 
-          <div className="mt-3 grid grid-cols-[38px_1fr_44px] items-center gap-2 rounded-xl bg-[#0f101a] p-2 ring-1 ring-white/5">
+          <div className="mt-2.5 grid grid-cols-[36px_1fr_42px] items-center gap-2 rounded-xl bg-[#0f101a] p-2 ring-1 ring-white/5">
             <button
               type="button"
               onClick={onDecrement}
-              className="grid h-9 w-9 place-items-center rounded-lg bg-white/5 text-[#8f8799] transition-colors hover:bg-white/10 hover:text-[#f8f0df]"
+              className="grid h-8 w-8 place-items-center rounded-lg bg-white/5 text-[#8f8799] transition-colors hover:bg-white/10 hover:text-[#f8f0df]"
               aria-label="Remove one shiny hunt check"
             >
               <Minus className="h-4 w-4" />
@@ -870,7 +886,7 @@ function ShinyHuntCard({
                     event.currentTarget.blur();
                   }
                 }}
-                className="mx-auto block w-full min-w-0 bg-transparent text-center font-mono text-2xl font-black leading-none text-[#f8d85a] outline-none selection:bg-[#f8d85a]/25"
+                className="mx-auto block w-full min-w-0 bg-transparent text-center font-mono text-xl font-black leading-none text-[#f8d85a] outline-none selection:bg-[#f8d85a]/25"
               />
               <p className="mt-1 truncate text-[9px] font-bold uppercase tracking-wide text-[#8f8799]">
                 {counterLabel}
@@ -879,7 +895,7 @@ function ShinyHuntCard({
             <button
               type="button"
               onClick={onIncrement}
-              className="grid h-9 w-full place-items-center rounded-lg bg-[#f8d85a]/15 text-xs font-black text-[#f8d85a] transition-colors hover:bg-[#f8d85a]/25"
+              className="grid h-8 w-full place-items-center rounded-lg bg-[#f8d85a]/15 text-xs font-black text-[#f8d85a] transition-colors hover:bg-[#f8d85a]/25"
               aria-label="Add one shiny hunt check"
             >
               +1
@@ -888,7 +904,7 @@ function ShinyHuntCard({
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-1.5 border-t border-[#2f2b40]/70 px-3 py-3">
+      <div className="grid grid-cols-3 gap-1.5 border-t border-[#2f2b40]/70 px-3 py-2.5">
         <button
           type="button"
           onClick={onEdit}

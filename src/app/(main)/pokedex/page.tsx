@@ -12,7 +12,7 @@ export default function PokedexPage() {
 
   return (
     <div className="flex min-h-full flex-col bg-[#f4f0e8] dark:bg-[#0d0f18]">
-      <div className="sticky top-0 z-10 border-y border-[#ded6c8] bg-[#f4f0e8]/95 px-4 py-3 backdrop-blur dark:border-[#302a40] dark:bg-[#0d0f18]/95">
+      <div className="sticky top-0 z-10 border-y border-[#ded6c8] bg-[#f4f0e8]/95 px-3 py-2 backdrop-blur sm:px-4 sm:py-3 dark:border-[#302a40] dark:bg-[#0d0f18]/95">
         <div className="mx-auto flex max-w-7xl items-center gap-2">
           <div className="relative flex-1">
             <label htmlFor="pokedex-search" className="sr-only">
@@ -24,7 +24,7 @@ export default function PokedexPage() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Find a Pokemon..."
-              className="h-10 w-full rounded-lg border border-[#ded6c8] bg-white px-3 pr-8 text-sm font-medium text-[#10131d] placeholder:text-[#8f8799] focus:outline-none focus:ring-2 focus:ring-[#f43434] dark:border-[#524969] dark:bg-[#161522] dark:text-[#f8f0df]"
+              className="h-9 w-full rounded-lg border border-[#ded6c8] bg-white px-3 pr-8 text-sm font-medium text-[#10131d] placeholder:text-[#8f8799] focus:outline-none focus:ring-2 focus:ring-[#f43434] sm:h-10 dark:border-[#524969] dark:bg-[#161522] dark:text-[#f8f0df]"
             />
             {search && (
               <button
@@ -41,8 +41,9 @@ export default function PokedexPage() {
             type="button"
             onClick={() => setFiltersOpen((v) => !v)}
             aria-label="Toggle filters"
+            aria-controls="pokedex-filters"
             aria-expanded={filtersOpen}
-            className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#f43434] ${
+            className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#f43434] sm:hidden ${
               filtersOpen
                 ? "border-[#f43434] bg-[#f43434] text-white"
                 : "border-[#ded6c8] bg-white text-[#514874] hover:bg-[#fffaf0] dark:border-[#524969] dark:bg-[#161522] dark:text-[#c9c1d7] dark:hover:bg-[#211b32]"

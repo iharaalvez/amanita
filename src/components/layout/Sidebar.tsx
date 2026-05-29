@@ -8,6 +8,7 @@ import {
   Boxes,
   Gamepad2,
   Grid3X3,
+  History,
   LayoutDashboard,
   Pin,
   Wrench,
@@ -46,6 +47,12 @@ const NAV_ITEMS: NavItem[] = [
     label: "Games",
     shortLabel: "Games",
     Icon: Gamepad2,
+  },
+  {
+    href: "/history",
+    label: "History",
+    shortLabel: "Log",
+    Icon: History,
   },
   {
     href: "/tools",
@@ -106,7 +113,7 @@ export function Sidebar() {
         </nav>
       </aside>
 
-      <nav className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-5 border-t border-[#2f2b40] bg-[#151520] pb-[env(safe-area-inset-bottom)] sm:hidden">
+      <nav className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-6 border-t border-[#2f2b40] bg-[#151520] pb-[env(safe-area-inset-bottom)] sm:hidden">
         {NAV_ITEMS.map((item) => {
           const active = isActive(pathname, item);
           const Icon = item.Icon;

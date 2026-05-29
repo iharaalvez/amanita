@@ -38,8 +38,23 @@ export const ALPHA_GAMES = new Set([
 ]);
 
 export type HomeBoxMode = "normal" | "shiny" | "paired";
+export type HomeBoxLayoutProfile = {
+  id: string;
+  name: string;
+  mode: HomeBoxMode;
+  showCosmeticForms: boolean;
+  showGenderForms: boolean;
+};
 
 const MAX_CATCH_LOG = 50;
+const DEFAULT_HOME_BOX_LAYOUT_ID = "national-dex";
+const DEFAULT_HOME_BOX_LAYOUT: HomeBoxLayoutProfile = {
+  id: DEFAULT_HOME_BOX_LAYOUT_ID,
+  name: "National Dex",
+  mode: "normal",
+  showCosmeticForms: false,
+  showGenderForms: false,
+};
 
 type PokedexState = {
   owned: Record<string, OwnedRecord>;
@@ -63,6 +78,11 @@ type PokedexState = {
   setShowShinyDex: (value: boolean) => void;
   homeBoxMode: HomeBoxMode;
   setHomeBoxMode: (value: HomeBoxMode) => void;
+  homeBoxLayouts: HomeBoxLayoutProfile[];
+  activeHomeBoxLayoutId: string;
+  setActiveHomeBoxLayout: (id: string) => void;
+  saveCurrentHomeBoxLayout: (name?: string) => void;
+  removeHomeBoxLayout: (id: string) => void;
   setProgressSnapshot: (snapshot: ProgressSnapshot) => void;
   mergeProgressSnapshot: (snapshot: ProgressSnapshot) => ProgressSnapshot;
   getProgressSnapshot: () => ProgressSnapshot;
@@ -242,6 +262,41 @@ function normalizeHomeBoxMode(
     return value;
   }
   return oldShowShinyDex === true ? "paired" : "normal";
+}
+
+function normalizeHomeBoxLayouts(value: unknown): HomeBoxLayoutProfile[] {
+  if (!Array.isArray(value)) return [DEFAULT_HOME_BOX_LAYOUT];
+  const layouts = value
+    .filter(isRecord)
+    .map((layout): HomeBoxLayoutProfile | null => {
+      const mode = normalizeHomeBoxMode(layout.mode, false);
+      const id = typeof layout.id === "string" ? layout.id.trim() : "";
+      const name = typeof layout.name === "string" ? layout.name.trim() : "";
+      if (!id || !name) return null;
+      return {
+        id,
+        name,
+        mode,
+        showCosmeticForms: layout.showCosmeticForms === true,
+        showGenderForms: layout.showGenderForms === true,
+      };
+    })
+    .filter((layout): layout is HomeBoxLayoutProfile => layout !== null);
+  if (!layouts.some((layout) => layout.id === DEFAULT_HOME_BOX_LAYOUT_ID)) {
+    layouts.unshift(DEFAULT_HOME_BOX_LAYOUT);
+  }
+  return layouts.length > 0 ? layouts : [DEFAULT_HOME_BOX_LAYOUT];
+}
+
+function updateActiveHomeBoxLayout(
+  state: PokedexState,
+  patch: Partial<Omit<HomeBoxLayoutProfile, "id" | "name">>,
+): HomeBoxLayoutProfile[] {
+  return state.homeBoxLayouts.map((layout) =>
+    layout.id === state.activeHomeBoxLayoutId
+      ? { ...layout, ...patch }
+      : layout,
+  );
 }
 
 function remapLegacyLegendsZaProgress(
@@ -442,17 +497,95 @@ export const usePokedexStore = create<PokedexState>()(
       },
 
       showCosmeticForms: false,
-      setShowCosmeticForms: (value) => set({ showCosmeticForms: value }),
+      setShowCosmeticForms: (value) =>
+        set((state) => ({
+          showCosmeticForms: value,
+          homeBoxLayouts: updateActiveHomeBoxLayout(state, {
+            showCosmeticForms: value,
+          }),
+        })),
       showGenderForms: false,
-      setShowGenderForms: (value) => set({ showGenderForms: value }),
+      setShowGenderForms: (value) =>
+        set((state) => ({
+          showGenderForms: value,
+          homeBoxLayouts: updateActiveHomeBoxLayout(state, {
+            showGenderForms: value,
+          }),
+        })),
       showGigantamaxForms: false,
       setShowGigantamaxForms: (value) => set({ showGigantamaxForms: value }),
       showShinyDex: false,
       setShowShinyDex: (value) =>
-        set({ showShinyDex: value, homeBoxMode: value ? "paired" : "normal" }),
+        set((state) => {
+          const mode = value ? "paired" : "normal";
+          return {
+            showShinyDex: value,
+            homeBoxMode: mode,
+            homeBoxLayouts: updateActiveHomeBoxLayout(state, { mode }),
+          };
+        }),
       homeBoxMode: "normal",
       setHomeBoxMode: (value) =>
-        set({ homeBoxMode: value, showShinyDex: value === "paired" }),
+        set((state) => ({
+          homeBoxMode: value,
+          showShinyDex: value === "paired",
+          homeBoxLayouts: updateActiveHomeBoxLayout(state, { mode: value }),
+        })),
+      homeBoxLayouts: [DEFAULT_HOME_BOX_LAYOUT],
+      activeHomeBoxLayoutId: DEFAULT_HOME_BOX_LAYOUT_ID,
+      setActiveHomeBoxLayout: (id) =>
+        set((state) => {
+          const layout =
+            state.homeBoxLayouts.find((candidate) => candidate.id === id) ??
+            state.homeBoxLayouts[0] ??
+            DEFAULT_HOME_BOX_LAYOUT;
+          return {
+            activeHomeBoxLayoutId: layout.id,
+            homeBoxMode: layout.mode,
+            showShinyDex: layout.mode === "paired",
+            showCosmeticForms: layout.showCosmeticForms,
+            showGenderForms: layout.showGenderForms,
+          };
+        }),
+      saveCurrentHomeBoxLayout: (name) =>
+        set((state) => {
+          const trimmed = name?.trim();
+          const layoutName =
+            trimmed && trimmed.length > 0
+              ? trimmed.slice(0, 40)
+              : `HOME Layout ${state.homeBoxLayouts.length + 1}`;
+          const id = `home-layout-${Date.now()}`;
+          const layout: HomeBoxLayoutProfile = {
+            id,
+            name: layoutName,
+            mode: state.homeBoxMode,
+            showCosmeticForms: state.showCosmeticForms,
+            showGenderForms: state.showGenderForms,
+          };
+          return {
+            homeBoxLayouts: [...state.homeBoxLayouts, layout],
+            activeHomeBoxLayoutId: id,
+          };
+        }),
+      removeHomeBoxLayout: (id) =>
+        set((state) => {
+          if (id === DEFAULT_HOME_BOX_LAYOUT_ID) return {};
+          const layouts = state.homeBoxLayouts.filter(
+            (layout) => layout.id !== id,
+          );
+          if (state.activeHomeBoxLayoutId !== id) {
+            return { homeBoxLayouts: layouts };
+          }
+          const nextLayout = layouts[0] ?? DEFAULT_HOME_BOX_LAYOUT;
+          return {
+            homeBoxLayouts: layouts.length > 0 ? layouts : [nextLayout],
+            activeHomeBoxLayoutId: nextLayout.id,
+            homeBoxMode: nextLayout.mode,
+            showShinyDex: nextLayout.mode === "paired",
+            showCosmeticForms: nextLayout.showCosmeticForms,
+            showGenderForms: nextLayout.showGenderForms,
+          };
+        }),
 
       setProgressSnapshot: (snapshot) => {
         set({
@@ -527,6 +660,8 @@ export const usePokedexStore = create<PokedexState>()(
           gameHomeBoxes: {},
           availableGames: {},
           pinnedGameId: null,
+          homeBoxLayouts: [DEFAULT_HOME_BOX_LAYOUT],
+          activeHomeBoxLayoutId: DEFAULT_HOME_BOX_LAYOUT_ID,
         }),
 
       // --- Living Dex (HOME) ---
@@ -1045,7 +1180,7 @@ export const usePokedexStore = create<PokedexState>()(
     }),
     {
       name: "living-pokedex-v1",
-      version: 11,
+      version: 12,
       migrate: (persistedState, version) => {
         if (!isRecord(persistedState)) return persistedState;
 
@@ -1158,6 +1293,22 @@ export const usePokedexStore = create<PokedexState>()(
           );
         }
 
+        if (version < 12) {
+          const mode = normalizeHomeBoxMode(
+            persistedState.homeBoxMode,
+            persistedState.showShinyDex,
+          );
+          persistedState.homeBoxLayouts = [
+            {
+              ...DEFAULT_HOME_BOX_LAYOUT,
+              mode,
+              showCosmeticForms: persistedState.showCosmeticForms === true,
+              showGenderForms: persistedState.showGenderForms === true,
+            },
+          ];
+          persistedState.activeHomeBoxLayoutId = DEFAULT_HOME_BOX_LAYOUT_ID;
+        }
+
         return persistedState;
       },
       merge: (persistedState, currentState) => {
@@ -1166,6 +1317,20 @@ export const usePokedexStore = create<PokedexState>()(
           persistedState.homeBoxMode,
           persistedState.showShinyDex,
         );
+        const homeBoxLayouts = normalizeHomeBoxLayouts(
+          persistedState.homeBoxLayouts,
+        );
+        const activeHomeBoxLayoutId =
+          typeof persistedState.activeHomeBoxLayoutId === "string" &&
+          homeBoxLayouts.some(
+            (layout) => layout.id === persistedState.activeHomeBoxLayoutId,
+          )
+            ? persistedState.activeHomeBoxLayoutId
+            : (homeBoxLayouts[0]?.id ?? DEFAULT_HOME_BOX_LAYOUT_ID);
+        const activeHomeBoxLayout =
+          homeBoxLayouts.find(
+            (layout) => layout.id === activeHomeBoxLayoutId,
+          ) ?? DEFAULT_HOME_BOX_LAYOUT;
         // Handle both old format (gameDexProgress arrays) and new (gameDex object)
         let gameDex: Record<string, Record<string, GameDexFlags>> = {};
         if (isRecord(persistedState.gameDex)) {
@@ -1218,8 +1383,12 @@ export const usePokedexStore = create<PokedexState>()(
             typeof persistedState.pinnedGameId === "string"
               ? persistedState.pinnedGameId
               : null,
-          homeBoxMode,
-          showShinyDex: homeBoxMode === "paired",
+          showCosmeticForms: activeHomeBoxLayout.showCosmeticForms,
+          showGenderForms: activeHomeBoxLayout.showGenderForms,
+          homeBoxLayouts,
+          activeHomeBoxLayoutId,
+          showShinyDex: activeHomeBoxLayout.mode === "paired",
+          homeBoxMode: activeHomeBoxLayout.mode || homeBoxMode,
           setProgressSnapshot: currentState.setProgressSnapshot,
           mergeProgressSnapshot: currentState.mergeProgressSnapshot,
           getProgressSnapshot: currentState.getProgressSnapshot,
@@ -1228,6 +1397,9 @@ export const usePokedexStore = create<PokedexState>()(
           setShowGigantamaxForms: currentState.setShowGigantamaxForms,
           setShowShinyDex: currentState.setShowShinyDex,
           setHomeBoxMode: currentState.setHomeBoxMode,
+          setActiveHomeBoxLayout: currentState.setActiveHomeBoxLayout,
+          saveCurrentHomeBoxLayout: currentState.saveCurrentHomeBoxLayout,
+          removeHomeBoxLayout: currentState.removeHomeBoxLayout,
           setPinnedGameId: currentState.setPinnedGameId,
           removeRecentCatch: currentState.removeRecentCatch,
           removeGameAvailable: currentState.removeGameAvailable,

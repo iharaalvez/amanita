@@ -115,111 +115,111 @@ export function PokemonGrid({ onSelect, search, filtersOpen }: Props) {
 
   return (
     <div className="mx-auto max-w-7xl px-3 pb-8 sm:px-4">
-      {filtersOpen && (
-        <div className="-mx-3 mb-4 border-b border-gray-100 bg-white/95 px-3 pb-3 backdrop-blur-sm dark:border-gray-800 dark:bg-gray-900/95 sm:-mx-4 sm:px-4">
-          <div>
-            <div className="my-3 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
-              <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center">
-                <button
-                  type="button"
-                  onClick={() => setShowCosmeticForms(!showCosmeticForms)}
-                  className={`rounded-full px-3 py-1.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 sm:py-1 sm:text-sm ${
-                    showCosmeticForms
-                      ? "bg-teal-500 text-white"
-                      : "bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
-                  }`}
-                >
-                  Form variants {showCosmeticForms ? "on" : "off"}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setShowGenderForms(!showGenderForms)}
-                  className={`rounded-full px-3 py-1.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 sm:py-1 sm:text-sm ${
-                    showGenderForms
-                      ? "bg-pink-500 text-white"
-                      : "bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
-                  }`}
-                >
-                  Gender forms {showGenderForms ? "on" : "off"}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setShowGigantamaxForms(!showGigantamaxForms)}
-                  className={`rounded-full px-3 py-1.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 sm:py-1 sm:text-sm ${
-                    showGigantamaxForms
-                      ? "bg-rose-500 text-white"
-                      : "bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
-                  }`}
-                >
-                  G-Max {showGigantamaxForms ? "on" : "off"}
-                </button>
-              </div>
-
-              <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center">
-                <label className="sr-only" htmlFor="type-filter">
-                  Filter by type
-                </label>
-                <select
-                  id="type-filter"
-                  value={typeFilter}
-                  onChange={(event) =>
-                    setTypeFilter(event.target.value as PokemonType | "all")
-                  }
-                  className="min-w-0 rounded-full border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 sm:py-1 sm:text-sm"
-                >
-                  <option value="all">All types</option>
-                  {TYPE_FILTER_VALUES.map((type) => (
-                    <option key={type} value={type}>
-                      {type[0].toUpperCase() + type.slice(1)}
-                    </option>
-                  ))}
-                </select>
-
-                <label className="sr-only" htmlFor="sort-mode">
-                  Sort Pokemon
-                </label>
-                <select
-                  id="sort-mode"
-                  value={sortMode}
-                  onChange={(event) =>
-                    setSortMode(event.target.value as SortMode)
-                  }
-                  className="min-w-0 rounded-full border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 sm:py-1 sm:text-sm"
-                >
-                  {sortOptions.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-            <div
-              className="-mx-1 mb-3 flex gap-2 overflow-x-auto px-1 pb-1 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0 sm:pb-0"
-              aria-label="Generation filters"
-            >
-              {GEN_FILTER_VALUES.map((value) => (
-                <button
-                  key={value}
-                  onClick={() => setGeneration(value as GenerationFilter)}
-                  className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 sm:py-1 sm:text-sm ${
-                    generation === value
-                      ? "bg-blue-500 text-white"
-                      : "bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
-                  }`}
-                >
-                  {GEN_LABELS[value]}
-                </button>
-              ))}
+      <div
+        id="pokedex-filters"
+        className={`${filtersOpen ? "block" : "hidden"} -mx-3 mb-4 border-b border-gray-100 bg-white/95 px-3 pb-3 backdrop-blur-sm dark:border-gray-800 dark:bg-gray-900/95 sm:-mx-4 sm:block sm:px-4`}
+      >
+        <div>
+          <div className="my-3 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+            <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center">
+              <button
+                type="button"
+                onClick={() => setShowCosmeticForms(!showCosmeticForms)}
+                className={`rounded-full px-3 py-1.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 sm:py-1 sm:text-sm ${
+                  showCosmeticForms
+                    ? "bg-teal-500 text-white"
+                    : "bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
+                }`}
+              >
+                Form variants {showCosmeticForms ? "on" : "off"}
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowGenderForms(!showGenderForms)}
+                className={`rounded-full px-3 py-1.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 sm:py-1 sm:text-sm ${
+                  showGenderForms
+                    ? "bg-pink-500 text-white"
+                    : "bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
+                }`}
+              >
+                Gender forms {showGenderForms ? "on" : "off"}
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowGigantamaxForms(!showGigantamaxForms)}
+                className={`rounded-full px-3 py-1.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 sm:py-1 sm:text-sm ${
+                  showGigantamaxForms
+                    ? "bg-rose-500 text-white"
+                    : "bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
+                }`}
+              >
+                G-Max {showGigantamaxForms ? "on" : "off"}
+              </button>
             </div>
 
-            <p className="text-xs text-gray-400">
-              Showing {visibleEntries.length} of {sorted.length} Pokedex
-              entries.
-            </p>
+            <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center">
+              <label className="sr-only" htmlFor="type-filter">
+                Filter by type
+              </label>
+              <select
+                id="type-filter"
+                value={typeFilter}
+                onChange={(event) =>
+                  setTypeFilter(event.target.value as PokemonType | "all")
+                }
+                className="min-w-0 rounded-full border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 sm:py-1 sm:text-sm"
+              >
+                <option value="all">All types</option>
+                {TYPE_FILTER_VALUES.map((type) => (
+                  <option key={type} value={type}>
+                    {type[0].toUpperCase() + type.slice(1)}
+                  </option>
+                ))}
+              </select>
+
+              <label className="sr-only" htmlFor="sort-mode">
+                Sort Pokemon
+              </label>
+              <select
+                id="sort-mode"
+                value={sortMode}
+                onChange={(event) =>
+                  setSortMode(event.target.value as SortMode)
+                }
+                className="min-w-0 rounded-full border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 sm:py-1 sm:text-sm"
+              >
+                {sortOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
+          <div
+            className="-mx-1 mb-3 flex gap-2 overflow-x-auto px-1 pb-1 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0 sm:pb-0"
+            aria-label="Generation filters"
+          >
+            {GEN_FILTER_VALUES.map((value) => (
+              <button
+                key={value}
+                onClick={() => setGeneration(value as GenerationFilter)}
+                className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 sm:py-1 sm:text-sm ${
+                  generation === value
+                    ? "bg-blue-500 text-white"
+                    : "bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
+                }`}
+              >
+                {GEN_LABELS[value]}
+              </button>
+            ))}
+          </div>
+
+          <p className="text-xs text-gray-400">
+            Showing {visibleEntries.length} of {sorted.length} Pokedex entries.
+          </p>
         </div>
-      )}
+      </div>
 
       {isLoading ? (
         <div className="grid grid-cols-3 gap-2 min-[430px]:grid-cols-4 sm:grid-cols-5 lg:grid-cols-8">
