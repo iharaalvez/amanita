@@ -198,6 +198,18 @@ export type ProgressSnapshot = {
   pinnedGameId?: string | null;
   shinyHunts?: ShinyHunt[];
   recentCatches?: CatchEvent[];
+  homeBoxLayouts?: HomeBoxLayoutProfile[];
+  activeHomeBoxLayoutId?: string | null;
+};
+
+export type HomeBoxMode = "normal" | "shiny" | "paired";
+
+export type HomeBoxLayoutProfile = {
+  id: string;
+  name: string;
+  mode: HomeBoxMode;
+  showCosmeticForms: boolean;
+  showGenderForms: boolean;
 };
 
 // Imported here to avoid a circular dependency with pokedexStore.

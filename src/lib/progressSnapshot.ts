@@ -31,8 +31,7 @@ function isGameDexRecord(
   if (!isRecord(value)) return false;
   return Object.values(value).every(
     (gameEntry) =>
-      isRecord(gameEntry) &&
-      Object.values(gameEntry).every(isGameDexFlags),
+      isRecord(gameEntry) && Object.values(gameEntry).every(isGameDexFlags),
   );
 }
 
@@ -95,6 +94,23 @@ function isCatchEventArray(value: unknown): boolean {
   return Array.isArray(value) && value.every(isCatchEvent);
 }
 
+function isHomeBoxLayoutProfile(value: unknown): boolean {
+  if (!isRecord(value)) return false;
+  return (
+    typeof value.id === "string" &&
+    typeof value.name === "string" &&
+    (value.mode === "normal" ||
+      value.mode === "shiny" ||
+      value.mode === "paired") &&
+    typeof value.showCosmeticForms === "boolean" &&
+    typeof value.showGenderForms === "boolean"
+  );
+}
+
+function isHomeBoxLayoutProfileArray(value: unknown): boolean {
+  return Array.isArray(value) && value.every(isHomeBoxLayoutProfile);
+}
+
 export function isProgressSnapshot(value: unknown): value is ProgressSnapshot {
   if (!isRecord(value)) return false;
 
@@ -109,6 +125,11 @@ export function isProgressSnapshot(value: unknown): value is ProgressSnapshot {
       typeof value.pinnedGameId === "string") &&
     (value.shinyHunts === undefined || isShinyHuntArray(value.shinyHunts)) &&
     (value.recentCatches === undefined ||
-      isCatchEventArray(value.recentCatches))
+      isCatchEventArray(value.recentCatches)) &&
+    (value.homeBoxLayouts === undefined ||
+      isHomeBoxLayoutProfileArray(value.homeBoxLayouts)) &&
+    (value.activeHomeBoxLayoutId === undefined ||
+      value.activeHomeBoxLayoutId === null ||
+      typeof value.activeHomeBoxLayoutId === "string")
   );
 }

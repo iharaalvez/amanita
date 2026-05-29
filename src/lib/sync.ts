@@ -8,6 +8,8 @@ import type {
   ShinyHuntMethod,
   GameDexFlags,
   HuntCounterMode,
+  HomeBoxLayoutProfile,
+  HomeBoxMode,
 } from "@/types/pokemon";
 import { reportAuthError } from "@/lib/authErrors";
 
@@ -59,6 +61,8 @@ type SupabaseRow = {
 
 type SettingsRow = {
   pinned_game_id?: string | null;
+  home_box_layouts?: unknown;
+  active_home_box_layout_id?: string | null;
 };
 
 type UserGameRow = {
@@ -171,6 +175,29 @@ function recentCatchesFromRows(rows: UserRecentCatchRow[]): CatchEvent[] {
   }));
 }
 
+function isHomeBoxMode(value: unknown): value is HomeBoxMode {
+  return value === "normal" || value === "shiny" || value === "paired";
+}
+
+function isHomeBoxLayoutProfile(value: unknown): value is HomeBoxLayoutProfile {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return false;
+  }
+  const layout = value as Record<string, unknown>;
+  return (
+    typeof layout.id === "string" &&
+    typeof layout.name === "string" &&
+    isHomeBoxMode(layout.mode) &&
+    typeof layout.showCosmeticForms === "boolean" &&
+    typeof layout.showGenderForms === "boolean"
+  );
+}
+
+function homeBoxLayoutsFromSettings(value: unknown): HomeBoxLayoutProfile[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter(isHomeBoxLayoutProfile);
+}
+
 function flattenGameDex(
   userId: string,
   gameDex: Record<string, Record<string, GameDexFlags>>,
@@ -235,7 +262,7 @@ export async function loadFromSupabase(
     supabase.from("pokedex").select("*").eq("user_id", resolvedUserId),
     supabase
       .from("user_settings")
-      .select("pinned_game_id")
+      .select("pinned_game_id, home_box_layouts, active_home_box_layout_id")
       .eq("user_id", resolvedUserId)
       .maybeSingle(),
     supabase
@@ -319,6 +346,14 @@ export async function loadFromSupabase(
   const recentCatches = recentCatchesFromRows(
     (recentCatchesResult.data ?? []) as UserRecentCatchRow[],
   );
+  const homeBoxLayouts = homeBoxLayoutsFromSettings(settings?.home_box_layouts);
+  const activeHomeBoxLayoutId =
+    typeof settings?.active_home_box_layout_id === "string" &&
+    homeBoxLayouts.some(
+      (layout) => layout.id === settings.active_home_box_layout_id,
+    )
+      ? settings.active_home_box_layout_id
+      : null;
 
   return {
     owned,
@@ -331,6 +366,8 @@ export async function loadFromSupabase(
         : null,
     shinyHunts,
     recentCatches,
+    homeBoxLayouts,
+    activeHomeBoxLayoutId,
   };
 }
 
@@ -581,6 +618,31 @@ export async function syncPinnedGameId(gameId: string | null): Promise<void> {
   reportMutationError(result);
 }
 
+export async function syncHomeBoxLayouts(
+  layouts: HomeBoxLayoutProfile[],
+  activeLayoutId: string | null,
+): Promise<void> {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return;
+
+  const normalizedActiveId =
+    activeLayoutId && layouts.some((layout) => layout.id === activeLayoutId)
+      ? activeLayoutId
+      : null;
+
+  const result = await supabase.from("user_settings").upsert(
+    {
+      user_id: user.id,
+      home_box_layouts: layouts,
+      active_home_box_layout_id: normalizedActiveId,
+    },
+    { onConflict: "user_id" },
+  );
+  reportMutationError(result);
+}
+
 export async function syncShinyHunts(hunts: ShinyHunt[]): Promise<void> {
   const {
     data: { user },
@@ -756,6 +818,10 @@ export async function syncAllRecords(
     syncGameDex(snapshot.gameDex),
     syncGameHomeBoxes(snapshot.gameHomeBoxes ?? {}),
     syncPinnedGameId(snapshot.pinnedGameId ?? null),
+    syncHomeBoxLayouts(
+      snapshot.homeBoxLayouts ?? [],
+      snapshot.activeHomeBoxLayoutId ?? null,
+    ),
     syncShinyHunts(snapshot.shinyHunts ?? []),
     syncRecentCatches(snapshot.recentCatches ?? []),
   ]);
