@@ -630,6 +630,43 @@ export async function syncPinnedGameId(gameId: string | null): Promise<void> {
   reportMutationError(result);
 }
 
+export async function syncSingleHomeBoxLayout(
+  layout: HomeBoxLayoutProfile,
+): Promise<void> {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return;
+
+  const result = await supabase.from("user_home_box_layouts").upsert(
+    {
+      user_id: user.id,
+      id: layout.id,
+      name: layout.name,
+      mode: layout.mode,
+      show_cosmetic_forms: layout.showCosmeticForms,
+      show_gender_forms: layout.showGenderForms,
+    },
+    { onConflict: "user_id,id" },
+  );
+  reportMutationError(result);
+}
+
+export async function syncActiveHomeBoxLayoutId(
+  id: string | null,
+): Promise<void> {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return;
+
+  const result = await supabase.from("user_settings").upsert(
+    { user_id: user.id, active_home_box_layout_id: id },
+    { onConflict: "user_id" },
+  );
+  reportMutationError(result);
+}
+
 export async function syncHomeBoxLayouts(
   layouts: HomeBoxLayoutProfile[],
   activeLayoutId: string | null,

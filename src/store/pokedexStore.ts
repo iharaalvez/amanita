@@ -7,6 +7,8 @@ import {
   syncGameHomeBoxEntry,
   syncPinnedGameId,
   syncHomeBoxLayouts,
+  syncSingleHomeBoxLayout,
+  syncActiveHomeBoxLayoutId,
   syncShinyHunt,
   deleteShinyHunt,
   syncRecentCatch,
@@ -76,6 +78,16 @@ type PokedexState = {
   activeHomeBoxLayoutId: string;
   setActiveHomeBoxLayout: (id: string) => void;
   saveCurrentHomeBoxLayout: (name?: string) => void;
+  createHomeBoxLayout: (
+    name: string,
+    mode: HomeBoxMode,
+    showCosmeticForms: boolean,
+    showGenderForms: boolean,
+  ) => void;
+  updateHomeBoxLayout: (
+    id: string,
+    patch: Partial<Omit<HomeBoxLayoutProfile, "id">>,
+  ) => void;
   removeHomeBoxLayout: (id: string) => void;
   setProgressSnapshot: (snapshot: ProgressSnapshot) => void;
   mergeProgressSnapshot: (snapshot: ProgressSnapshot) => ProgressSnapshot;
@@ -588,6 +600,49 @@ export const usePokedexStore = create<PokedexState>()(
             activeHomeBoxLayoutId: id,
           };
         }),
+      createHomeBoxLayout: (name, mode, showCosmeticForms, showGenderForms) => {
+        const id = `home-layout-${Date.now()}`;
+        const layout: HomeBoxLayoutProfile = {
+          id,
+          name: name.trim().slice(0, 40) || "HOME Layout",
+          mode,
+          showCosmeticForms,
+          showGenderForms,
+        };
+        set((state) => ({
+          homeBoxLayouts: [...state.homeBoxLayouts, layout],
+          activeHomeBoxLayoutId: id,
+          homeBoxMode: mode,
+          showShinyDex: mode === "paired",
+          showCosmeticForms,
+          showGenderForms,
+        }));
+        void syncSingleHomeBoxLayout(layout);
+        void syncActiveHomeBoxLayoutId(id);
+      },
+
+      updateHomeBoxLayout: (id, patch) =>
+        set((state) => {
+          const homeBoxLayouts = state.homeBoxLayouts.map((l) =>
+            l.id === id ? { ...l, ...patch } : l,
+          );
+          const updated = homeBoxLayouts.find((l) => l.id === id);
+          if (updated) void syncSingleHomeBoxLayout(updated);
+          const isActive = state.activeHomeBoxLayoutId === id;
+          return {
+            homeBoxLayouts,
+            ...(isActive && patch.mode !== undefined
+              ? { homeBoxMode: patch.mode, showShinyDex: patch.mode === "paired" }
+              : {}),
+            ...(isActive && patch.showCosmeticForms !== undefined
+              ? { showCosmeticForms: patch.showCosmeticForms }
+              : {}),
+            ...(isActive && patch.showGenderForms !== undefined
+              ? { showGenderForms: patch.showGenderForms }
+              : {}),
+          };
+        }),
+
       removeHomeBoxLayout: (id) =>
         set((state) => {
           const layouts = state.homeBoxLayouts.filter(
