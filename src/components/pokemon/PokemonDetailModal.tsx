@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { SetStateAction } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { api } from "@/lib/api";
 import { PokemonSprite } from "@/components/pokemon/PokemonSprite";
 import { usePokedexStore, ownedKey } from "@/store/pokedexStore";
 import {
@@ -369,6 +371,11 @@ export function PokemonDetailModal({
   const { data: evolutionLines, isLoading: evolutionLoading } =
     usePokemonEvolution(speciesId);
   const { data: encounters, isLoading: encLoading } = useEncounters(speciesId);
+  const { data: homeBoxRules } = useQuery({
+    queryKey: ["game-home-box-form-rules", "home"],
+    queryFn: () => api.getGameHomeBoxFormRules("home").catch(() => []),
+    staleTime: Infinity,
+  });
   const selectedEntry =
     speciesForms?.find((entry) => entry.formName === formName) ??
     speciesForms?.find((entry) => entry.formName === null);
@@ -462,7 +469,13 @@ export function PokemonDetailModal({
   const livingDexForms = (speciesForms ?? []).filter(
     (entry) => entry.formName !== null && !isBattleOnlyForm(entry),
   );
-  const shinyLocked = isShinyLocked(speciesId, formName);
+  const homeBoxRule = (homeBoxRules ?? []).find(
+    (r) => r.speciesId === speciesId && r.formName === (formName ?? null),
+  );
+  const shinyLocked =
+    homeBoxRule !== undefined
+      ? !homeBoxRule.showShiny
+      : isShinyLocked(speciesId, formName);
   const selectedEvolutionLines = (evolutionLines ?? []).filter((line) =>
     line.some((stage) => stage.id === speciesId),
   );
