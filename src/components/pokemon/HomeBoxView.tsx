@@ -281,7 +281,7 @@ function LayoutModal({
   );
 }
 
-// ─── Main component ───────────────────────────────────────────────────────────
+// ─── Main component ─────────────────────────────────────────────────────────
 
 type Props = {
   onSelect: (speciesId: number, formName: string | null) => void;
@@ -629,7 +629,7 @@ export function HomeBoxView({ onSelect }: Props) {
       ) : (
         <>
           {/* Controls */}
-          <div className="sticky top-0 z-20 mb-3 space-y-2.5 rounded-lg border border-gray-100 bg-white/95 p-2.5 backdrop-blur dark:border-gray-800 dark:bg-[#0f172a]/95 sm:px-4">
+          <div className="mb-3 space-y-2.5 rounded-lg border border-gray-100 bg-white/95 p-2.5 backdrop-blur dark:border-gray-800 dark:bg-[#0f172a]/95 sm:px-4">
             {/* Row 1: layout selector + search + action buttons */}
             <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 min-[560px]:grid-cols-[minmax(0,220px)_minmax(0,1fr)_auto]">
               <label htmlFor="home-layout" className="sr-only">HOME layout</label>
@@ -637,7 +637,7 @@ export function HomeBoxView({ onSelect }: Props) {
                 id="home-layout"
                 value={activeHomeBoxLayoutId}
                 onChange={(e) => setActiveHomeBoxLayout(e.target.value)}
-                className="h-9 min-w-0 rounded-full border border-gray-200 bg-white pl-3 pr-9 text-xs font-bold text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
+                className="h-9 min-w-0 rounded-full border border-gray-200 bg-white pl-3 pr-9 text-xs font-bold text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
               >
                 {homeBoxLayouts.map((layout) => (
                   <option key={layout.id} value={layout.id}>
@@ -654,7 +654,7 @@ export function HomeBoxView({ onSelect }: Props) {
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder="Search..."
-                  className="h-9 w-full rounded-full border border-gray-200 bg-white pl-3 pr-7 text-xs text-gray-700 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-400 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
+                  className="h-9 w-full rounded-full border border-gray-200 bg-white pl-3 pr-7 text-xs text-gray-700 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-400 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
                 />
                 {search && (
                   <button
@@ -675,7 +675,7 @@ export function HomeBoxView({ onSelect }: Props) {
                   disabled={refreshing}
                   aria-label="Refresh from server"
                   title="Refresh"
-                  className="grid h-9 w-9 place-items-center rounded-full bg-gray-100 text-gray-600 transition-colors hover:bg-gray-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 disabled:opacity-40 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+                  className="grid h-9 w-9 place-items-center rounded-full bg-gray-100 text-gray-600 transition-colors hover:bg-gray-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700"
                 >
                   <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
                 </button>
@@ -684,7 +684,7 @@ export function HomeBoxView({ onSelect }: Props) {
                   onClick={() => setShowCreateModal(true)}
                   aria-label="New HOME layout"
                   title="New layout"
-                  className="grid h-9 w-9 place-items-center rounded-full bg-gray-100 text-gray-600 transition-colors hover:bg-gray-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+                  className="grid h-9 w-9 place-items-center rounded-full bg-gray-100 text-gray-600 transition-colors hover:bg-gray-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700"
                 >
                   <Plus className="h-4 w-4" />
                 </button>
@@ -693,7 +693,7 @@ export function HomeBoxView({ onSelect }: Props) {
                   onClick={() => setShowEditModal(true)}
                   aria-label="Edit current layout"
                   title="Edit layout"
-                  className="grid h-9 w-9 place-items-center rounded-full bg-gray-100 text-gray-600 transition-colors hover:bg-gray-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+                  className="grid h-9 w-9 place-items-center rounded-full bg-gray-100 text-gray-600 transition-colors hover:bg-gray-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700"
                 >
                   <Pencil className="h-4 w-4" />
                 </button>
@@ -702,7 +702,7 @@ export function HomeBoxView({ onSelect }: Props) {
                   onClick={() => setShowDeleteModal(true)}
                   aria-label="Delete current layout"
                   title="Delete layout"
-                  className="grid h-9 w-9 place-items-center rounded-full bg-gray-100 text-gray-500 transition-colors hover:bg-red-50 hover:text-red-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-red-950/40"
+                  className="grid h-9 w-9 place-items-center rounded-full bg-gray-100 text-gray-500 transition-colors hover:bg-red-50 hover:text-red-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-red-400"
                 >
                   <Trash2 className="h-4 w-4" />
                 </button>
@@ -718,7 +718,7 @@ export function HomeBoxView({ onSelect }: Props) {
                     type="button"
                     onClick={() => setStatusFilter(value)}
                     aria-pressed={activeStatusFilter === value}
-                    className={`flex items-center gap-1 rounded-full px-2.5 py-1.5 text-[11px] font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 sm:gap-1.5 sm:px-3 sm:text-xs ${
+                    className={`flex items-center gap-1 rounded-full px-2.5 py-1.5 text-[11px] font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${
                       activeStatusFilter === value
                         ? activeClass
                         : "bg-gray-100 text-gray-500 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700"
