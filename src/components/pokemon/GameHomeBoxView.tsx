@@ -236,8 +236,7 @@ export function GameHomeBoxView({ gameId, gameName, onSelect }: Props) {
           />
         </div>
       </header>
-
-      <div className="sticky top-0 z-20 -mx-2 mb-3 flex flex-col gap-2 rounded-b-lg border-b border-gray-100 bg-white/95 p-3 backdrop-blur dark:border-gray-800 dark:bg-[#0f172a]/95 sm:-mx-4 sm:px-4 lg:flex-row lg:items-center lg:justify-between">
+      <div className="-mx-2 mb-3 flex flex-col gap-2 rounded-b-lg border-b border-gray-100 bg-white/95 p-3 backdrop-blur dark:border-gray-800 dark:bg-[#0f172a]/95 sm:-mx-4 sm:px-4 lg:flex-row lg:items-center lg:justify-between">
         <div className="grid grid-cols-3 gap-1.5 sm:flex sm:w-auto sm:flex-wrap sm:items-center">
           {[
             ["all", "All", entries.length],
