@@ -91,6 +91,51 @@ function buildRulesBySpecies(
   return bySpecies;
 }
 
+// ─── Confirm delete modal ────────────────────────────────────────────────────
+
+function ConfirmDeleteModal({
+  layoutName,
+  onConfirm,
+  onClose,
+}: {
+  layoutName: string;
+  onConfirm: () => void;
+  onClose: () => void;
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div className="w-full max-w-sm rounded-2xl border border-gray-200 bg-white p-6 shadow-2xl dark:border-gray-700 dark:bg-gray-900">
+        <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-red-50 dark:bg-red-950/40">
+          <Trash2 className="h-5 w-5 text-red-500" />
+        </div>
+        <h2 className="text-base font-black text-gray-950 dark:text-white">Delete layout?</h2>
+        <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+          <span className="font-bold text-gray-700 dark:text-gray-200">{layoutName}</span> will be permanently deleted. This cannot be undone.
+        </p>
+        <div className="mt-6 flex gap-2">
+          <button
+            type="button"
+            onClick={onClose}
+            className="h-9 flex-1 rounded-lg border border-gray-200 text-sm font-bold text-gray-600 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            className="h-9 flex-1 rounded-lg bg-red-500 text-sm font-black text-white transition-colors hover:bg-red-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400"
+          >
+            Delete
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Create / Edit modals ────────────────────────────────────────────────────
 
 type LayoutFormState = {
@@ -252,6 +297,7 @@ export function HomeBoxView({ onSelect }: Props) {
   const [search, setSearch] = useState("");
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
 
   const ownedRecords = usePokedexStore((s) => s.owned);
   const showCosmeticForms = usePokedexStore((s) => s.showCosmeticForms);
@@ -627,11 +673,7 @@ export function HomeBoxView({ onSelect }: Props) {
                 </button>
                 <button
                   type="button"
-                  onClick={() => {
-                    if (confirm(`Delete "${activeHomeBoxLayout?.name}"?`)) {
-                      removeHomeBoxLayout(activeHomeBoxLayoutId);
-                    }
-                  }}
+                  onClick={() => setShowDeleteModal(true)}
                   aria-label="Delete current layout"
                   title="Delete layout"
                   className="grid h-9 w-9 place-items-center rounded-full bg-gray-100 text-gray-500 transition-colors hover:bg-red-50 hover:text-red-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-red-950/40"
@@ -774,6 +816,16 @@ export function HomeBoxView({ onSelect }: Props) {
         </>
       )}
 
+      {showDeleteModal && activeHomeBoxLayout && (
+        <ConfirmDeleteModal
+          layoutName={activeHomeBoxLayout.name}
+          onConfirm={() => {
+            removeHomeBoxLayout(activeHomeBoxLayoutId);
+            setShowDeleteModal(false);
+          }}
+          onClose={() => setShowDeleteModal(false)}
+        />
+      )}
       {showCreateModal && (
         <LayoutModal
           title="New HOME layout"
