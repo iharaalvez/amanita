@@ -4,7 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { loadFromSupabase, syncAllRecords } from "@/lib/sync";
-import { usePokedexStore } from "@/store/pokedexStore";
+import { usePokedexStore, hasPendingWrites } from "@/store/pokedexStore";
 import { reportAuthError } from "@/lib/authErrors";
 
 const REALTIME_DEBOUNCE_MS = 2000;
@@ -26,6 +26,7 @@ function AuthSync() {
     // No write-back: individual user actions write to Supabase immediately.
     // already write to Supabase immediately on every toggle.
     const loadAndApply = (userId: string) => {
+      if (hasPendingWrites()) return;
       loadFromSupabase(userId)
         .then((snapshot) => {
           if (!active || !snapshot) return;

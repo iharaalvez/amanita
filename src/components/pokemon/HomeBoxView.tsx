@@ -21,7 +21,9 @@ import { BoxSlot } from "./BoxSlot";
 import { HomeIcon, SparkleIcon, XIcon } from "@/components/ui";
 import { api } from "@/lib/api";
 import type { GameHomeBoxFormRule, HomeBoxLayoutProfile, LivingDexEntry } from "@/types/pokemon";
-import { Pencil, Plus, Trash2 } from "lucide-react";
+import { Pencil, Plus, RefreshCw, Trash2 } from "lucide-react";
+import { loadFromSupabase } from "@/lib/sync";
+import { supabase } from "@/lib/supabase";
 
 const BOX_SIZE = 30;
 const HOME_DEX_GAME_ID = "home";
@@ -298,6 +300,7 @@ export function HomeBoxView({ onSelect }: Props) {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   const ownedRecords = usePokedexStore((s) => s.owned);
   const showCosmeticForms = usePokedexStore((s) => s.showCosmeticForms);
@@ -309,6 +312,19 @@ export function HomeBoxView({ onSelect }: Props) {
   const createHomeBoxLayout = usePokedexStore((s) => s.createHomeBoxLayout);
   const updateHomeBoxLayout = usePokedexStore((s) => s.updateHomeBoxLayout);
   const removeHomeBoxLayout = usePokedexStore((s) => s.removeHomeBoxLayout);
+  const setProgressSnapshot = usePokedexStore((s) => s.setProgressSnapshot);
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const snapshot = await loadFromSupabase(user.id);
+      if (snapshot) setProgressSnapshot(snapshot);
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   const isShinyOnlyMode = homeBoxMode === "shiny";
   const isPairedMode = homeBoxMode === "paired";
@@ -653,6 +669,16 @@ export function HomeBoxView({ onSelect }: Props) {
               </div>
 
               <div className="order-2 flex items-center justify-end gap-1.5 min-[560px]:order-none">
+                <button
+                  type="button"
+                  onClick={handleRefresh}
+                  disabled={refreshing}
+                  aria-label="Refresh from server"
+                  title="Refresh"
+                  className="grid h-9 w-9 place-items-center rounded-full bg-gray-100 text-gray-600 transition-colors hover:bg-gray-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 disabled:opacity-40 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+                >
+                  <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
+                </button>
                 <button
                   type="button"
                   onClick={() => setShowCreateModal(true)}

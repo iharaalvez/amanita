@@ -31,6 +31,11 @@ import type {
 
 export type { CatchEvent, ShinyHunt, HuntCounterMode, HomeBoxMode };
 
+let pendingWriteCount = 0;
+export function hasPendingWrites(): boolean {
+  return pendingWriteCount > 0;
+}
+
 export function ownedKey(speciesId: number, formName?: string | null): string {
   return `${speciesId}-${formName ?? "base"}`;
 }
@@ -617,8 +622,11 @@ export const usePokedexStore = create<PokedexState>()(
           showCosmeticForms,
           showGenderForms,
         }));
-        void syncSingleHomeBoxLayout(layout);
-        void syncActiveHomeBoxLayoutId(id);
+        pendingWriteCount++;
+        void Promise.all([
+          syncSingleHomeBoxLayout(layout),
+          syncActiveHomeBoxLayoutId(id),
+        ]).finally(() => { pendingWriteCount--; });
       },
 
       updateHomeBoxLayout: (id, patch) =>
