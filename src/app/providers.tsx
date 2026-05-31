@@ -1,7 +1,7 @@
 "use client";
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { useEffect, useRef, useState } from "react";
+import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { loadFromSupabase, syncAllRecords } from "@/lib/sync";
 import { usePokedexStore, hasPendingWrites } from "@/store/pokedexStore";
@@ -10,29 +10,49 @@ import { reportAuthError } from "@/lib/authErrors";
 const REALTIME_DEBOUNCE_MS = 2000;
 const POLL_INTERVAL_MS = 10_000;
 
-function AuthSync() {
+const SyncStateContext = createContext<boolean>(false);
+export function useSyncState(): boolean {
+  return useContext(SyncStateContext);
+}
+
+function AuthSync({
+  onSyncingChange,
+}: {
+  onSyncingChange: (syncing: boolean) => void;
+}) {
   const setProgressSnapshot = usePokedexStore((s) => s.setProgressSnapshot);
   const mergeProgressSnapshot = usePokedexStore((s) => s.mergeProgressSnapshot);
   const clearAll = usePokedexStore((s) => s.clearAll);
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const mergedSignInsRef = useRef<Set<string>>(new Set());
+  const initialSyncDoneRef = useRef(false);
 
   useEffect(() => {
     let active = true;
     let realtimeChannel: ReturnType<typeof supabase.channel> | null = null;
 
+    const markInitialSyncDone = () => {
+      if (!initialSyncDoneRef.current) {
+        initialSyncDoneRef.current = true;
+        onSyncingChange(false);
+      }
+    };
+
     // Fetch remote state and apply as the source of truth.
     // No write-back: individual user actions write to Supabase immediately.
-    // already write to Supabase immediately on every toggle.
     const loadAndApply = (userId: string) => {
-      if (hasPendingWrites()) return;
+      if (hasPendingWrites()) {
+        markInitialSyncDone();
+        return;
+      }
       loadFromSupabase(userId)
         .then((snapshot) => {
           if (!active || !snapshot) return;
           setProgressSnapshot(snapshot);
         })
-        .catch(reportAuthError);
+        .catch(reportAuthError)
+        .finally(markInitialSyncDone);
     };
 
     const loadMergeAndSync = (userId: string) => {
@@ -42,7 +62,8 @@ function AuthSync() {
           const merged = mergeProgressSnapshot(snapshot);
           await syncAllRecords(merged);
         })
-        .catch(reportAuthError);
+        .catch(reportAuthError)
+        .finally(markInitialSyncDone);
     };
 
     const startPolling = (userId: string) => {
@@ -155,12 +176,18 @@ function AuthSync() {
         .then(({ data: { session } }) => {
           if (!active) return;
           if (session?.user) {
+            if (!initialSyncDoneRef.current) onSyncingChange(true);
             loadAndApply(session.user.id);
             setupRealtime(session.user.id);
             startPolling(session.user.id);
+          } else {
+            markInitialSyncDone();
           }
         })
-        .catch(reportAuthError);
+        .catch((err) => {
+          reportAuthError(err);
+          markInitialSyncDone();
+        });
     };
 
     syncCurrentSession();
@@ -176,6 +203,7 @@ function AuthSync() {
       if (event === "SIGNED_IN" && session?.user) {
         if (!mergedSignInsRef.current.has(session.user.id)) {
           mergedSignInsRef.current.add(session.user.id);
+          if (!initialSyncDoneRef.current) onSyncingChange(true);
           loadMergeAndSync(session.user.id);
         } else {
           loadAndApply(session.user.id);
@@ -186,6 +214,7 @@ function AuthSync() {
       if (event === "SIGNED_OUT") {
         clearAll();
         mergedSignInsRef.current.clear();
+        initialSyncDoneRef.current = false;
         realtimeChannel?.unsubscribe();
         realtimeChannel = null;
         if (pollTimerRef.current) {
@@ -204,7 +233,7 @@ function AuthSync() {
       if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
       if (pollTimerRef.current) clearInterval(pollTimerRef.current);
     };
-  }, [setProgressSnapshot, mergeProgressSnapshot, clearAll]);
+  }, [setProgressSnapshot, mergeProgressSnapshot, clearAll, onSyncingChange]);
 
   return null;
 }
@@ -216,11 +245,14 @@ export function Providers({ children }: { children: React.ReactNode }) {
         defaultOptions: { queries: { staleTime: 60 * 1000 } },
       }),
   );
+  const [isSyncing, setIsSyncing] = useState(false);
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <AuthSync />
-      {children}
-    </QueryClientProvider>
+    <SyncStateContext.Provider value={isSyncing}>
+      <QueryClientProvider client={queryClient}>
+        <AuthSync onSyncingChange={setIsSyncing} />
+        {children}
+      </QueryClientProvider>
+    </SyncStateContext.Provider>
   );
 }

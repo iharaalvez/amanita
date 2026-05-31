@@ -16,6 +16,7 @@ import { usePokedexStore } from "@/store/pokedexStore";
 import { useLivingDexEntries } from "@/hooks/usePokemon";
 import { getOwnedEntryCount, isLivingDexSpecies } from "@/lib/livingDex";
 import { supabase } from "@/lib/supabase";
+import { useSyncState } from "@/app/providers";
 
 const SHOWN_MILESTONES_KEY = "living-pokedex-shown-milestones-v1";
 
@@ -66,6 +67,7 @@ export default function MainLayout({
 function MainLayoutContent({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
   const [authOpen, setAuthOpen] = useState(false);
+  const isSyncing = useSyncState();
 
   const selected = useUIStore((s) => s.selectedPokemon);
   const closePokemon = useUIStore((s) => s.closePokemon);
@@ -144,6 +146,17 @@ function MainLayoutContent({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex h-dvh flex-col overflow-hidden bg-[#f4f0e8] dark:bg-[#0d0f18]">
       <AppHeader user={user} />
+
+      {isSyncing && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="flex shrink-0 items-center justify-center gap-2 border-b border-blue-100 bg-blue-50 py-1.5 text-xs font-medium text-blue-600 dark:border-blue-900/40 dark:bg-blue-950/40 dark:text-blue-400"
+        >
+          <span className="h-3 w-3 animate-spin rounded-full border-2 border-blue-200 border-t-blue-500 dark:border-blue-800 dark:border-t-blue-400" />
+          Syncing your data…
+        </div>
+      )}
 
       <div className="flex min-h-0 flex-1 overflow-hidden">
         <Sidebar />

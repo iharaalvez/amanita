@@ -18,8 +18,8 @@ type Tab =
   | "boxes"
   | "guide"
   | "locations"
-  | "hyperspace-dex"
-  | "hyperspace-boxes";
+  | `dlc-${string}-dex`
+  | `dlc-${string}-boxes`;
 
 const EMPTY_GAME_FLAGS: Record<string, GameDexFlags> = {};
 
@@ -215,17 +215,19 @@ export default function GamePage() {
   const tabs: TabConfig[] = [
     { id: "dex", label: "National Dex" },
     { id: "boxes", label: "National Dex Boxes" },
-    ...dlcGames
-      .map((dlc) => [
-        { id: `hyperspace-dex` as Tab, label: `${dlc.name} Dex` },
-        { id: `hyperspace-boxes` as Tab, label: `${dlc.name} Boxes` },
-      ])
-      .flat(),
+    ...dlcGames.flatMap((dlc) => [
+      { id: `dlc-${dlc.id}-dex` as Tab, label: `${dlc.name} Dex` },
+      { id: `dlc-${dlc.id}-boxes` as Tab, label: `${dlc.name} Boxes` },
+    ]),
     { id: "guide", label: "Hunt Guide" },
     { id: "locations", label: "Locations" },
   ];
 
-  const hyperspaceGame = dlcGames[0];
+  const activeDlcGame = dlcGames.find(
+    (dlc) =>
+      activeTab === `dlc-${dlc.id}-dex` ||
+      activeTab === `dlc-${dlc.id}-boxes`,
+  );
 
   return (
     <div>
@@ -272,17 +274,17 @@ export default function GamePage() {
               openPokemon(speciesId, formName, contextGameId)
             }
           />
-        ) : activeTab === "hyperspace-dex" && hyperspaceGame ? (
+        ) : activeDlcGame && activeTab === `dlc-${activeDlcGame.id}-dex` ? (
           <GameDexView
-            gameId={hyperspaceGame.id}
+            gameId={activeDlcGame.id}
             onSelect={(speciesId, formName, contextGameId) =>
               openPokemon(speciesId, formName, contextGameId)
             }
           />
-        ) : activeTab === "hyperspace-boxes" && hyperspaceGame ? (
+        ) : activeDlcGame && activeTab === `dlc-${activeDlcGame.id}-boxes` ? (
           <GameHomeBoxView
-            gameId={hyperspaceGame.id}
-            gameName={hyperspaceGame.name}
+            gameId={activeDlcGame.id}
+            gameName={activeDlcGame.name}
             onSelect={(speciesId, formName, contextGameId) =>
               openPokemon(speciesId, formName, contextGameId)
             }

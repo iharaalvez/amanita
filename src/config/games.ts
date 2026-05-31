@@ -89,6 +89,20 @@ export const GAME_LIST: readonly GameEntry[] = [
     hasShinyCharm: true,
   },
   {
+    id: "scarlet-violet-teal-mask",
+    name: "The Teal Mask",
+    generation: 9,
+    hasShinyCharm: false,
+    dlcOf: "scarlet-violet",
+  },
+  {
+    id: "scarlet-violet-indigo-disk",
+    name: "The Indigo Disk",
+    generation: 9,
+    hasShinyCharm: false,
+    dlcOf: "scarlet-violet",
+  },
+  {
     id: "legends-za",
     name: "Legends: Z-A",
     generation: 9,
