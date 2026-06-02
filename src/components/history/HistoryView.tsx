@@ -2,7 +2,16 @@
 
 import Image from "next/image";
 import { useMemo, useState } from "react";
-import { Check, Clock3, History, Search, Sparkles, Trash2 } from "lucide-react";
+import {
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  Clock3,
+  History,
+  Search,
+  Sparkles,
+  Trash2,
+} from "lucide-react";
 import { getGameById } from "@/config/games";
 import { useLivingDexEntries } from "@/hooks/usePokemon";
 import { useOpenPokemon } from "@/hooks/useOpenPokemon";
@@ -15,6 +24,8 @@ import type {
 } from "@/types/pokemon";
 
 type HistoryTab = "all" | "hunts" | "catches";
+
+const CATCHES_PER_PAGE = 20;
 
 type CatchHistoryRow = {
   id: number;
@@ -40,6 +51,7 @@ const METHOD_LABELS: Partial<Record<ShinyHuntMethod, string>> = {
 export function HistoryView() {
   const [tab, setTab] = useState<HistoryTab>("all");
   const [query, setQuery] = useState("");
+  const [catchPage, setCatchPage] = useState(0);
   const { data: entries } = useLivingDexEntries();
   const openPokemon = useOpenPokemon();
 
@@ -87,6 +99,16 @@ export function HistoryView() {
     matchesCatch(catchRow, normalizedQuery),
   );
 
+  const catchTotalPages = Math.max(
+    1,
+    Math.ceil(catches.length / CATCHES_PER_PAGE),
+  );
+  const safeCatchPage = Math.min(catchPage, catchTotalPages - 1);
+  const pagedCatches = catches.slice(
+    safeCatchPage * CATCHES_PER_PAGE,
+    safeCatchPage * CATCHES_PER_PAGE + CATCHES_PER_PAGE,
+  );
+
   const showHunts = tab === "all" || tab === "hunts";
   const showCatches = tab === "all" || tab === "catches";
 
@@ -113,7 +135,7 @@ export function HistoryView() {
                 <button
                   key={value}
                   type="button"
-                  onClick={() => setTab(value)}
+                  onClick={() => { setTab(value); setCatchPage(0); }}
                   className={`rounded-full px-3 py-1.5 text-xs font-black capitalize transition-colors ${
                     tab === value
                       ? "bg-[#4e367f] text-[#f8f0df]"
@@ -134,7 +156,7 @@ export function HistoryView() {
                 id="history-search"
                 type="search"
                 value={query}
-                onChange={(event) => setQuery(event.target.value)}
+                onChange={(event) => { setQuery(event.target.value); setCatchPage(0); }}
                 placeholder="Search Pokemon, games, methods..."
                 className="min-w-0 flex-1 bg-transparent text-[11px] font-medium text-[#f8f0df] outline-none placeholder:text-[#837b91]"
               />
@@ -185,8 +207,8 @@ export function HistoryView() {
                 </p>
               </div>
               <div className="divide-y divide-[#2f2b40]/70">
-                {catches.length > 0 ? (
-                  catches.map((catchRow) => (
+                {pagedCatches.length > 0 ? (
+                  pagedCatches.map((catchRow) => (
                     <CatchRow
                       key={`${catchRow.id}-${catchRow.name}-${catchRow.event.gameId}-${catchRow.event.date}-${catchRow.isShiny}-${catchRow.isAlpha}`}
                       catchRow={catchRow}
@@ -198,6 +220,34 @@ export function HistoryView() {
                   <EmptyState label="No catches match this view." />
                 )}
               </div>
+              {catchTotalPages > 1 && (
+                <div className="flex items-center justify-between border-t border-[#2f2b40]/70 px-4 py-3">
+                  <button
+                    type="button"
+                    onClick={() => setCatchPage((p) => Math.max(0, p - 1))}
+                    disabled={safeCatchPage === 0}
+                    className="grid h-8 w-8 place-items-center rounded-lg text-[#8f8799] transition-colors hover:bg-white/5 hover:text-[#f8f0df] disabled:opacity-30"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </button>
+                  <span className="text-[11px] font-semibold text-[#8f8799]">
+                    {safeCatchPage + 1} / {catchTotalPages}
+                    <span className="ml-2 text-[#554a70]">
+                      ({catches.length} total)
+                    </span>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setCatchPage((p) => Math.min(catchTotalPages - 1, p + 1))
+                    }
+                    disabled={safeCatchPage >= catchTotalPages - 1}
+                    className="grid h-8 w-8 place-items-center rounded-lg text-[#8f8799] transition-colors hover:bg-white/5 hover:text-[#f8f0df] disabled:opacity-30"
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </button>
+                </div>
+              )}
             </section>
           )}
         </div>

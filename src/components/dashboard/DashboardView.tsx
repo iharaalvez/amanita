@@ -21,7 +21,10 @@ import type {
 } from "@/types/pokemon";
 import {
   Check,
+  ChevronLeft,
+  ChevronRight,
   Clock3,
+  Fish,
   Minus,
   Pencil,
   Plus,
@@ -78,6 +81,8 @@ const COUNTER_MODE_OPTIONS: { value: HuntCounterMode; label: string }[] = [
   { value: "checks", label: "Checks" },
 ];
 
+type CatchType = "normal" | "shiny" | "alpha";
+
 type Stat = {
   label: string;
   value: number;
@@ -96,10 +101,17 @@ type RecentCatch = {
   event: CatchEvent;
 };
 
+const CATCHES_PER_PAGE = 5;
+
 export function DashboardView() {
   const [search, setSearch] = useState("");
+
+  // Hunt modal state
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingHuntId, setEditingHuntId] = useState<string | null>(null);
+  const [confirmDeleteHuntId, setConfirmDeleteHuntId] = useState<string | null>(
+    null,
+  );
   const [huntSearch, setHuntSearch] = useState("");
   const [selectedHuntEntry, setSelectedHuntEntry] =
     useState<LivingDexEntry | null>(null);
@@ -107,6 +119,17 @@ export function DashboardView() {
   const [huntMethod, setHuntMethod] = useState<ShinyHuntMethod>("random");
   const [huntCounterMode, setHuntCounterMode] =
     useState<HuntCounterMode>("encounters");
+
+  // Log catch modal state
+  const [showLogCatchModal, setShowLogCatchModal] = useState(false);
+  const [catchSearch, setCatchSearch] = useState("");
+  const [selectedCatchEntry, setSelectedCatchEntry] =
+    useState<LivingDexEntry | null>(null);
+  const [catchGameId, setCatchGameId] = useState("");
+  const [catchType, setCatchType] = useState<CatchType>("shiny");
+
+  // Catch pagination
+  const [catchPage, setCatchPage] = useState(0);
 
   const ownedRecords = usePokedexStore((s) => s.owned);
   const catchLog = usePokedexStore((s) => s.recentCatches);
@@ -119,6 +142,9 @@ export function DashboardView() {
   const removeShinyHunt = usePokedexStore((s) => s.removeShinyHunt);
   const completeShinyHunt = usePokedexStore((s) => s.completeShinyHunt);
   const removeRecentCatch = usePokedexStore((s) => s.removeRecentCatch);
+  const markOwnedInGame = usePokedexStore((s) => s.markOwnedInGame);
+  const markShinyOwnedInGame = usePokedexStore((s) => s.markShinyOwnedInGame);
+  const markAlphaInGame = usePokedexStore((s) => s.markAlphaInGame);
   const availableGames = usePokedexStore((s) => s.availableGames);
   const removeGameAvailable = usePokedexStore((s) => s.removeGameAvailable);
   const availableGameIds = useMemo(() => {
@@ -145,9 +171,11 @@ export function DashboardView() {
     return map;
   }, [allEntries]);
 
+  // Hunt modal helpers
   const resetHuntModal = () => {
     setShowAddModal(false);
     setEditingHuntId(null);
+    setConfirmDeleteHuntId(null);
     setHuntSearch("");
     setSelectedHuntEntry(null);
     setHuntGameId("");
@@ -162,6 +190,7 @@ export function DashboardView() {
 
   const openEditHuntModal = (hunt: ShinyHunt) => {
     setEditingHuntId(hunt.id);
+    setConfirmDeleteHuntId(null);
     setSelectedHuntEntry(
       entryByKey.get(ownedKey(hunt.speciesId, hunt.formName)) ?? null,
     );
@@ -170,6 +199,15 @@ export function DashboardView() {
     setHuntMethod(hunt.method);
     setHuntCounterMode(hunt.counterMode);
     setShowAddModal(true);
+  };
+
+  // Log catch modal helpers
+  const resetLogCatchModal = () => {
+    setShowLogCatchModal(false);
+    setCatchSearch("");
+    setSelectedCatchEntry(null);
+    setCatchGameId("");
+    setCatchType("shiny");
   };
 
   const huntSearchResults = useMemo(() => {
@@ -184,6 +222,19 @@ export function DashboardView() {
       )
       .slice(0, 5);
   }, [allEntries, huntSearch]);
+
+  const catchSearchResults = useMemo(() => {
+    const q = catchSearch.trim().toLowerCase();
+    if (!q) return [];
+    const dexQ = q.replace(/^#0*/, "");
+    return allEntries
+      .filter(
+        (e) =>
+          e.displayName.toLowerCase().includes(q) ||
+          String(e.speciesId).startsWith(dexQ),
+      )
+      .slice(0, 5);
+  }, [allEntries, catchSearch]);
 
   const livingTotal = livingEntries.length || 1025;
   const shinyEntries = useMemo(
@@ -211,7 +262,17 @@ export function DashboardView() {
     },
   ];
 
-  const recentCatches = getRecentCatches(allEntries, catchLog);
+  const allRecentCatches = getRecentCatches(allEntries, catchLog);
+  const catchTotalPages = Math.max(
+    1,
+    Math.ceil(allRecentCatches.length / CATCHES_PER_PAGE),
+  );
+  const safeCatchPage = Math.min(catchPage, catchTotalPages - 1);
+  const pagedCatches = allRecentCatches.slice(
+    safeCatchPage * CATCHES_PER_PAGE,
+    safeCatchPage * CATCHES_PER_PAGE + CATCHES_PER_PAGE,
+  );
+
   const searchResults = getSearchResults(livingEntries, search);
   const activeShinyHunts = useMemo(
     () => shinyHunts.filter((hunt) => !hunt.completedAt),
@@ -400,18 +461,28 @@ export function DashboardView() {
           <section className="order-3 rounded-lg border border-[#2f2b40] bg-[#1a1a27]/80 p-4 lg:col-start-2 lg:row-start-2">
             <div className="mb-3 flex items-center justify-between gap-3">
               <h2 className="text-xs font-black">Recent Catches</h2>
-              <Link
-                href="/history"
-                className="text-[10px] font-bold text-[#8f8799] transition-colors hover:text-[#f8f0df]"
-              >
-                View all
-              </Link>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowLogCatchModal(true)}
+                  className="inline-flex items-center gap-1 rounded-full bg-[#b9ec86]/10 px-2.5 py-1 text-[10px] font-black text-[#b9ec86] transition-colors hover:bg-[#b9ec86]/20"
+                >
+                  <Fish className="h-3 w-3" />
+                  Log
+                </button>
+                <Link
+                  href="/history"
+                  className="text-[10px] font-bold text-[#8f8799] transition-colors hover:text-[#f8f0df]"
+                >
+                  View all
+                </Link>
+              </div>
             </div>
             <div>
-              {recentCatches.length > 0 ? (
-                recentCatches.map((pokemon) => (
+              {pagedCatches.length > 0 ? (
+                pagedCatches.map((pokemon) => (
                   <div
-                    key={`${pokemon.id}-${pokemon.name}-${pokemon.isShiny ? "shiny" : "normal"}`}
+                    key={`${pokemon.id}-${pokemon.name}-${pokemon.isShiny ? "shiny" : "normal"}-${pokemon.event.date}`}
                     className="grid min-h-14 grid-cols-[44px_minmax(0,1fr)] items-center gap-x-3 gap-y-1 border-t border-[#2f2b40]/70 py-3 first:border-t-0 min-[420px]:grid-cols-[44px_1fr_auto] min-[420px]:gap-4"
                   >
                     <Image
@@ -469,6 +540,31 @@ export function DashboardView() {
                 </p>
               )}
             </div>
+            {catchTotalPages > 1 && (
+              <div className="mt-3 flex items-center justify-between border-t border-[#2f2b40]/70 pt-3">
+                <button
+                  type="button"
+                  onClick={() => setCatchPage((p) => Math.max(0, p - 1))}
+                  disabled={safeCatchPage === 0}
+                  className="grid h-7 w-7 place-items-center rounded-lg text-[#8f8799] transition-colors hover:bg-white/5 hover:text-[#f8f0df] disabled:opacity-30"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </button>
+                <span className="text-[10px] font-semibold text-[#8f8799]">
+                  {safeCatchPage + 1} / {catchTotalPages}
+                </span>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setCatchPage((p) => Math.min(catchTotalPages - 1, p + 1))
+                  }
+                  disabled={safeCatchPage >= catchTotalPages - 1}
+                  className="grid h-7 w-7 place-items-center rounded-lg text-[#8f8799] transition-colors hover:bg-white/5 hover:text-[#f8f0df] disabled:opacity-30"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </button>
+              </div>
+            )}
           </section>
 
           {/* Right column */}
@@ -544,6 +640,7 @@ export function DashboardView() {
                     View all
                   </Link>
                   <button
+                    type="button"
                     onClick={openAddHuntModal}
                     className="inline-flex items-center gap-1 rounded-full bg-[#f8d85a]/10 px-2.5 py-1 text-[10px] font-black text-[#f8d85a] transition-colors hover:bg-[#f8d85a]/20"
                   >
@@ -564,7 +661,6 @@ export function DashboardView() {
                           ownedKey(hunt.speciesId, hunt.formName),
                         )}
                         onComplete={() => completeShinyHunt(hunt.id)}
-                        onRemove={() => removeShinyHunt(hunt.id)}
                         onIncrement={() => incrementShinyHunt(hunt.id)}
                         onDecrement={() => decrementShinyHunt(hunt.id)}
                         onCountChange={(count) =>
@@ -597,7 +693,6 @@ export function DashboardView() {
                           entry={entryByKey.get(
                             ownedKey(hunt.speciesId, hunt.formName),
                           )}
-                          onRemove={() => removeShinyHunt(hunt.id)}
                         />
                       ))}
                     </div>
@@ -609,7 +704,7 @@ export function DashboardView() {
         </div>
       </div>
 
-      {/* Add Hunt modal */}
+      {/* Add / Edit Hunt modal */}
       {showAddModal && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
@@ -645,6 +740,7 @@ export function DashboardView() {
                   </p>
                 </div>
                 <button
+                  type="button"
                   onClick={() => setSelectedHuntEntry(null)}
                   className="grid h-8 w-8 place-items-center rounded-lg text-[#8f8799] hover:bg-white/5 hover:text-[#f8f0df]"
                   aria-label="Clear selected Pokemon"
@@ -667,7 +763,9 @@ export function DashboardView() {
                       <button
                         key={`${entry.speciesId}-${entry.formName ?? "base"}`}
                         type="button"
-                        onClick={() => {
+                        onMouseDown={(e) => {
+                          // prevent input blur before click registers on mobile
+                          e.preventDefault();
                           setSelectedHuntEntry(entry);
                           setHuntSearch("");
                         }}
@@ -726,6 +824,7 @@ export function DashboardView() {
               {COUNTER_MODE_OPTIONS.map(({ value: mode, label }) => (
                 <button
                   key={mode}
+                  type="button"
                   onClick={() => setHuntCounterMode(mode)}
                   className={`rounded-lg px-2 py-1.5 text-[11px] font-bold transition-colors ${
                     huntCounterMode === mode
@@ -741,12 +840,14 @@ export function DashboardView() {
             {/* Actions */}
             <div className="flex gap-2">
               <button
+                type="button"
                 onClick={resetHuntModal}
                 className="flex-1 rounded-lg border border-[#2f2b40] py-2 text-xs font-bold text-[#8f8799] hover:text-[#f8f0df]"
               >
                 Cancel
               </button>
               <button
+                type="button"
                 onClick={() => {
                   if (!selectedHuntEntry || !huntGameId) return;
                   if (editingHuntId) {
@@ -774,6 +875,218 @@ export function DashboardView() {
                 {editingHuntId ? "Save Hunt" : "Start Hunt"}
               </button>
             </div>
+
+            {/* Delete — only shown in edit mode */}
+            {editingHuntId && (
+              <div className="mt-3 border-t border-[#2f2b40]/70 pt-3">
+                {confirmDeleteHuntId === editingHuntId ? (
+                  <div className="flex items-center gap-2">
+                    <p className="flex-1 text-[11px] font-semibold text-[#8f8799]">
+                      Delete this hunt?
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setConfirmDeleteHuntId(null)}
+                      className="rounded-lg border border-[#2f2b40] px-2.5 py-1.5 text-[11px] font-bold text-[#8f8799] hover:text-[#f8f0df]"
+                    >
+                      No
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        removeShinyHunt(editingHuntId);
+                        resetHuntModal();
+                      }}
+                      className="rounded-lg bg-red-500/20 px-2.5 py-1.5 text-[11px] font-bold text-red-400 hover:bg-red-500/30"
+                    >
+                      Yes, delete
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setConfirmDeleteHuntId(editingHuntId)}
+                    className="flex w-full items-center justify-center gap-1.5 rounded-lg py-1.5 text-[11px] font-bold text-[#8f8799] hover:bg-white/5 hover:text-red-400"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                    Delete hunt
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Log Catch modal */}
+      {showLogCatchModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) resetLogCatchModal();
+          }}
+        >
+          <div className="w-full max-w-sm rounded-xl border border-[#2f2b40] bg-[#1a1a27] p-5 shadow-2xl">
+            <h3 className="mb-4 text-sm font-black">Log a Catch</h3>
+
+            {/* Pokémon picker */}
+            {selectedCatchEntry ? (
+              <div className="mb-3 flex items-center gap-3 rounded-lg border border-[#2f2b40] bg-[#151520] px-3 py-2">
+                <Image
+                  src={
+                    catchType === "shiny"
+                      ? (selectedCatchEntry.shinySpriteUrl ??
+                        selectedCatchEntry.spriteUrl)
+                      : selectedCatchEntry.spriteUrl
+                  }
+                  alt={selectedCatchEntry.displayName}
+                  width={40}
+                  height={40}
+                  unoptimized
+                  className="h-10 w-10 object-contain [image-rendering:pixelated]"
+                />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-bold">
+                    {selectedCatchEntry.displayName}
+                  </p>
+                  <p className="text-[10px] text-[#8f8799]">
+                    #{String(selectedCatchEntry.speciesId).padStart(4, "0")}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSelectedCatchEntry(null)}
+                  className="grid h-8 w-8 place-items-center rounded-lg text-[#8f8799] hover:bg-white/5 hover:text-[#f8f0df]"
+                  aria-label="Clear selected Pokemon"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            ) : (
+              <div className="relative mb-3">
+                <input
+                  autoFocus
+                  value={catchSearch}
+                  onChange={(e) => setCatchSearch(e.target.value)}
+                  placeholder="Search Pokémon…"
+                  className="w-full rounded-lg border border-[#2f2b40] bg-[#151520] px-3 py-2 text-xs text-[#f8f0df] outline-none placeholder:text-[#8f8799] focus:border-[#554a70]"
+                />
+                {catchSearchResults.length > 0 && (
+                  <div className="absolute top-full z-10 mt-1 w-full overflow-hidden rounded-lg border border-[#2f2b40] bg-[#151520] shadow-xl">
+                    {catchSearchResults.map((entry) => (
+                      <button
+                        key={`${entry.speciesId}-${entry.formName ?? "base"}`}
+                        type="button"
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          setSelectedCatchEntry(entry);
+                          setCatchSearch("");
+                        }}
+                        className="flex w-full items-center gap-2 border-t border-[#2f2b40]/70 px-3 py-1.5 text-left first:border-t-0 hover:bg-white/5"
+                      >
+                        <Image
+                          src={entry.spriteUrl}
+                          alt=""
+                          width={28}
+                          height={28}
+                          unoptimized
+                          className="h-7 w-7 object-contain [image-rendering:pixelated]"
+                        />
+                        <span className="flex-1 truncate text-xs font-bold">
+                          {entry.displayName}
+                        </span>
+                        <span className="shrink-0 text-[10px] text-[#8f8799]">
+                          #{String(entry.speciesId).padStart(4, "0")}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Game */}
+            <select
+              value={catchGameId}
+              onChange={(e) => setCatchGameId(e.target.value)}
+              className="mb-3 w-full rounded-lg border border-[#2f2b40] bg-[#151520] px-3 py-2 text-xs text-[#f8f0df] outline-none focus:border-[#554a70]"
+            >
+              <option value="">Select game…</option>
+              {availableGameIds.map((id) => (
+                <option key={id} value={id}>
+                  {getGameById(id)?.name ?? id}
+                </option>
+              ))}
+            </select>
+
+            {/* Catch type */}
+            <div className="mb-4 grid grid-cols-3 gap-2">
+              {(
+                [
+                  { value: "normal", label: "Normal" },
+                  { value: "shiny", label: "✦ Shiny" },
+                  { value: "alpha", label: "α Alpha" },
+                ] as { value: CatchType; label: string }[]
+              ).map(({ value, label }) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => setCatchType(value)}
+                  className={`rounded-lg px-2 py-1.5 text-[11px] font-bold transition-colors ${
+                    catchType === value
+                      ? value === "shiny"
+                        ? "bg-[#f8d85a]/20 text-[#f8d85a]"
+                        : value === "alpha"
+                          ? "bg-[#c084fc]/20 text-[#c084fc]"
+                          : "bg-[#b9ec86]/20 text-[#b9ec86]"
+                      : "bg-[#151520] text-[#8f8799] hover:text-[#f8f0df]"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            {/* Actions */}
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={resetLogCatchModal}
+                className="flex-1 rounded-lg border border-[#2f2b40] py-2 text-xs font-bold text-[#8f8799] hover:text-[#f8f0df]"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (!selectedCatchEntry || !catchGameId) return;
+                  if (catchType === "shiny") {
+                    markShinyOwnedInGame(
+                      selectedCatchEntry.speciesId,
+                      catchGameId,
+                      selectedCatchEntry.formName,
+                    );
+                  } else if (catchType === "alpha") {
+                    markAlphaInGame(
+                      selectedCatchEntry.speciesId,
+                      catchGameId,
+                      selectedCatchEntry.formName,
+                    );
+                  } else {
+                    markOwnedInGame(
+                      selectedCatchEntry.speciesId,
+                      catchGameId,
+                      selectedCatchEntry.formName,
+                    );
+                  }
+                  resetLogCatchModal();
+                }}
+                disabled={!selectedCatchEntry || !catchGameId}
+                className="flex-1 rounded-lg bg-[#b9ec86]/20 py-2 text-xs font-bold text-[#b9ec86] transition-colors hover:bg-[#b9ec86]/30 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                Log Catch
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -785,7 +1098,6 @@ function ShinyHuntCard({
   hunt,
   entry,
   onComplete,
-  onRemove,
   onIncrement,
   onDecrement,
   onCountChange,
@@ -794,7 +1106,6 @@ function ShinyHuntCard({
   hunt: ShinyHunt;
   entry?: LivingDexEntry;
   onComplete: () => void;
-  onRemove: () => void;
   onIncrement: () => void;
   onDecrement: () => void;
   onCountChange: (count: number) => void;
@@ -904,7 +1215,7 @@ function ShinyHuntCard({
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-1.5 border-t border-[#2f2b40]/70 px-3 py-2.5">
+      <div className="grid grid-cols-2 gap-1.5 border-t border-[#2f2b40]/70 px-3 py-2.5">
         <button
           type="button"
           onClick={onEdit}
@@ -921,15 +1232,6 @@ function ShinyHuntCard({
           <Check className="h-3.5 w-3.5" />
           Done
         </button>
-        <button
-          type="button"
-          onClick={onRemove}
-          className="inline-flex h-8 items-center justify-center rounded-lg bg-white/5 text-[#8f8799] transition-colors hover:bg-white/10 hover:text-[#f8f0df]"
-          aria-label="Delete hunt"
-          title="Delete hunt"
-        >
-          <Trash2 className="h-3.5 w-3.5" />
-        </button>
       </div>
     </article>
   );
@@ -938,11 +1240,9 @@ function ShinyHuntCard({
 function CompletedHuntRow({
   hunt,
   entry,
-  onRemove,
 }: {
   hunt: ShinyHunt;
   entry?: LivingDexEntry;
-  onRemove: () => void;
 }) {
   const spriteUrl = entry?.shinySpriteUrl ?? entry?.spriteUrl;
   const methodLabel = METHOD_LABELS[hunt.method] ?? titleCaseLabel(hunt.method);
@@ -970,19 +1270,8 @@ function CompletedHuntRow({
           {formatDuration(hunt.startedAt, hunt.completedAt)} · {methodLabel}
         </span>
       </span>
-      <span className="flex items-center gap-1.5">
-        <span className="rounded-full bg-[#f8d85a]/10 px-2 py-1 font-mono text-[10px] font-black text-[#f8d85a]">
-          {hunt.count.toLocaleString()}
-        </span>
-        <button
-          type="button"
-          onClick={onRemove}
-          aria-label="Delete hunt history entry"
-          title="Delete hunt history entry"
-          className="grid h-7 w-7 place-items-center rounded-lg text-[#8f8799] transition-colors hover:bg-white/5 hover:text-[#f8f0df]"
-        >
-          <Trash2 className="h-3.5 w-3.5" />
-        </button>
+      <span className="rounded-full bg-[#f8d85a]/10 px-2 py-1 font-mono text-[10px] font-black text-[#f8d85a]">
+        {hunt.count.toLocaleString()}
       </span>
     </div>
   );
@@ -1036,7 +1325,6 @@ function getRecentCatches(
 
   const results: RecentCatch[] = [];
   for (const event of catchLog) {
-    if (results.length >= 4) break;
     const key = ownedKey(event.speciesId, event.formName);
     const entry = entryMap.get(key);
     if (!entry) continue;

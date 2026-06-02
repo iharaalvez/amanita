@@ -29,7 +29,7 @@ export const metadata: Metadata = {
   title: "Amanita",
   description: "Your Living Dex, organized.",
   icons: {
-    apple: "/app-icon-180x180.png",
+    apple: "/brand/180x180.png",
   },
 };
 
