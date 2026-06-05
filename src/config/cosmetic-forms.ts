@@ -757,8 +757,6 @@ export const COSMETIC_FORMS: CosmeticFormConfig[] = [
     label: "Female",
     dataName: "sneasel-hisui",
     spriteGender: "female",
-    isRegionalForm: true,
-    regionLabel: "Hisuian",
   },
   {
     speciesId: 217,

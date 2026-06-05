@@ -441,7 +441,7 @@ function mergeShinyHunts(local: ShinyHunt[], remote: ShinyHunt[]): ShinyHunt[] {
     byId.set(hunt.id, {
       ...existing,
       ...hunt,
-      count: Math.max(existing.count, hunt.count),
+      count: hunt.count,
       startedAt:
         existing.startedAt.localeCompare(hunt.startedAt) <= 0
           ? existing.startedAt
