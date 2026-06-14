@@ -87,6 +87,9 @@ export default function StreamPage() {
   const showCosmeticForms = usePokedexStore((s) => s.showCosmeticForms);
   const showGenderForms = usePokedexStore((s) => s.showGenderForms);
   const showGigantamaxForms = usePokedexStore((s) => s.showGigantamaxForms);
+  const homeBoxLayouts = usePokedexStore((s) => s.homeBoxLayouts);
+  const activeHomeBoxLayoutId = usePokedexStore((s) => s.activeHomeBoxLayoutId);
+  const setActiveHomeBoxLayout = usePokedexStore((s) => s.setActiveHomeBoxLayout);
 
   const { data: allEntries, isLoading } = useLivingDexEntries();
 
@@ -251,8 +254,43 @@ export default function StreamPage() {
       {/* ─── Body ─── */}
       <div className="flex min-h-0 flex-1 overflow-hidden">
 
-        {/* ─── Left panel: box list ─── */}
+        {/* ─── Left panel: layout picker + box list ─── */}
         <aside className="flex w-[152px] shrink-0 flex-col overflow-hidden border-r border-[#131620]">
+          {/* Layout selector */}
+          {homeBoxLayouts.length > 0 && (
+            <div className="shrink-0 border-b border-[#131620] px-3 py-2">
+              <p className="mb-1.5 font-mono text-[9px] font-black uppercase tracking-widest text-[#3a3f52]">
+                Layout
+              </p>
+              <div className="space-y-0.5">
+                {homeBoxLayouts.map((layout) => {
+                  const isActive = layout.id === activeHomeBoxLayoutId;
+                  return (
+                    <button
+                      key={layout.id}
+                      type="button"
+                      onClick={() => setActiveHomeBoxLayout(layout.id)}
+                      className={`flex w-full items-center gap-1.5 rounded px-2 py-1 text-left transition-colors ${
+                        isActive
+                          ? 'bg-[#1a1e2e] text-[#e0ddf5]'
+                          : 'text-[#525870] hover:bg-[#0f1016] hover:text-[#8b8fa8]'
+                      }`}
+                    >
+                      <span
+                        className={`h-1.5 w-1.5 shrink-0 rounded-full ${
+                          isActive ? 'bg-[#b9ec86]' : 'bg-[#2d3348]'
+                        }`}
+                      />
+                      <span className="min-w-0 truncate font-mono text-[10px] font-bold">
+                        {layout.name}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           <p className="shrink-0 px-3 py-2 font-mono text-[9px] font-black uppercase tracking-widest text-[#3a3f52]">
             Boxes
           </p>
