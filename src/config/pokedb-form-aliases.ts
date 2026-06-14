@@ -81,7 +81,7 @@ export const POKEDB_FORM_ALIASES: Record<string, string | null> = {
   "lycanroc-dusk": "lycanroc-dusk",
   "machamp-gigantamax": "machamp-gmax",
   "marowak-alolan": "marowak-alola",
-  "maushold-family-of-four": "maushold-family-of-four",
+  "maushold-family-of-three": "maushold-family-of-three",
   "meowth-galarian": "meowth-galar",
   "meowth-alolan": "meowth-alola",
   "meowstic-female": "meowstic-female",

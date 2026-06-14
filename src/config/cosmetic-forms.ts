@@ -2322,9 +2322,9 @@ export const COSMETIC_FORMS: CosmeticFormConfig[] = [
   },
   {
     speciesId: 925,
-    apiName: "maushold-family-of-four",
-    displayName: "Maushold Family of 4",
-    label: "Family of 4",
+    apiName: "maushold-family-of-three",
+    displayName: "Maushold Family of 3",
+    label: "Family of 3",
   },
   {
     speciesId: 931,
