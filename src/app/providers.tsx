@@ -8,7 +8,6 @@ import { usePokedexStore, hasPendingWrites } from "@/store/pokedexStore";
 import { reportAuthError } from "@/lib/authErrors";
 
 const REALTIME_DEBOUNCE_MS = 2000;
-const POLL_INTERVAL_MS = 10_000;
 
 const SyncStateContext = createContext<boolean>(false);
 export function useSyncState(): boolean {
@@ -24,7 +23,6 @@ function AuthSync({
   const mergeProgressSnapshot = usePokedexStore((s) => s.mergeProgressSnapshot);
   const clearAll = usePokedexStore((s) => s.clearAll);
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const mergedSignInsRef = useRef<Set<string>>(new Set());
   const initialSyncDoneRef = useRef(false);
 
@@ -39,7 +37,7 @@ function AuthSync({
       }
     };
 
-    // Fetch remote state and apply as the source of truth.
+    // Cold-start only: fetch remote and OVERWRITE local. Restores last session.
     // No write-back: individual user actions write to Supabase immediately.
     const loadAndApply = (userId: string) => {
       if (hasPendingWrites()) {
@@ -55,6 +53,19 @@ function AuthSync({
         .finally(markInitialSyncDone);
     };
 
+    // Mid-session: fetch remote and MERGE into local. Local wins on conflicts.
+    // Used for realtime events and window focus — never clobbers local changes.
+    const loadAndMerge = (userId: string) => {
+      loadFromSupabase(userId)
+        .then((snapshot) => {
+          if (!active || !snapshot) return;
+          mergeProgressSnapshot(snapshot);
+        })
+        .catch(reportAuthError);
+    };
+
+    // First sign-in: merge local + remote and write merged result back to DB.
+    // Reconciles offline/pre-login changes made before signing in.
     const loadMergeAndSync = (userId: string) => {
       loadFromSupabase(userId)
         .then(async (snapshot) => {
@@ -66,13 +77,6 @@ function AuthSync({
         .finally(markInitialSyncDone);
     };
 
-    const startPolling = (userId: string) => {
-      if (pollTimerRef.current) return;
-      pollTimerRef.current = setInterval(() => {
-        if (active) loadAndApply(userId);
-      }, POLL_INTERVAL_MS);
-    };
-
     const setupRealtime = (userId: string) => {
       if (realtimeChannel) return;
 
@@ -80,7 +84,7 @@ function AuthSync({
         if (!active) return;
         if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
         debounceTimerRef.current = setTimeout(
-          () => loadAndApply(userId),
+          () => loadAndMerge(userId),
           REALTIME_DEBOUNCE_MS,
         );
       };
@@ -176,10 +180,15 @@ function AuthSync({
         .then(({ data: { session } }) => {
           if (!active) return;
           if (session?.user) {
-            if (!initialSyncDoneRef.current) onSyncingChange(true);
-            loadAndApply(session.user.id);
+            if (!initialSyncDoneRef.current) {
+              // Cold start: overwrite local with server to restore last session.
+              onSyncingChange(true);
+              loadAndApply(session.user.id);
+            } else {
+              // Window focus / visibility change: merge so local changes survive.
+              loadAndMerge(session.user.id);
+            }
             setupRealtime(session.user.id);
-            startPolling(session.user.id);
           } else {
             markInitialSyncDone();
           }
@@ -206,10 +215,10 @@ function AuthSync({
           if (!initialSyncDoneRef.current) onSyncingChange(true);
           loadMergeAndSync(session.user.id);
         } else {
+          // Re-login (token refresh or explicit re-auth): treat as cold start.
           loadAndApply(session.user.id);
         }
         setupRealtime(session.user.id);
-        startPolling(session.user.id);
       }
       if (event === "SIGNED_OUT") {
         clearAll();
@@ -217,10 +226,7 @@ function AuthSync({
         initialSyncDoneRef.current = false;
         realtimeChannel?.unsubscribe();
         realtimeChannel = null;
-        if (pollTimerRef.current) {
-          clearInterval(pollTimerRef.current);
-          pollTimerRef.current = null;
-        }
+        if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
       }
     });
 
@@ -231,7 +237,6 @@ function AuthSync({
       subscription.unsubscribe();
       realtimeChannel?.unsubscribe();
       if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
-      if (pollTimerRef.current) clearInterval(pollTimerRef.current);
     };
   }, [setProgressSnapshot, mergeProgressSnapshot, clearAll, onSyncingChange]);
 
