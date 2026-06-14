@@ -14,7 +14,7 @@ import type { LivingDexEntry } from '@/types/pokemon';
 
 const BOX_SIZE = 30;
 const COLS = 6;
-const ROWS = BOX_SIZE / COLS; // 5
+const ROWS = BOX_SIZE / COLS;
 
 type SlotData = { entry: LivingDexEntry; isShiny: boolean };
 
@@ -31,7 +31,10 @@ function buildSlotBoxes(slots: SlotData[]): (SlotData | null)[][] {
   });
 }
 
-function isSlotOwned(slot: SlotData, record: { owned?: boolean; shiny_owned?: boolean } | undefined): boolean {
+function isSlotOwned(
+  slot: SlotData,
+  record: { owned?: boolean; shiny_owned?: boolean } | undefined,
+): boolean {
   return slot.isShiny ? !!record?.shiny_owned : !!record?.owned;
 }
 
@@ -55,7 +58,7 @@ function TemplateSlot({ slot, highlighted }: { slot: SlotData | null; highlighte
     : slot.entry.spriteUrl;
 
   const toggle = () => {
-    if (slot.isShiny) return; // shiny toggles via main app
+    if (slot.isShiny) return;
     if (owned) clearOwnership(slot.entry.speciesId, slot.entry.formName);
     else markOwned(slot.entry.speciesId, slot.entry.formName);
   };
@@ -93,9 +96,9 @@ function TemplateSlot({ slot, highlighted }: { slot: SlotData | null; highlighte
       <img
         src={sprite ?? slot.entry.spriteUrl}
         alt={slot.entry.displayName}
-        className={`h-8 w-8 object-contain transition-all ${
-          owned ? '' : 'grayscale opacity-20'
-        } ${highlighted ? 'scale-110' : ''}`}
+        className={`h-8 w-8 object-contain transition-all ${owned ? '' : 'grayscale opacity-20'} ${
+          highlighted ? 'scale-110' : ''
+        }`}
         loading="lazy"
       />
     </button>
@@ -111,9 +114,7 @@ function ModeBadge({ mode }: { mode: HomeBoxMode }) {
   return (
     <span
       className={`shrink-0 rounded px-1.5 py-0.5 font-mono text-[8px] font-black uppercase tracking-widest ${
-        mode === 'shiny'
-          ? 'bg-[#1e1508] text-[#f8d85a]'
-          : 'bg-[#0e1020] text-[#a78bfa]'
+        mode === 'shiny' ? 'bg-[#1e1508] text-[#f8d85a]' : 'bg-[#0e1020] text-[#a78bfa]'
       }`}
     >
       {mode === 'shiny' ? '✦ Shiny' : '⇌ Paired'}
@@ -129,7 +130,6 @@ export default function StreamPage() {
   const [boxIndex, setBoxIndex] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
   const [, forceUpdate] = useState(0);
-  const searchRef = useRef<HTMLInputElement>(null);
   const activeItemRef = useRef<HTMLButtonElement>(null);
 
   const storeOwned = usePokedexStore((s) => s.owned);
@@ -152,7 +152,6 @@ export default function StreamPage() {
     return () => clearInterval(id);
   }, []);
 
-  // ── Entries filtered by active layout settings ──
   const filteredEntries = useMemo(() => {
     if (!allEntries) return [];
     return [...allEntries]
@@ -160,7 +159,6 @@ export default function StreamPage() {
       .sort(compareLivingDexEntries);
   }, [allEntries, showCosmeticForms, showGenderForms, showGigantamaxForms]);
 
-  // ── Slots depend on mode ──
   const allSlots = useMemo((): SlotData[] => {
     if (isPairedMode) {
       return filteredEntries.flatMap((e) => [
@@ -177,7 +175,6 @@ export default function StreamPage() {
   const currentBox = boxes[safeIndex] ?? [];
   const currentSlots = currentBox.filter((s): s is SlotData => s !== null);
 
-  // ── Per-box stats ──
   const boxStats = useMemo(
     () =>
       boxes.map((box) => {
@@ -227,23 +224,19 @@ export default function StreamPage() {
   }, [allSlots, searchNorm]);
 
   const boxHasMatch = useMemo(
-    () =>
-      boxes.map((box) =>
-        box.some((s) => s !== null && highlightedKeys.has(slotKey(s))),
-      ),
+    () => boxes.map((box) => box.some((s) => s !== null && highlightedKeys.has(slotKey(s)))),
     [boxes, highlightedKeys],
   );
 
-  // Auto-jump to first matching box
   useEffect(() => {
     if (!searchNorm) return;
     const first = boxHasMatch.findIndex(Boolean);
     if (first >= 0) setBoxIndex(first);
   }, [searchNorm, boxHasMatch]);
 
-  // Scroll active box into view in the left panel
+  // Scroll footer active tile into view
   useEffect(() => {
-    activeItemRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    activeItemRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
   }, [safeIndex]);
 
   // ── Recent catches ──
@@ -255,7 +248,7 @@ export default function StreamPage() {
 
   const recentWithEntries = useMemo(
     () =>
-      recentCatches.slice(0, 8).map((event) => ({
+      recentCatches.slice(0, 10).map((event) => ({
         event,
         entry:
           entryByKey.get(ownedKey(event.speciesId, event.formName)) ??
@@ -287,6 +280,7 @@ export default function StreamPage() {
 
   return (
     <div className="flex h-screen flex-col overflow-hidden">
+
       {/* ─── Header ─── */}
       <header className="flex h-10 shrink-0 items-center justify-between border-b border-[#131620] px-4">
         <div className="flex w-52 items-center gap-3">
@@ -315,9 +309,7 @@ export default function StreamPage() {
           >
             <ChevronLeft className="h-4 w-4" />
           </button>
-          <span className="font-mono text-sm font-black text-[#e0ddf5]">
-            BOX {safeIndex + 1}
-          </span>
+          <span className="font-mono text-sm font-black text-[#e0ddf5]">BOX {safeIndex + 1}</span>
           <span className="font-mono text-sm text-[#2d3348]">/ {totalBoxes}</span>
           <button
             type="button"
@@ -343,15 +335,21 @@ export default function StreamPage() {
       {/* ─── Body ─── */}
       <div className="flex min-h-0 flex-1 overflow-hidden">
 
-        {/* ─── Left panel: layout + search + box list ─── */}
-        <aside className="flex w-[152px] shrink-0 flex-col overflow-hidden border-r border-[#131620]">
+        {/* ─── Center: empty — Switch capture goes here ─── */}
+        <div className="min-h-0 flex-1">
+          <div className="h-full w-full border border-dashed border-[#131620]/60" />
+        </div>
+
+        {/* ─── Right panel ─── */}
+        <aside className="flex w-[380px] shrink-0 flex-col overflow-hidden border-l border-[#131620]">
+
           {/* Layout selector */}
           {homeBoxLayouts.length > 0 && (
-            <div className="shrink-0 border-b border-[#131620] px-3 py-2">
+            <div className="shrink-0 border-b border-[#131620] px-4 py-2.5">
               <p className="mb-1.5 font-mono text-[9px] font-black uppercase tracking-widest text-[#3a3f52]">
                 Layout
               </p>
-              <div className="space-y-0.5">
+              <div className="flex flex-wrap gap-1">
                 {homeBoxLayouts.map((layout) => {
                   const isActive = layout.id === activeHomeBoxLayoutId;
                   return (
@@ -359,10 +357,10 @@ export default function StreamPage() {
                       key={layout.id}
                       type="button"
                       onClick={() => setActiveHomeBoxLayout(layout.id)}
-                      className={`flex w-full items-center gap-1.5 rounded px-2 py-1 text-left transition-colors ${
+                      className={`flex items-center gap-1.5 rounded-full px-2.5 py-1 transition-colors ${
                         isActive
                           ? 'bg-[#1a1e2e] text-[#e0ddf5]'
-                          : 'text-[#525870] hover:bg-[#0f1016] hover:text-[#8b8fa8]'
+                          : 'bg-[#0b0c10] text-[#525870] hover:bg-[#131620] hover:text-[#8b8fa8]'
                       }`}
                     >
                       <span
@@ -370,9 +368,7 @@ export default function StreamPage() {
                           isActive ? 'bg-[#b9ec86]' : 'bg-[#2d3348]'
                         }`}
                       />
-                      <span className="min-w-0 truncate font-mono text-[10px] font-bold">
-                        {layout.name}
-                      </span>
+                      <span className="font-mono text-[10px] font-bold">{layout.name}</span>
                     </button>
                   );
                 })}
@@ -381,117 +377,48 @@ export default function StreamPage() {
           )}
 
           {/* Search */}
-          <div className="shrink-0 border-b border-[#131620] px-3 py-2">
-            <div className="relative">
-              <Search className="absolute left-2 top-1/2 h-3 w-3 -translate-y-1/2 text-[#3a3f52]" />
-              <input
-                ref={searchRef}
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Find…"
-                className="h-7 w-full rounded bg-[#0b0c10] pl-6 pr-6 font-mono text-[10px] text-[#e0ddf5] placeholder:text-[#2d3348] focus:outline-none focus:ring-1 focus:ring-[#2d3348]"
-              />
-              {searchQuery && (
-                <button
-                  type="button"
-                  onClick={() => setSearchQuery('')}
-                  className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[#3a3f52] hover:text-[#8b8fa8]"
-                >
-                  <X className="h-3 w-3" />
-                </button>
-              )}
-            </div>
-            {searchNorm && highlightedKeys.size === 0 && (
-              <p className="mt-1 font-mono text-[9px] text-[#3a3f52]">No match</p>
-            )}
-            {searchNorm && highlightedKeys.size > 0 && (
-              <p className="mt-1 font-mono text-[9px] text-[#f8d85a]">
-                {highlightedKeys.size} slot{highlightedKeys.size !== 1 ? 's' : ''}
-              </p>
-            )}
-          </div>
-
-          {/* Box list */}
-          <p className="shrink-0 px-3 py-2 font-mono text-[9px] font-black uppercase tracking-widest text-[#3a3f52]">
-            Boxes
-          </p>
-          <div className="flex-1 overflow-y-auto">
-            {boxes.map((_, i) => {
-              const s = boxStats[i];
-              const pct = s.total > 0 ? s.owned / s.total : 0;
-              const isComplete = pct === 1 && s.total > 0;
-              const isCurrent = i === safeIndex;
-              const hasMatch = searchNorm ? boxHasMatch[i] : false;
-              return (
-                <button
-                  key={i}
-                  ref={isCurrent ? activeItemRef : undefined}
-                  type="button"
-                  onClick={() => setBoxIndex(i)}
-                  className={`flex w-full flex-col gap-1 px-3 py-2 text-left transition-colors ${
-                    isCurrent ? 'bg-[#1a1e2e]' : 'hover:bg-[#0f1016]'
+          <div className="shrink-0 border-b border-[#131620] px-4 py-2.5">
+            <div className="flex items-center gap-2">
+              <div className="relative flex-1">
+                <Search className="absolute left-2.5 top-1/2 h-3 w-3 -translate-y-1/2 text-[#3a3f52]" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Find a Pokémon…"
+                  className="h-8 w-full rounded-lg bg-[#0b0c10] pl-7 pr-7 font-mono text-[11px] text-[#e0ddf5] placeholder:text-[#2d3348] focus:outline-none focus:ring-1 focus:ring-[#2d3348]"
+                />
+                {searchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchQuery('')}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-[#3a3f52] hover:text-[#8b8fa8]"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                )}
+              </div>
+              {searchNorm && (
+                <span
+                  className={`shrink-0 font-mono text-[10px] font-black ${
+                    highlightedKeys.size > 0 ? 'text-[#f8d85a]' : 'text-[#3a3f52]'
                   }`}
                 >
-                  <div className="flex items-center justify-between">
-                    <span
-                      className={`font-mono text-[11px] font-black ${
-                        isCurrent
-                          ? 'text-[#e0ddf5]'
-                          : isComplete
-                          ? 'text-[#b9ec86]'
-                          : 'text-[#525870]'
-                      }`}
-                    >
-                      BOX {String(i + 1).padStart(2, '0')}
-                    </span>
-                    {hasMatch && (
-                      <span className="text-[8px] text-[#f8d85a]">●</span>
-                    )}
-                    {isComplete && !hasMatch && (
-                      <span className="text-[8px] text-[#b9ec86]">✓</span>
-                    )}
-                  </div>
-                  <div className="h-0.5 w-full overflow-hidden rounded-full bg-[#0b0c10]">
-                    <div
-                      className={`h-full rounded-full transition-all duration-300 ${
-                        hasMatch
-                          ? 'bg-[#f8d85a]'
-                          : isComplete
-                          ? 'bg-[#b9ec86]'
-                          : pct >= 0.5
-                          ? 'bg-[#67e8f9]'
-                          : 'bg-[#2d3348]'
-                      }`}
-                      style={{ width: `${pct * 100}%` }}
-                    />
-                  </div>
-                </button>
-              );
-            })}
+                  {highlightedKeys.size > 0 ? `${highlightedKeys.size} found` : 'no match'}
+                </span>
+              )}
+            </div>
           </div>
-        </aside>
-
-        {/* ─── Center: empty — Switch capture goes here in OBS ─── */}
-        <div className="min-h-0 flex-1">
-          <div className="h-full w-full border border-dashed border-[#131620]/60" />
-        </div>
-
-        {/* ─── Right panel ─── */}
-        <aside className="flex w-[300px] shrink-0 flex-col overflow-hidden border-l border-[#131620]">
 
           {/* Box header */}
-          <div className="border-b border-[#131620] px-4 py-3">
-            <p className="font-mono text-[9px] font-black uppercase tracking-widest text-[#3a3f52]">
-              Current Box
-            </p>
-            <div className="mt-1 flex items-baseline justify-between">
+          <div className="shrink-0 border-b border-[#131620] px-4 py-3">
+            <div className="flex items-baseline justify-between">
               <span className="font-mono text-2xl font-black leading-none text-[#e0ddf5]">
                 BOX {safeIndex + 1}
               </span>
-              <span className="font-mono text-lg font-black leading-none text-[#e0ddf5]">
+              <span className="font-mono text-xl font-black leading-none text-[#e0ddf5]">
                 {ownedInBox}
-                <span className="text-sm font-normal text-[#2d3348]"> / {currentSlots.length}</span>
+                <span className="text-base font-normal text-[#2d3348]"> / {currentSlots.length}</span>
               </span>
             </div>
             <div className="mt-2 h-1 overflow-hidden rounded-full bg-[#131620]">
@@ -511,7 +438,7 @@ export default function StreamPage() {
           </div>
 
           {/* Box template grid */}
-          <div className="border-b border-[#131620] px-4 py-3">
+          <div className="shrink-0 border-b border-[#131620] px-4 py-3">
             <p className="mb-2 font-mono text-[9px] font-black uppercase tracking-widest text-[#3a3f52]">
               Box Template
             </p>
@@ -520,7 +447,7 @@ export default function StreamPage() {
               style={{
                 gridTemplateColumns: `repeat(${COLS}, 1fr)`,
                 gridTemplateRows: `repeat(${ROWS}, 1fr)`,
-                height: '160px',
+                height: '180px',
               }}
             >
               {currentBox.map((slot, i) => (
@@ -550,13 +477,13 @@ export default function StreamPage() {
                 <p className="font-mono text-xs text-[#b9ec86]">Box complete!</p>
               </div>
             ) : (
-              <div className="space-y-1.5 overflow-hidden">
-                {missingInBox.slice(0, 11).map((slot) => {
+              <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 overflow-hidden">
+                {missingInBox.slice(0, 16).map((slot) => {
                   const sprite = slot.isShiny
                     ? (slot.entry.shinySpriteUrl ?? slot.entry.spriteUrl)
                     : slot.entry.spriteUrl;
                   return (
-                    <div key={slotKey(slot)} className="flex items-center gap-2">
+                    <div key={slotKey(slot)} className="flex items-center gap-1.5 min-w-0">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src={sprite ?? slot.entry.spriteUrl}
@@ -564,21 +491,16 @@ export default function StreamPage() {
                         className="h-6 w-6 shrink-0 object-contain grayscale opacity-35"
                         loading="lazy"
                       />
-                      <span className="min-w-0 flex-1 truncate text-[11px] text-[#525870]">
+                      <span className="min-w-0 truncate text-[11px] text-[#525870]">
                         {slot.entry.displayName}
-                        {slot.isShiny && (
-                          <span className="ml-1 text-[#f8d85a]">✦</span>
-                        )}
-                      </span>
-                      <span className="shrink-0 font-mono text-[9px] text-[#2d3348]">
-                        #{String(slot.entry.speciesId).padStart(4, '0')}
+                        {slot.isShiny && <span className="ml-1 text-[9px] text-[#f8d85a]">✦</span>}
                       </span>
                     </div>
                   );
                 })}
-                {missingInBox.length > 11 && (
-                  <p className="font-mono text-[9px] text-[#2d3348]">
-                    +{missingInBox.length - 11} more
+                {missingInBox.length > 16 && (
+                  <p className="col-span-2 font-mono text-[9px] text-[#2d3348]">
+                    +{missingInBox.length - 16} more
                   </p>
                 )}
               </div>
@@ -587,29 +509,82 @@ export default function StreamPage() {
         </aside>
       </div>
 
-      {/* ─── Footer ─── */}
-      <footer className="flex h-[60px] shrink-0 items-stretch border-t border-[#131620]">
-        <div className="flex w-[152px] shrink-0 flex-col items-start justify-center border-r border-[#131620] px-4">
+      {/* ─── Footer: box tiles + overall + recent ─── */}
+      <footer className="flex h-[64px] shrink-0 items-stretch border-t border-[#131620]">
+
+        {/* Box tiles */}
+        <div className="flex min-w-0 flex-1 items-center gap-0.5 overflow-hidden px-3">
+          {boxes.map((_, i) => {
+            const s = boxStats[i];
+            const pct = s.total > 0 ? s.owned / s.total : 0;
+            const isComplete = pct === 1 && s.total > 0;
+            const isCurrent = i === safeIndex;
+            const hasMatch = searchNorm ? boxHasMatch[i] : false;
+            return (
+              <button
+                key={i}
+                ref={isCurrent ? activeItemRef : undefined}
+                type="button"
+                onClick={() => setBoxIndex(i)}
+                title={`Box ${i + 1} — ${s.owned}/${s.total}`}
+                className={`flex shrink-0 flex-col items-center gap-0.5 rounded px-1.5 py-1.5 transition-colors ${
+                  isCurrent ? 'bg-[#1a1e2e]' : 'hover:bg-[#0f1016]'
+                }`}
+              >
+                <span
+                  className={`font-mono text-[10px] font-black tabular-nums leading-none ${
+                    isCurrent
+                      ? 'text-[#e0ddf5]'
+                      : hasMatch
+                      ? 'text-[#f8d85a]'
+                      : isComplete
+                      ? 'text-[#b9ec86]'
+                      : 'text-[#3a3f52]'
+                  }`}
+                >
+                  {i + 1}
+                </span>
+                <div className="h-0.5 w-5 overflow-hidden rounded-full bg-[#131620]">
+                  <div
+                    className={`h-full rounded-full transition-all duration-300 ${
+                      hasMatch
+                        ? 'bg-[#f8d85a]'
+                        : isComplete
+                        ? 'bg-[#b9ec86]'
+                        : pct >= 0.5
+                        ? 'bg-[#67e8f9]'
+                        : 'bg-[#2d3348]'
+                    }`}
+                    style={{ width: `${pct * 100}%` }}
+                  />
+                </div>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Overall */}
+        <div className="flex w-28 shrink-0 flex-col items-center justify-center border-l border-[#131620] px-3">
           <p className="font-mono text-[9px] font-black uppercase tracking-widest text-[#3a3f52]">
-            Living Dex
+            Dex
           </p>
           <p className={`mt-0.5 font-mono text-sm font-black ${isShinyMode ? 'text-[#f8d85a]' : 'text-[#b9ec86]'}`}>
-            {overallPct.toFixed(1)}
-            <span className="text-xs font-normal text-[#3a3f52]">%</span>
+            {overallPct.toFixed(1)}<span className="text-xs font-normal text-[#3a3f52]">%</span>
           </p>
           <div className="mt-1 h-0.5 w-full overflow-hidden rounded-full bg-[#131620]">
             <div
-              className={`h-full rounded-full transition-all ${isShinyMode ? 'bg-[#f8d85a]' : 'bg-[#b9ec86]'}`}
+              className={`h-full rounded-full ${isShinyMode ? 'bg-[#f8d85a]' : 'bg-[#b9ec86]'}`}
               style={{ width: `${overallPct}%` }}
             />
           </div>
         </div>
 
-        <div className="flex min-w-0 flex-1 items-center gap-3 px-4">
+        {/* Recent — aligned with right panel */}
+        <div className="flex w-[380px] shrink-0 items-center gap-3 border-l border-[#131620] px-4">
           <p className="shrink-0 font-mono text-[9px] font-black uppercase tracking-widest text-[#3a3f52]">
             Recent
           </p>
-          <div className="flex items-center gap-1.5 overflow-hidden">
+          <div className="flex items-center gap-2 overflow-hidden">
             {recentWithEntries.length === 0 ? (
               <span className="font-mono text-[10px] text-[#2d3348]">—</span>
             ) : (
