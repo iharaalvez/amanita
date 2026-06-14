@@ -26,27 +26,48 @@ const MAX_BERRIES = 8;
 const MIN_DONUT_BERRIES = 3;
 const BAR_SCALE = 800; // points at 100% width
 
-const CATEGORY_ORDER = ["Shiny Hunting", "Item Farming", "Berry Farming", "Story"] as const;
+const CATEGORY_ORDER: RecommendedDonutRecipe["category"][] = [
+  "Flavor Budget",
+  "Rainbow",
+  "Shiny Hunting",
+  "Item Farming",
+  "Berry Farming",
+  "Story",
+];
 
 const CATEGORY_META: Record<
-  string,
+  RecommendedDonutRecipe["category"],
   { label: string; color: string; bg: string }
 > = {
-  "Shiny Hunting": { label: "✦ Shiny",  color: "#f8d85a", bg: "bg-[#2a2010]" },
-  "Item Farming":  { label: "◈ Items",  color: "#a3e635", bg: "bg-[#1a2210]" },
+  "Flavor Budget": {
+    label: "Lv. Budget",
+    color: "#fb923c",
+    bg: "bg-[#2a1710]",
+  },
+  Rainbow: { label: "Rainbow", color: "#38bdf8", bg: "bg-[#0c1f2a]" },
+  "Shiny Hunting": { label: "✦ Shiny", color: "#f8d85a", bg: "bg-[#2a2010]" },
+  "Item Farming": { label: "◈ Items", color: "#a3e635", bg: "bg-[#1a2210]" },
   "Berry Farming": { label: "✿ Berries", color: "#67e8f9", bg: "bg-[#0e1e22]" },
-  "Story":         { label: "◎ Story",  color: "#c084fc", bg: "bg-[#1a1030]" },
+  Story: { label: "◎ Story", color: "#c084fc", bg: "bg-[#1a1030]" },
 };
 
 // Location tier display order for the berry table.
-const TIER_ORDER = ["Vendor", "★1", "★1-2", "★2", "★3", "★4", undefined] as const;
+const TIER_ORDER = [
+  "Vendor",
+  "★1",
+  "★1-2",
+  "★2",
+  "★3",
+  "★4",
+  undefined,
+] as const;
 const TIER_LABELS: Record<string, string> = {
-  "Vendor": "Vendor",
-  "★1":    "Rank ★1",
-  "★1-2":  "Rank ★1–2",
-  "★2":    "Rank ★2",
-  "★3":    "Rank ★3",
-  "★4":    "Rank ★4",
+  Vendor: "Vendor",
+  "★1": "Rank ★1",
+  "★1-2": "Rank ★1–2",
+  "★2": "Rank ★2",
+  "★3": "Rank ★3",
+  "★4": "Rank ★4",
 };
 
 type FlavorFilter = DonutFlavor | "all";
@@ -74,8 +95,7 @@ export default function DonutToolPage() {
     const q = query.trim().toLowerCase();
     return DONUT_BERRIES.filter((berry) => {
       const matchesQuery = !q || berry.name.toLowerCase().includes(q);
-      const matchesFlavor =
-        flavorFilter === "all" || berry[flavorFilter] > 0;
+      const matchesFlavor = flavorFilter === "all" || berry[flavorFilter] > 0;
       return matchesQuery && matchesFlavor;
     });
   }, [query, flavorFilter]);
@@ -100,7 +120,11 @@ export default function DonutToolPage() {
     for (const berry of selectedBerries) {
       const count = selection[berry.id] ?? 0;
       const maxVal = Math.max(
-        berry.sweet, berry.spicy, berry.sour, berry.bitter, berry.fresh,
+        berry.sweet,
+        berry.spicy,
+        berry.sour,
+        berry.bitter,
+        berry.fresh,
       );
       const dominant = DONUT_FLAVORS.find((f) => berry[f.id] === maxVal);
       const c = dominant?.color ?? "#4e367f";
@@ -124,16 +148,13 @@ export default function DonutToolPage() {
 
   const loadRecipe = (recipe: RecommendedDonutRecipe) => {
     setSelection(
-      Object.fromEntries(
-        recipe.ingredients.map((i) => [i.berryId, i.count]),
-      ),
+      Object.fromEntries(recipe.ingredients.map((i) => [i.berryId, i.count])),
     );
   };
 
   return (
     <div className="min-h-full bg-[#11111b] px-4 py-6 text-[#f8f0df] sm:px-6 lg:px-8">
       <div className="mx-auto max-w-7xl">
-
         {/* ── Header ── */}
         <header className="mb-6">
           <Link
@@ -154,7 +175,8 @@ export default function DonutToolPage() {
                 Ansha&apos;s Donuts
               </h1>
               <p className="mt-1 text-sm text-[#8f8799]">
-                Build your perfect donut from berry flavor stats. Select up to 8 berries to see your flavor budget and power rolls.
+                Build your perfect donut from berry flavor stats. Select up to 8
+                berries to see your flavor budget and power rolls.
               </p>
             </div>
             <div className="flex gap-2">
@@ -178,10 +200,8 @@ export default function DonutToolPage() {
 
         {/* ── Two-column layout ── */}
         <div className="grid items-start gap-5 xl:grid-cols-[1fr_380px]">
-
           {/* ── Main content ── */}
           <div className="space-y-6">
-
             {/* ── Recipes ── */}
             <section>
               <h2 className="mb-3 text-[10px] font-black uppercase tracking-widest text-[#554a70]">
@@ -328,7 +348,6 @@ export default function DonutToolPage() {
 
           {/* ── Sticky sidebar ── */}
           <aside className="space-y-4 xl:sticky xl:top-4">
-
             {/* Builder */}
             <div className="overflow-hidden rounded-xl border border-[#2f2b40] bg-[#1a1a27]/80">
               <div className="flex items-center justify-between border-b border-[#2f2b40] px-4 py-3.5">
@@ -373,8 +392,15 @@ export default function DonutToolPage() {
                 {/* Stats */}
                 <div className="grid grid-cols-3 gap-2">
                   <BuilderStat label="Level" value={`+${totals.level}`} />
-                  <BuilderStat label="Calories" value={totals.calories.toLocaleString()} />
-                  <BuilderStat label="Budget" value={String(totalBudget)} highlight={totalBudget >= 7} />
+                  <BuilderStat
+                    label="Calories"
+                    value={totals.calories.toLocaleString()}
+                  />
+                  <BuilderStat
+                    label="Budget"
+                    value={String(totalBudget)}
+                    highlight={totalBudget >= 7}
+                  />
                 </div>
 
                 {totals.berryCount > 0 &&
@@ -484,7 +510,8 @@ export default function DonutToolPage() {
                 </div>
               )}
               <p className="mt-3 text-[10px] leading-5 text-[#3d3456]">
-                Powers roll randomly from the dominant flavor&apos;s pool. Tied flavors expand the eligible pool.
+                Powers roll randomly from the dominant flavor&apos;s pool. Tied
+                flavors expand the eligible pool.
               </p>
             </div>
           </aside>
@@ -672,7 +699,8 @@ function RecipeCard({
       {/* Mini flavor composition bar */}
       <div className="flex h-1.5">
         {DONUT_FLAVORS.map((f) => {
-          const pct = totalFlavors > 0 ? (totals[f.id] / totalFlavors) * 100 : 0;
+          const pct =
+            totalFlavors > 0 ? (totals[f.id] / totalFlavors) * 100 : 0;
           if (pct === 0) return null;
           return (
             <div
@@ -765,9 +793,7 @@ function BerryRow({
   return (
     <div
       className={`group grid gap-1 px-4 py-2 transition-colors lg:grid-cols-[minmax(160px,1fr)_48px_48px_48px_48px_48px_40px_52px_84px] lg:items-center ${
-        isSelected
-          ? "bg-[#1e1630]"
-          : "hover:bg-white/[0.02]"
+        isSelected ? "bg-[#1e1630]" : "hover:bg-white/[0.02]"
       }`}
     >
       {/* Name + mobile flavor dots */}
@@ -802,9 +828,7 @@ function BerryRow({
                 className="text-xs font-black tabular-nums lg:text-center"
                 style={val > 0 ? { color: flavor.color } : undefined}
               >
-                {val > 0 ? val : (
-                  <span className="text-[#3d3456]">—</span>
-                )}
+                {val > 0 ? val : <span className="text-[#3d3456]">—</span>}
               </p>
             </div>
           );
