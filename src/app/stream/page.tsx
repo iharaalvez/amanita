@@ -2,75 +2,122 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Image from 'next/image';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { usePokedexStore, ownedKey } from '@/store/pokedexStore';
+import { ChevronLeft, ChevronRight, Search, X } from 'lucide-react';
+import { usePokedexStore, ownedKey, type HomeBoxMode } from '@/store/pokedexStore';
 import { useLivingDexEntries } from '@/hooks/usePokemon';
 import { compareLivingDexEntries, isHomeTrackedEntry } from '@/lib/livingDex';
 import type { LivingDexEntry } from '@/types/pokemon';
 
 // ─────────────────────────────────────────────────
-// Constants + helpers
+// Types + helpers
 // ─────────────────────────────────────────────────
 
 const BOX_SIZE = 30;
 const COLS = 6;
 const ROWS = BOX_SIZE / COLS; // 5
 
-function buildBoxes(entries: LivingDexEntry[]): (LivingDexEntry | null)[][] {
-  const total = Math.ceil(entries.length / BOX_SIZE);
+type SlotData = { entry: LivingDexEntry; isShiny: boolean };
+
+function slotKey(slot: SlotData): string {
+  return `${ownedKey(slot.entry.speciesId, slot.entry.formName)}-${slot.isShiny ? 's' : 'n'}`;
+}
+
+function buildSlotBoxes(slots: SlotData[]): (SlotData | null)[][] {
+  const total = Math.ceil(slots.length / BOX_SIZE);
   return Array.from({ length: total }, (_, i) => {
-    const chunk: (LivingDexEntry | null)[] = entries.slice(
-      i * BOX_SIZE,
-      (i + 1) * BOX_SIZE,
-    );
+    const chunk: (SlotData | null)[] = slots.slice(i * BOX_SIZE, (i + 1) * BOX_SIZE);
     while (chunk.length < BOX_SIZE) chunk.push(null);
     return chunk;
   });
 }
 
+function isSlotOwned(slot: SlotData, record: { owned?: boolean; shiny_owned?: boolean } | undefined): boolean {
+  return slot.isShiny ? !!record?.shiny_owned : !!record?.owned;
+}
+
 // ─────────────────────────────────────────────────
-// Compact slot — right-panel box template
+// Template slot
 // ─────────────────────────────────────────────────
 
-function TemplateSlot({ entry }: { entry: LivingDexEntry | null }) {
-  const key = entry ? ownedKey(entry.speciesId, entry.formName) : '';
-  const isOwned = usePokedexStore((s) => (entry ? !!s.owned[key]?.owned : false));
+function TemplateSlot({ slot, highlighted }: { slot: SlotData | null; highlighted: boolean }) {
+  const key = slot ? ownedKey(slot.entry.speciesId, slot.entry.formName) : '';
+  const record = usePokedexStore((s) => (slot ? s.owned[key] : undefined));
   const markOwned = usePokedexStore((s) => s.markOwned);
   const clearOwnership = usePokedexStore((s) => s.clearOwnership);
 
-  if (!entry) {
-    return <div className="rounded bg-[#0b0c10]" />;
+  if (!slot) {
+    return <div className={`rounded ${highlighted ? 'bg-[#1a1508]' : 'bg-[#0b0c10]'}`} />;
   }
 
+  const owned = isSlotOwned(slot, record);
+  const sprite = slot.isShiny
+    ? (slot.entry.shinySpriteUrl ?? slot.entry.spriteUrl)
+    : slot.entry.spriteUrl;
+
   const toggle = () => {
-    if (isOwned) clearOwnership(entry.speciesId, entry.formName);
-    else markOwned(entry.speciesId, entry.formName);
+    if (slot.isShiny) return; // shiny toggles via main app
+    if (owned) clearOwnership(slot.entry.speciesId, slot.entry.formName);
+    else markOwned(slot.entry.speciesId, slot.entry.formName);
   };
 
   return (
     <button
       type="button"
       onClick={toggle}
-      title={`${entry.displayName} — ${isOwned ? 'owned' : 'missing'}`}
+      title={`${slot.entry.displayName}${slot.isShiny ? ' ✦' : ''} — ${owned ? 'owned' : 'missing'}`}
       className={`relative flex items-center justify-center rounded transition-all duration-100 ${
-        isOwned ? 'bg-[#091410]' : 'bg-[#0b0c10] hover:bg-[#10101a]'
+        highlighted
+          ? 'ring-1 ring-[#f8d85a]/70 bg-[#1e1a08]'
+          : owned
+          ? slot.isShiny
+            ? 'bg-[#1a1508]'
+            : 'bg-[#091410]'
+          : 'bg-[#0b0c10] hover:bg-[#10101a]'
       }`}
     >
-      {isOwned && (
-        <span className="absolute right-0.5 top-0.5 text-[7px] leading-none text-[#b9ec86]">
-          ✓
+      {owned && (
+        <span
+          className={`absolute right-0.5 top-0.5 text-[7px] leading-none ${
+            slot.isShiny ? 'text-[#f8d85a]' : 'text-[#b9ec86]'
+          }`}
+        >
+          {slot.isShiny ? '✦' : '✓'}
+        </span>
+      )}
+      {highlighted && !owned && (
+        <span className="absolute left-0.5 top-0.5 text-[7px] leading-none text-[#f8d85a]">
+          →
         </span>
       )}
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
-        src={entry.spriteUrl}
-        alt={entry.displayName}
+        src={sprite ?? slot.entry.spriteUrl}
+        alt={slot.entry.displayName}
         className={`h-8 w-8 object-contain transition-all ${
-          isOwned ? '' : 'grayscale opacity-20'
-        }`}
+          owned ? '' : 'grayscale opacity-20'
+        } ${highlighted ? 'scale-110' : ''}`}
         loading="lazy"
       />
     </button>
+  );
+}
+
+// ─────────────────────────────────────────────────
+// Mode badge
+// ─────────────────────────────────────────────────
+
+function ModeBadge({ mode }: { mode: HomeBoxMode }) {
+  if (mode === 'normal') return null;
+  return (
+    <span
+      className={`shrink-0 rounded px-1.5 py-0.5 font-mono text-[8px] font-black uppercase tracking-widest ${
+        mode === 'shiny'
+          ? 'bg-[#1e1508] text-[#f8d85a]'
+          : 'bg-[#0e1020] text-[#a78bfa]'
+      }`}
+    >
+      {mode === 'shiny' ? '✦ Shiny' : '⇌ Paired'}
+    </span>
   );
 }
 
@@ -80,16 +127,23 @@ function TemplateSlot({ entry }: { entry: LivingDexEntry | null }) {
 
 export default function StreamPage() {
   const [boxIndex, setBoxIndex] = useState(0);
+  const [searchQuery, setSearchQuery] = useState('');
   const [, forceUpdate] = useState(0);
+  const searchRef = useRef<HTMLInputElement>(null);
+  const activeItemRef = useRef<HTMLButtonElement>(null);
 
   const storeOwned = usePokedexStore((s) => s.owned);
   const recentCatches = usePokedexStore((s) => s.recentCatches);
   const showCosmeticForms = usePokedexStore((s) => s.showCosmeticForms);
   const showGenderForms = usePokedexStore((s) => s.showGenderForms);
   const showGigantamaxForms = usePokedexStore((s) => s.showGigantamaxForms);
+  const homeBoxMode = usePokedexStore((s) => s.homeBoxMode);
   const homeBoxLayouts = usePokedexStore((s) => s.homeBoxLayouts);
   const activeHomeBoxLayoutId = usePokedexStore((s) => s.activeHomeBoxLayoutId);
   const setActiveHomeBoxLayout = usePokedexStore((s) => s.setActiveHomeBoxLayout);
+
+  const isPairedMode = homeBoxMode === 'paired';
+  const isShinyMode = homeBoxMode === 'shiny';
 
   const { data: allEntries, isLoading } = useLivingDexEntries();
 
@@ -98,62 +152,104 @@ export default function StreamPage() {
     return () => clearInterval(id);
   }, []);
 
-  // Entries matching the user's active HOME box layout settings
+  // ── Entries filtered by active layout settings ──
   const filteredEntries = useMemo(() => {
     if (!allEntries) return [];
     return [...allEntries]
-      .filter((e) =>
-        isHomeTrackedEntry(e, showCosmeticForms, showGenderForms, showGigantamaxForms),
-      )
+      .filter((e) => isHomeTrackedEntry(e, showCosmeticForms, showGenderForms, showGigantamaxForms))
       .sort(compareLivingDexEntries);
   }, [allEntries, showCosmeticForms, showGenderForms, showGigantamaxForms]);
 
-  const boxes = useMemo(() => buildBoxes(filteredEntries), [filteredEntries]);
+  // ── Slots depend on mode ──
+  const allSlots = useMemo((): SlotData[] => {
+    if (isPairedMode) {
+      return filteredEntries.flatMap((e) => [
+        { entry: e, isShiny: false },
+        { entry: e, isShiny: true },
+      ]);
+    }
+    return filteredEntries.map((e) => ({ entry: e, isShiny: isShinyMode }));
+  }, [filteredEntries, isPairedMode, isShinyMode]);
+
+  const boxes = useMemo(() => buildSlotBoxes(allSlots), [allSlots]);
   const totalBoxes = boxes.length;
   const safeIndex = Math.min(boxIndex, Math.max(0, totalBoxes - 1));
-
   const currentBox = boxes[safeIndex] ?? [];
-  const currentEntries = currentBox.filter((e): e is LivingDexEntry => e !== null);
+  const currentSlots = currentBox.filter((s): s is SlotData => s !== null);
 
-  // Per-box stats — used in footer overview
+  // ── Per-box stats ──
   const boxStats = useMemo(
     () =>
       boxes.map((box) => {
-        const entries = box.filter((e): e is LivingDexEntry => e !== null);
-        const owned = entries.filter(
-          (e) => storeOwned[ownedKey(e.speciesId, e.formName)]?.owned,
+        const slots = box.filter((s): s is SlotData => s !== null);
+        const owned = slots.filter((s) =>
+          isSlotOwned(s, storeOwned[ownedKey(s.entry.speciesId, s.entry.formName)]),
         ).length;
-        return { total: entries.length, owned };
+        return { total: slots.length, owned };
       }),
     [boxes, storeOwned],
   );
 
-  // Current box derived
-  const ownedInBox = currentEntries.filter(
-    (e) => storeOwned[ownedKey(e.speciesId, e.formName)]?.owned,
+  const ownedInBox = currentSlots.filter((s) =>
+    isSlotOwned(s, storeOwned[ownedKey(s.entry.speciesId, s.entry.formName)]),
   ).length;
-  const missingInBox = currentEntries.filter(
-    (e) => !storeOwned[ownedKey(e.speciesId, e.formName)]?.owned,
+  const missingInBox = currentSlots.filter(
+    (s) => !isSlotOwned(s, storeOwned[ownedKey(s.entry.speciesId, s.entry.formName)]),
   );
 
-  // Overall
   const totalOwned = useMemo(
     () =>
-      filteredEntries.filter(
-        (e) => storeOwned[ownedKey(e.speciesId, e.formName)]?.owned,
+      allSlots.filter((s) =>
+        isSlotOwned(s, storeOwned[ownedKey(s.entry.speciesId, s.entry.formName)]),
       ).length,
-    [filteredEntries, storeOwned],
+    [allSlots, storeOwned],
   );
-  const totalSpecies = filteredEntries.length;
-  const boxPct = currentEntries.length > 0 ? (ownedInBox / currentEntries.length) * 100 : 0;
-  const overallPct = totalSpecies > 0 ? (totalOwned / totalSpecies) * 100 : 0;
+  const totalSlots = allSlots.length;
+  const boxPct = currentSlots.length > 0 ? (ownedInBox / currentSlots.length) * 100 : 0;
+  const overallPct = totalSlots > 0 ? (totalOwned / totalSlots) * 100 : 0;
 
-  // Recent catches sprite lookup
+  // ── Search ──
+  const searchNorm = searchQuery.trim().toLowerCase();
+
+  const highlightedKeys = useMemo(() => {
+    if (!searchNorm) return new Set<string>();
+    return new Set(
+      allSlots
+        .filter((s) => {
+          const nameMatch = s.entry.displayName.toLowerCase().includes(searchNorm);
+          const numMatch = String(s.entry.speciesId).startsWith(
+            searchNorm.replace(/^#0*/, ''),
+          );
+          return nameMatch || numMatch;
+        })
+        .map(slotKey),
+    );
+  }, [allSlots, searchNorm]);
+
+  const boxHasMatch = useMemo(
+    () =>
+      boxes.map((box) =>
+        box.some((s) => s !== null && highlightedKeys.has(slotKey(s))),
+      ),
+    [boxes, highlightedKeys],
+  );
+
+  // Auto-jump to first matching box
+  useEffect(() => {
+    if (!searchNorm) return;
+    const first = boxHasMatch.findIndex(Boolean);
+    if (first >= 0) setBoxIndex(first);
+  }, [searchNorm, boxHasMatch]);
+
+  // Scroll active box into view in the left panel
+  useEffect(() => {
+    activeItemRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }, [safeIndex]);
+
+  // ── Recent catches ──
   const entryByKey = useMemo(() => {
     const map = new Map<string, LivingDexEntry>();
-    for (const e of allEntries ?? []) {
-      map.set(ownedKey(e.speciesId, e.formName), e);
-    }
+    for (const e of allEntries ?? []) map.set(ownedKey(e.speciesId, e.formName), e);
     return map;
   }, [allEntries]);
 
@@ -175,11 +271,6 @@ export default function StreamPage() {
     hour12: false,
   });
 
-  const activeItemRef = useRef<HTMLButtonElement>(null);
-  useEffect(() => {
-    activeItemRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-  }, [safeIndex]);
-
   const prev = () => setBoxIndex((i) => Math.max(0, i - 1));
   const next = () => setBoxIndex((i) => Math.min(totalBoxes - 1, i + 1));
 
@@ -198,7 +289,6 @@ export default function StreamPage() {
     <div className="flex h-screen flex-col overflow-hidden">
       {/* ─── Header ─── */}
       <header className="flex h-10 shrink-0 items-center justify-between border-b border-[#131620] px-4">
-        {/* Left: LIVE + logo */}
         <div className="flex w-52 items-center gap-3">
           <div className="flex items-center gap-1.5">
             <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#f87171]" />
@@ -216,7 +306,6 @@ export default function StreamPage() {
           />
         </div>
 
-        {/* Center: box navigation */}
         <div className="flex items-center gap-3">
           <button
             type="button"
@@ -238,13 +327,13 @@ export default function StreamPage() {
           >
             <ChevronRight className="h-4 w-4" />
           </button>
+          <ModeBadge mode={homeBoxMode} />
         </div>
 
-        {/* Right: overall + time */}
         <div className="flex w-52 items-center justify-end gap-3">
           <span className="font-mono text-[10px] text-[#b9ec86]">
-            {totalOwned.toLocaleString()}{' '}
-            <span className="text-[#2d3348]">/ {totalSpecies}</span>
+            {totalOwned.toLocaleString()}
+            <span className="text-[#2d3348]"> / {totalSlots}</span>
           </span>
           <div className="h-3.5 w-px bg-[#131620]" />
           <time className="font-mono text-[10px] text-[#3a3f52]">{timeStr}</time>
@@ -254,7 +343,7 @@ export default function StreamPage() {
       {/* ─── Body ─── */}
       <div className="flex min-h-0 flex-1 overflow-hidden">
 
-        {/* ─── Left panel: layout picker + box list ─── */}
+        {/* ─── Left panel: layout + search + box list ─── */}
         <aside className="flex w-[152px] shrink-0 flex-col overflow-hidden border-r border-[#131620]">
           {/* Layout selector */}
           {homeBoxLayouts.length > 0 && (
@@ -291,6 +380,39 @@ export default function StreamPage() {
             </div>
           )}
 
+          {/* Search */}
+          <div className="shrink-0 border-b border-[#131620] px-3 py-2">
+            <div className="relative">
+              <Search className="absolute left-2 top-1/2 h-3 w-3 -translate-y-1/2 text-[#3a3f52]" />
+              <input
+                ref={searchRef}
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Find…"
+                className="h-7 w-full rounded bg-[#0b0c10] pl-6 pr-6 font-mono text-[10px] text-[#e0ddf5] placeholder:text-[#2d3348] focus:outline-none focus:ring-1 focus:ring-[#2d3348]"
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[#3a3f52] hover:text-[#8b8fa8]"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              )}
+            </div>
+            {searchNorm && highlightedKeys.size === 0 && (
+              <p className="mt-1 font-mono text-[9px] text-[#3a3f52]">No match</p>
+            )}
+            {searchNorm && highlightedKeys.size > 0 && (
+              <p className="mt-1 font-mono text-[9px] text-[#f8d85a]">
+                {highlightedKeys.size} slot{highlightedKeys.size !== 1 ? 's' : ''}
+              </p>
+            )}
+          </div>
+
+          {/* Box list */}
           <p className="shrink-0 px-3 py-2 font-mono text-[9px] font-black uppercase tracking-widest text-[#3a3f52]">
             Boxes
           </p>
@@ -300,6 +422,7 @@ export default function StreamPage() {
               const pct = s.total > 0 ? s.owned / s.total : 0;
               const isComplete = pct === 1 && s.total > 0;
               const isCurrent = i === safeIndex;
+              const hasMatch = searchNorm ? boxHasMatch[i] : false;
               return (
                 <button
                   key={i}
@@ -322,14 +445,19 @@ export default function StreamPage() {
                     >
                       BOX {String(i + 1).padStart(2, '0')}
                     </span>
-                    {isComplete && (
+                    {hasMatch && (
+                      <span className="text-[8px] text-[#f8d85a]">●</span>
+                    )}
+                    {isComplete && !hasMatch && (
                       <span className="text-[8px] text-[#b9ec86]">✓</span>
                     )}
                   </div>
                   <div className="h-0.5 w-full overflow-hidden rounded-full bg-[#0b0c10]">
                     <div
                       className={`h-full rounded-full transition-all duration-300 ${
-                        isComplete
+                        hasMatch
+                          ? 'bg-[#f8d85a]'
+                          : isComplete
                           ? 'bg-[#b9ec86]'
                           : pct >= 0.5
                           ? 'bg-[#67e8f9]'
@@ -345,9 +473,8 @@ export default function StreamPage() {
         </aside>
 
         {/* ─── Center: empty — Switch capture goes here in OBS ─── */}
-        <div className="flex min-h-0 flex-1 items-center justify-center">
-          {/* Faint guide frame. Invisible once the Switch source covers it. */}
-          <div className="h-full w-full rounded border border-dashed border-[#131620]/60" />
+        <div className="min-h-0 flex-1">
+          <div className="h-full w-full border border-dashed border-[#131620]/60" />
         </div>
 
         {/* ─── Right panel ─── */}
@@ -364,14 +491,16 @@ export default function StreamPage() {
               </span>
               <span className="font-mono text-lg font-black leading-none text-[#e0ddf5]">
                 {ownedInBox}
-                <span className="text-sm font-normal text-[#2d3348]"> / {currentEntries.length}</span>
+                <span className="text-sm font-normal text-[#2d3348]"> / {currentSlots.length}</span>
               </span>
             </div>
             <div className="mt-2 h-1 overflow-hidden rounded-full bg-[#131620]">
               <div
                 className={`h-full rounded-full transition-all duration-500 ${
                   boxPct === 100
-                    ? 'bg-[#b9ec86]'
+                    ? isShinyMode
+                      ? 'bg-[#f8d85a]'
+                      : 'bg-[#b9ec86]'
                     : boxPct >= 50
                     ? 'bg-[#67e8f9]'
                     : 'bg-[#a78bfa]'
@@ -381,7 +510,7 @@ export default function StreamPage() {
             </div>
           </div>
 
-          {/* Box template — 30-slot compact grid */}
+          {/* Box template grid */}
           <div className="border-b border-[#131620] px-4 py-3">
             <p className="mb-2 font-mono text-[9px] font-black uppercase tracking-widest text-[#3a3f52]">
               Box Template
@@ -394,10 +523,11 @@ export default function StreamPage() {
                 height: '160px',
               }}
             >
-              {currentBox.map((entry, i) => (
+              {currentBox.map((slot, i) => (
                 <TemplateSlot
-                  key={entry ? ownedKey(entry.speciesId, entry.formName) : `empty-${i}`}
-                  entry={entry}
+                  key={slot ? slotKey(slot) : `empty-${i}`}
+                  slot={slot}
+                  highlighted={!!slot && highlightedKeys.has(slotKey(slot))}
                 />
               ))}
             </div>
@@ -414,31 +544,38 @@ export default function StreamPage() {
 
             {missingInBox.length === 0 ? (
               <div className="flex items-center gap-1.5">
-                <span className="text-[10px] text-[#b9ec86]">✓</span>
+                <span className={`text-[10px] ${isShinyMode ? 'text-[#f8d85a]' : 'text-[#b9ec86]'}`}>
+                  {isShinyMode ? '✦' : '✓'}
+                </span>
                 <p className="font-mono text-xs text-[#b9ec86]">Box complete!</p>
               </div>
             ) : (
               <div className="space-y-1.5 overflow-hidden">
-                {missingInBox.slice(0, 11).map((entry) => (
-                  <div
-                    key={ownedKey(entry.speciesId, entry.formName)}
-                    className="flex items-center gap-2"
-                  >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={entry.spriteUrl}
-                      alt=""
-                      className="h-6 w-6 shrink-0 object-contain grayscale opacity-35"
-                      loading="lazy"
-                    />
-                    <span className="min-w-0 flex-1 truncate text-[11px] text-[#525870]">
-                      {entry.displayName}
-                    </span>
-                    <span className="shrink-0 font-mono text-[9px] text-[#2d3348]">
-                      #{String(entry.speciesId).padStart(4, '0')}
-                    </span>
-                  </div>
-                ))}
+                {missingInBox.slice(0, 11).map((slot) => {
+                  const sprite = slot.isShiny
+                    ? (slot.entry.shinySpriteUrl ?? slot.entry.spriteUrl)
+                    : slot.entry.spriteUrl;
+                  return (
+                    <div key={slotKey(slot)} className="flex items-center gap-2">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={sprite ?? slot.entry.spriteUrl}
+                        alt=""
+                        className="h-6 w-6 shrink-0 object-contain grayscale opacity-35"
+                        loading="lazy"
+                      />
+                      <span className="min-w-0 flex-1 truncate text-[11px] text-[#525870]">
+                        {slot.entry.displayName}
+                        {slot.isShiny && (
+                          <span className="ml-1 text-[#f8d85a]">✦</span>
+                        )}
+                      </span>
+                      <span className="shrink-0 font-mono text-[9px] text-[#2d3348]">
+                        #{String(slot.entry.speciesId).padStart(4, '0')}
+                      </span>
+                    </div>
+                  );
+                })}
                 {missingInBox.length > 11 && (
                   <p className="font-mono text-[9px] text-[#2d3348]">
                     +{missingInBox.length - 11} more
@@ -452,24 +589,22 @@ export default function StreamPage() {
 
       {/* ─── Footer ─── */}
       <footer className="flex h-[60px] shrink-0 items-stretch border-t border-[#131620]">
-        {/* Overall dex progress */}
         <div className="flex w-[152px] shrink-0 flex-col items-start justify-center border-r border-[#131620] px-4">
           <p className="font-mono text-[9px] font-black uppercase tracking-widest text-[#3a3f52]">
             Living Dex
           </p>
-          <p className="mt-0.5 font-mono text-sm font-black text-[#b9ec86]">
+          <p className={`mt-0.5 font-mono text-sm font-black ${isShinyMode ? 'text-[#f8d85a]' : 'text-[#b9ec86]'}`}>
             {overallPct.toFixed(1)}
             <span className="text-xs font-normal text-[#3a3f52]">%</span>
           </p>
           <div className="mt-1 h-0.5 w-full overflow-hidden rounded-full bg-[#131620]">
             <div
-              className="h-full rounded-full bg-[#b9ec86] transition-all"
+              className={`h-full rounded-full transition-all ${isShinyMode ? 'bg-[#f8d85a]' : 'bg-[#b9ec86]'}`}
               style={{ width: `${overallPct}%` }}
             />
           </div>
         </div>
 
-        {/* Recently placed */}
         <div className="flex min-w-0 flex-1 items-center gap-3 px-4">
           <p className="shrink-0 font-mono text-[9px] font-black uppercase tracking-widest text-[#3a3f52]">
             Recent
@@ -490,9 +625,7 @@ export default function StreamPage() {
                     alt={entry?.displayName ?? ''}
                     title={entry?.displayName ?? `#${event.speciesId}`}
                     className={`h-9 w-9 shrink-0 object-contain ${
-                      event.isShiny
-                        ? 'drop-shadow-[0_0_4px_rgba(248,216,90,0.5)]'
-                        : ''
+                      event.isShiny ? 'drop-shadow-[0_0_4px_rgba(248,216,90,0.5)]' : ''
                     }`}
                     loading="lazy"
                   />
