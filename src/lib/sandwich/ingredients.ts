@@ -43,12 +43,13 @@ export const SANDWICH_FLAVORS: {
   id: Flavor;
   label: string;
   className: string;
+  color: string;
 }[] = [
-  { id: Flavor.SWEET, label: "Sweet", className: "bg-pink-500" },
-  { id: Flavor.SALTY, label: "Salty", className: "bg-sky-500" },
-  { id: Flavor.SOUR, label: "Sour", className: "bg-lime-500" },
-  { id: Flavor.BITTER, label: "Bitter", className: "bg-violet-500" },
-  { id: Flavor.SPICY, label: "Spicy", className: "bg-red-500" },
+  { id: Flavor.SWEET,  label: "Sweet",  className: "bg-pink-400",   color: "#f472b6" },
+  { id: Flavor.SALTY,  label: "Salty",  className: "bg-sky-400",    color: "#38bdf8" },
+  { id: Flavor.SOUR,   label: "Sour",   className: "bg-lime-400",   color: "#a3e635" },
+  { id: Flavor.BITTER, label: "Bitter", className: "bg-violet-400", color: "#a78bfa" },
+  { id: Flavor.SPICY,  label: "Spicy",  className: "bg-red-400",    color: "#f87171" },
 ];
 
 const EMPTY_FLAVORS = {
