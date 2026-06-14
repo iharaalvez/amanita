@@ -47,6 +47,8 @@ function TemplateSlot({ slot, highlighted }: { slot: SlotData | null; highlighte
   const record = usePokedexStore((s) => (slot ? s.owned[key] : undefined));
   const markOwned = usePokedexStore((s) => s.markOwned);
   const clearOwnership = usePokedexStore((s) => s.clearOwnership);
+  const markShinyOwned = usePokedexStore((s) => s.markShinyOwned);
+  const clearShinyOwned = usePokedexStore((s) => s.clearShinyOwned);
 
   if (!slot) {
     return <div className={`rounded ${highlighted ? 'bg-[#1a1508]' : 'bg-[#0b0c10]'}`} />;
@@ -58,9 +60,13 @@ function TemplateSlot({ slot, highlighted }: { slot: SlotData | null; highlighte
     : slot.entry.spriteUrl;
 
   const toggle = () => {
-    if (slot.isShiny) return;
-    if (owned) clearOwnership(slot.entry.speciesId, slot.entry.formName);
-    else markOwned(slot.entry.speciesId, slot.entry.formName);
+    if (slot.isShiny) {
+      if (owned) clearShinyOwned(slot.entry.speciesId, slot.entry.formName);
+      else markShinyOwned(slot.entry.speciesId, slot.entry.formName);
+    } else {
+      if (owned) clearOwnership(slot.entry.speciesId, slot.entry.formName);
+      else markOwned(slot.entry.speciesId, slot.entry.formName);
+    }
   };
 
   return (
@@ -133,7 +139,6 @@ export default function StreamPage() {
   const activeItemRef = useRef<HTMLButtonElement>(null);
 
   const storeOwned = usePokedexStore((s) => s.owned);
-  const recentCatches = usePokedexStore((s) => s.recentCatches);
   const showCosmeticForms = usePokedexStore((s) => s.showCosmeticForms);
   const showGenderForms = usePokedexStore((s) => s.showGenderForms);
   const showGigantamaxForms = usePokedexStore((s) => s.showGigantamaxForms);
@@ -239,23 +244,28 @@ export default function StreamPage() {
     activeItemRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
   }, [safeIndex]);
 
-  // ── Recent catches ──
+  // ── Recently toggled: owned records sorted by updated_at ──
   const entryByKey = useMemo(() => {
     const map = new Map<string, LivingDexEntry>();
     for (const e of allEntries ?? []) map.set(ownedKey(e.speciesId, e.formName), e);
     return map;
   }, [allEntries]);
 
-  const recentWithEntries = useMemo(
-    () =>
-      recentCatches.slice(0, 10).map((event) => ({
-        event,
-        entry:
-          entryByKey.get(ownedKey(event.speciesId, event.formName)) ??
-          entryByKey.get(ownedKey(event.speciesId, null)),
-      })),
-    [recentCatches, entryByKey],
-  );
+  const recentlyOwned = useMemo(() => {
+    return Object.entries(storeOwned)
+      .filter(([, rec]) => (isShinyMode ? rec.shiny_owned : rec.owned))
+      .sort(([, a], [, b]) => {
+        if (!a.updated_at && !b.updated_at) return 0;
+        if (!a.updated_at) return 1;
+        if (!b.updated_at) return -1;
+        return b.updated_at.localeCompare(a.updated_at);
+      })
+      .slice(0, 10)
+      .flatMap(([key]) => {
+        const entry = entryByKey.get(key);
+        return entry ? [{ entry, isShiny: isShinyMode }] : [];
+      });
+  }, [storeOwned, entryByKey, isShinyMode]);
 
   const timeStr = new Date().toLocaleTimeString('en-US', {
     hour: '2-digit',
@@ -585,27 +595,25 @@ export default function StreamPage() {
             Recent
           </p>
           <div className="flex items-center gap-2 overflow-hidden">
-            {recentWithEntries.length === 0 ? (
+            {recentlyOwned.length === 0 ? (
               <span className="font-mono text-[10px] text-[#2d3348]">—</span>
             ) : (
-              recentWithEntries.map(({ event, entry }, i) => {
-                const spriteUrl = event.isShiny
-                  ? (entry?.shinySpriteUrl ?? entry?.spriteUrl)
-                  : entry?.spriteUrl;
-                return spriteUrl ? (
+              recentlyOwned.map(({ entry, isShiny }, i) => {
+                const spriteUrl = isShiny
+                  ? (entry.shinySpriteUrl ?? entry.spriteUrl)
+                  : entry.spriteUrl;
+                return (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
                     key={i}
                     src={spriteUrl}
-                    alt={entry?.displayName ?? ''}
-                    title={entry?.displayName ?? `#${event.speciesId}`}
+                    alt={entry.displayName}
+                    title={entry.displayName}
                     className={`h-9 w-9 shrink-0 object-contain ${
-                      event.isShiny ? 'drop-shadow-[0_0_4px_rgba(248,216,90,0.5)]' : ''
+                      isShiny ? 'drop-shadow-[0_0_4px_rgba(248,216,90,0.5)]' : ''
                     }`}
                     loading="lazy"
                   />
-                ) : (
-                  <div key={i} className="h-9 w-9 shrink-0 rounded bg-[#131620]" />
                 );
               })
             )}
