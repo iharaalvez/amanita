@@ -1,5 +1,11 @@
 import Link from "next/link";
-import { Calculator, ChefHat, Donut, Sparkles } from "lucide-react";
+import {
+  Calculator,
+  ChefHat,
+  Donut,
+  MonitorPlay,
+  Sparkles,
+} from "lucide-react";
 
 const tools = [
   {
@@ -16,6 +22,14 @@ const tools = [
       "Build Legends: Z-A donuts from berry flavors, calories, and level boosts.",
     Icon: Donut,
     href: "/tools/donuts",
+    available: true,
+  },
+  {
+    title: "Stream Overlay",
+    description:
+      "Open Amanita's HOME organizer overlay for OBS and live sorting sessions.",
+    Icon: MonitorPlay,
+    href: "/stream",
     available: true,
   },
   {

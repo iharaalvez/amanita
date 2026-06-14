@@ -1,5 +1,5 @@
 import HomeOrganizerStream from "@/components/stream/HomeOrganizerStream";
 
-export default function StreamPage() {
+export default function HomeOrganizerPage() {
   return <HomeOrganizerStream />;
 }
