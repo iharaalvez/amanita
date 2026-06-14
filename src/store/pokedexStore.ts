@@ -47,7 +47,7 @@ export const ALPHA_GAMES = new Set([
   "legends-za-hyperspace",
 ]);
 
-const MAX_CATCH_LOG = 50;
+
 const DEFAULT_HOME_BOX_LAYOUT_ID = "national-dex";
 const LEGACY_DEFAULT_HOME_BOX_LAYOUT: HomeBoxLayoutProfile = {
   id: DEFAULT_HOME_BOX_LAYOUT_ID,
@@ -475,9 +475,7 @@ function mergeRecentCatches(
       all.push(c);
     }
   }
-  return all
-    .sort((a, b) => b.date.localeCompare(a.date))
-    .slice(0, MAX_CATCH_LOG);
+  return all.sort((a, b) => b.date.localeCompare(a.date));
 }
 
 // Helper to update a single entry in gameDex.
@@ -932,10 +930,7 @@ export const usePokedexStore = create<PokedexState>()(
           );
           return {
             gameDex: newGameDex,
-            recentCatches: [event, ...state.recentCatches].slice(
-              0,
-              MAX_CATCH_LOG,
-            ),
+            recentCatches: [event, ...state.recentCatches],
           };
         });
         void syncRecentCatch(event);
@@ -991,10 +986,7 @@ export const usePokedexStore = create<PokedexState>()(
           );
           return {
             gameDex: newGameDex,
-            recentCatches: [event, ...state.recentCatches].slice(
-              0,
-              MAX_CATCH_LOG,
-            ),
+            recentCatches: [event, ...state.recentCatches],
           };
         });
         void syncRecentCatch(event);
@@ -1049,10 +1041,7 @@ export const usePokedexStore = create<PokedexState>()(
           );
           return {
             gameDex: newGameDex,
-            recentCatches: [event, ...state.recentCatches].slice(
-              0,
-              MAX_CATCH_LOG,
-            ),
+            recentCatches: [event, ...state.recentCatches],
           };
         });
         void syncRecentCatch(event);
@@ -1109,10 +1098,7 @@ export const usePokedexStore = create<PokedexState>()(
           );
           return {
             gameDex: newGameDex,
-            recentCatches: [event, ...state.recentCatches].slice(
-              0,
-              MAX_CATCH_LOG,
-            ),
+            recentCatches: [event, ...state.recentCatches],
           };
         });
         void syncRecentCatch(event);

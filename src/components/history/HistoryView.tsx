@@ -3,10 +3,8 @@
 import Image from "next/image";
 import { useMemo, useState } from "react";
 import {
-  Check,
   ChevronLeft,
   ChevronRight,
-  Clock3,
   History,
   Search,
   Sparkles,
@@ -17,41 +15,66 @@ import { useLivingDexEntries } from "@/hooks/usePokemon";
 import { useOpenPokemon } from "@/hooks/useOpenPokemon";
 import { ownedKey, usePokedexStore } from "@/store/pokedexStore";
 import type { CatchEvent } from "@/store/pokedexStore";
-import type {
-  LivingDexEntry,
-  ShinyHunt,
-  ShinyHuntMethod,
-} from "@/types/pokemon";
+import type { LivingDexEntry, ShinyHunt, ShinyHuntMethod } from "@/types/pokemon";
 
-type HistoryTab = "all" | "hunts" | "catches";
+// ─── Constants ────────────────────────────────────────────────────────────────
 
-const CATCHES_PER_PAGE = 20;
+type HistoryTab = "all" | "catches" | "hunts";
 
-type CatchHistoryRow = {
-  id: number;
+const ENTRIES_PER_PAGE = 30;
+
+const METHOD_LABELS: Partial<Record<ShinyHuntMethod, string>> = {
+  masuda: "Masuda Method",
+  "sos-chain": "SOS Chain",
+  "poke-radar": "Poké Radar",
+  "dex-nav": "DexNav",
+  "soft-reset": "Soft Reset",
+  outbreak: "Mass Outbreak",
+  "massive-mass-outbreak": "Mass Outbreak+",
+  sandwich: "Sandwich",
+  random: "Random",
+  overworld: "Overworld",
+  breeding: "Breeding",
+  "chain-fishing": "Chain Fishing",
+  "friend-safari": "Friend Safari",
+  horde: "Horde",
+  "ultra-wormhole": "Ultra Wormhole",
+  "lets-go-catch-combo": "Catch Combo",
+  "isolated-encounter": "Isolated",
+  "dynamax-adventures": "Dynamax Adventures",
+  "max-raid": "Max Raid",
+  "tera-raid": "Tera Raid",
+  "alpha-reset": "Alpha Reset",
+  "wild-zone-reset": "Wild Zone Reset",
+  "charm-boosted": "Charm Boosted",
+};
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+type CatchRow = {
+  speciesId: number;
+  formName: string | null;
   name: string;
   spriteUrl: string;
-  dateLabel: string;
   gameName: string;
   isShiny: boolean;
   isAlpha: boolean;
   event: CatchEvent;
 };
 
-const METHOD_LABELS: Partial<Record<ShinyHuntMethod, string>> = {
-  masuda: "Masuda Method",
-  "sos-chain": "SOS Chain",
-  "poke-radar": "Poke Radar",
-  "dex-nav": "DexNav",
-  "soft-reset": "Soft Reset",
-  outbreak: "Mass Outbreak",
-  random: "Random",
-};
+type LogEntry =
+  | { kind: "catch"; date: string; row: CatchRow }
+  | { kind: "hunt"; date: string; hunt: ShinyHunt; entry?: LivingDexEntry };
+
+type DayGroup = { key: string; label: string; entries: LogEntry[] };
+
+// ─── Main view ────────────────────────────────────────────────────────────────
 
 export function HistoryView() {
   const [tab, setTab] = useState<HistoryTab>("all");
   const [query, setQuery] = useState("");
-  const [catchPage, setCatchPage] = useState(0);
+  const [page, setPage] = useState(0);
+
   const { data: entries } = useLivingDexEntries();
   const openPokemon = useOpenPokemon();
 
@@ -62,18 +85,22 @@ export function HistoryView() {
 
   const entryByKey = useMemo(() => {
     const map = new Map<string, LivingDexEntry>();
-    for (const entry of entries ?? []) {
-      map.set(ownedKey(entry.speciesId, entry.formName), entry);
-    }
+    for (const e of entries ?? []) map.set(ownedKey(e.speciesId, e.formName), e);
     return map;
   }, [entries]);
 
-  const normalizedQuery = query.trim().toLowerCase();
+  const activeHunts = useMemo(
+    () =>
+      shinyHunts
+        .filter((h) => !h.completedAt)
+        .toSorted((a, b) => b.startedAt.localeCompare(a.startedAt)),
+    [shinyHunts],
+  );
 
   const completedHunts = useMemo(
     () =>
       shinyHunts
-        .filter((hunt) => hunt.completedAt)
+        .filter((h) => !!h.completedAt)
         .toSorted((a, b) =>
           (b.completedAt ?? b.startedAt).localeCompare(
             a.completedAt ?? a.startedAt,
@@ -81,74 +108,90 @@ export function HistoryView() {
         ),
     [shinyHunts],
   );
-  const activeHunts = useMemo(
+
+  const catchRows = useMemo(
+    () => buildCatchRows(entries ?? [], catchLog),
+    [entries, catchLog],
+  );
+
+  const q = query.trim().toLowerCase();
+
+  const logEntries = useMemo<LogEntry[]>(() => {
+    const items: LogEntry[] = [];
+
+    if (tab !== "hunts") {
+      for (const row of catchRows) {
+        if (q && !matchesCatch(row, q)) continue;
+        items.push({ kind: "catch", date: row.event.date, row });
+      }
+    }
+
+    if (tab !== "catches") {
+      for (const hunt of completedHunts) {
+        if (!hunt.completedAt) continue;
+        const entry = entryByKey.get(ownedKey(hunt.speciesId, hunt.formName));
+        if (q && !matchesHunt(hunt, entry, q)) continue;
+        items.push({ kind: "hunt", date: hunt.completedAt, hunt, entry });
+      }
+    }
+
+    return items.toSorted((a, b) => b.date.localeCompare(a.date));
+  }, [tab, catchRows, completedHunts, entryByKey, q]);
+
+  const filteredActiveHunts = useMemo(
     () =>
-      shinyHunts
-        .filter((hunt) => !hunt.completedAt)
-        .toSorted((a, b) => b.startedAt.localeCompare(a.startedAt)),
-    [shinyHunts],
+      activeHunts.filter((hunt) => {
+        if (!q) return true;
+        return matchesHunt(
+          hunt,
+          entryByKey.get(ownedKey(hunt.speciesId, hunt.formName)),
+          q,
+        );
+      }),
+    [activeHunts, entryByKey, q],
   );
 
-  const filteredActiveHunts = activeHunts.filter((hunt) =>
-    matchesHunt(hunt, entryByKey, normalizedQuery),
+  const totalPages = Math.max(1, Math.ceil(logEntries.length / ENTRIES_PER_PAGE));
+  const safePage = Math.min(page, totalPages - 1);
+  const pageSlice = logEntries.slice(
+    safePage * ENTRIES_PER_PAGE,
+    (safePage + 1) * ENTRIES_PER_PAGE,
   );
-  const filteredCompletedHunts = completedHunts.filter((hunt) =>
-    matchesHunt(hunt, entryByKey, normalizedQuery),
-  );
-  const catches = getCatchHistory(entries ?? [], catchLog).filter((catchRow) =>
-    matchesCatch(catchRow, normalizedQuery),
+  const dayGroups = useMemo(() => groupByDay(pageSlice), [pageSlice]);
+
+  const shinyCount = useMemo(
+    () => catchLog.filter((e) => e.isShiny).length,
+    [catchLog],
   );
 
-  const catchTotalPages = Math.max(
-    1,
-    Math.ceil(catches.length / CATCHES_PER_PAGE),
-  );
-  const safeCatchPage = Math.min(catchPage, catchTotalPages - 1);
-  const pagedCatches = catches.slice(
-    safeCatchPage * CATCHES_PER_PAGE,
-    safeCatchPage * CATCHES_PER_PAGE + CATCHES_PER_PAGE,
-  );
+  const showSidebar = tab !== "catches";
 
-  const showHunts = tab === "all" || tab === "hunts";
-  const showCatches = tab === "all" || tab === "catches";
+  function switchTab(next: HistoryTab) {
+    setTab(next);
+    setPage(0);
+  }
 
   return (
-    <div className="min-h-full bg-[#11111b] px-4 py-5 text-[#f8f0df] sm:px-6 lg:px-7">
-      <div className="mx-auto max-w-7xl">
-        <header className="mb-5 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-          <div>
-            <div className="mb-2 flex items-center gap-2 text-[#b9ec86]">
-              <History className="h-5 w-5" />
-              <span className="text-[10px] font-black uppercase tracking-widest">
-                Trainer Log
-              </span>
-            </div>
-            <h1 className="text-2xl font-black tracking-tight">History</h1>
-            <p className="mt-1 text-sm font-medium text-[#8f8799]">
-              Shiny hunt records and recent catches in one place.
-            </p>
+    <div className="min-h-full bg-[#11111b] px-4 py-6 text-[#f8f0df] sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-7xl space-y-5">
+
+        {/* ── Header ── */}
+        <header>
+          <div className="mb-1 flex items-center gap-2 text-[#b9ec86]">
+            <History className="h-4 w-4" />
+            <span className="text-[10px] font-black uppercase tracking-widest">
+              Trainer Log
+            </span>
           </div>
-
-          <div className="grid gap-2 sm:grid-cols-[auto_minmax(220px,320px)] sm:items-center">
-            <div className="grid grid-cols-3 rounded-full bg-[#1a1a27] p-1 ring-1 ring-[#2f2b40]">
-              {(["all", "hunts", "catches"] as HistoryTab[]).map((value) => (
-                <button
-                  key={value}
-                  type="button"
-                  onClick={() => { setTab(value); setCatchPage(0); }}
-                  className={`rounded-full px-3 py-1.5 text-xs font-black capitalize transition-colors ${
-                    tab === value
-                      ? "bg-[#4e367f] text-[#f8f0df]"
-                      : "text-[#8f8799] hover:text-[#f8f0df]"
-                  }`}
-                >
-                  {value}
-                </button>
-              ))}
+          <div className="flex flex-wrap items-end justify-between gap-4">
+            <div>
+              <h1 className="text-3xl font-black tracking-tight">History</h1>
+              <p className="mt-1 text-sm text-[#8f8799]">
+                Every catch and shiny hunt — timestamped and searchable.
+              </p>
             </div>
-
-            <div className="flex h-9 items-center gap-2 rounded-md border border-[#2f2b40] bg-[#151520] px-3 text-[#837b91]">
-              <Search className="h-3.5 w-3.5 shrink-0" />
+            <div className="flex h-9 w-full max-w-xs items-center gap-2 rounded-lg border border-[#2f2b40] bg-[#151520] px-3">
+              <Search className="h-3.5 w-3.5 shrink-0 text-[#554a70]" />
               <label htmlFor="history-search" className="sr-only">
                 Search history
               </label>
@@ -156,99 +199,181 @@ export function HistoryView() {
                 id="history-search"
                 type="search"
                 value={query}
-                onChange={(event) => { setQuery(event.target.value); setCatchPage(0); }}
-                placeholder="Search Pokemon, games, methods..."
-                className="min-w-0 flex-1 bg-transparent text-[11px] font-medium text-[#f8f0df] outline-none placeholder:text-[#837b91]"
+                onChange={(e) => {
+                  setQuery(e.target.value);
+                  setPage(0);
+                }}
+                placeholder="Search Pokémon, games, methods…"
+                className="min-w-0 flex-1 bg-transparent text-[11px] font-medium text-[#f8f0df] outline-none placeholder:text-[#554a70]"
               />
             </div>
           </div>
         </header>
 
-        <div className="mb-4 grid gap-3 sm:grid-cols-3">
-          <SummaryCard label="Active Hunts" value={activeHunts.length} />
-          <SummaryCard label="Completed Hunts" value={completedHunts.length} />
-          <SummaryCard label="Recent Catches" value={catchLog.length} />
+        {/* ── Stats ── */}
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <StatCard label="Catches Logged" value={catchLog.length} />
+          <StatCard label="Shinies Caught" value={shinyCount} color="gold" />
+          <StatCard label="Active Hunts" value={activeHunts.length} />
+          <StatCard
+            label="Hunts Completed"
+            value={completedHunts.length}
+            color="green"
+          />
         </div>
 
-        <div className="grid items-start gap-4 xl:grid-cols-[1.1fr_0.9fr]">
-          {showHunts && (
-            <section className="overflow-hidden rounded-lg border border-[#2f2b40] bg-[#1a1a27]/80">
-              <div className="border-b border-[#2f2b40]/70 px-4 py-3">
-                <h2 className="text-sm font-black">Shiny Hunts</h2>
-                <p className="mt-0.5 text-[10px] font-semibold text-[#8f8799]">
-                  Active hunts and completed hunt history.
-                </p>
-              </div>
-              <div className="space-y-4 p-4">
-                <HuntGroup
-                  title="Active"
-                  hunts={filteredActiveHunts}
-                  entryByKey={entryByKey}
-                  onOpenPokemon={openPokemon}
-                  onRemove={removeShinyHunt}
-                />
-                <HuntGroup
-                  title="Completed"
-                  hunts={filteredCompletedHunts}
-                  entryByKey={entryByKey}
-                  onOpenPokemon={openPokemon}
-                  onRemove={removeShinyHunt}
-                />
-              </div>
-            </section>
-          )}
+        {/* ── Tabs ── */}
+        <div className="flex w-fit items-center gap-1 rounded-full bg-[#1a1a27] p-1 ring-1 ring-[#2f2b40]">
+          {(["all", "catches", "hunts"] as HistoryTab[]).map((value) => (
+            <button
+              key={value}
+              type="button"
+              onClick={() => switchTab(value)}
+              className={`rounded-full px-4 py-1.5 text-xs font-black capitalize transition-colors ${
+                tab === value
+                  ? "bg-[#4e367f] text-[#f8f0df]"
+                  : "text-[#8f8799] hover:text-[#f8f0df]"
+              }`}
+            >
+              {value}
+            </button>
+          ))}
+        </div>
 
-          {showCatches && (
-            <section className="overflow-hidden rounded-lg border border-[#2f2b40] bg-[#1a1a27]/80">
-              <div className="border-b border-[#2f2b40]/70 px-4 py-3">
-                <h2 className="text-sm font-black">Recent Catches</h2>
-                <p className="mt-0.5 text-[10px] font-semibold text-[#8f8799]">
-                  Full local catch log from game dex and HOME tracking actions.
-                </p>
-              </div>
-              <div className="divide-y divide-[#2f2b40]/70">
-                {pagedCatches.length > 0 ? (
-                  pagedCatches.map((catchRow) => (
-                    <CatchRow
-                      key={`${catchRow.id}-${catchRow.name}-${catchRow.event.gameId}-${catchRow.event.date}-${catchRow.isShiny}-${catchRow.isAlpha}`}
-                      catchRow={catchRow}
-                      onOpenPokemon={openPokemon}
-                      onRemove={removeRecentCatch}
-                    />
-                  ))
-                ) : (
-                  <EmptyState label="No catches match this view." />
-                )}
-              </div>
-              {catchTotalPages > 1 && (
-                <div className="flex items-center justify-between border-t border-[#2f2b40]/70 px-4 py-3">
-                  <button
-                    type="button"
-                    onClick={() => setCatchPage((p) => Math.max(0, p - 1))}
-                    disabled={safeCatchPage === 0}
-                    className="grid h-8 w-8 place-items-center rounded-lg text-[#8f8799] transition-colors hover:bg-white/5 hover:text-[#f8f0df] disabled:opacity-30"
-                  >
-                    <ChevronLeft className="h-4 w-4" />
-                  </button>
-                  <span className="text-[11px] font-semibold text-[#8f8799]">
-                    {safeCatchPage + 1} / {catchTotalPages}
-                    <span className="ml-2 text-[#554a70]">
-                      ({catches.length} total)
+        {/* ── Content ── */}
+        <div
+          className={`grid items-start gap-5 ${showSidebar ? "xl:grid-cols-[1fr_320px]" : ""}`}
+        >
+          {/* Log panel — second on mobile, first on desktop */}
+          <section
+            className={`overflow-hidden rounded-xl border border-[#2f2b40] bg-[#1a1a27]/80 ${showSidebar ? "order-2 xl:order-1" : ""}`}
+          >
+            <div className="border-b border-[#2f2b40] px-5 py-3.5">
+              <h2 className="text-sm font-black">
+                {tab === "catches"
+                  ? "Catch Log"
+                  : tab === "hunts"
+                    ? "Completed Hunts"
+                    : "Activity Log"}
+              </h2>
+              <p className="mt-0.5 text-[10px] text-[#8f8799]">
+                {logEntries.length}{" "}
+                {tab === "catches"
+                  ? "catch"
+                  : tab === "hunts"
+                    ? "completed hunt"
+                    : "event"}
+                {logEntries.length !== 1 ? "s" : ""}
+              </p>
+            </div>
+
+            {dayGroups.length > 0 ? (
+              dayGroups.map((group) => (
+                <div key={group.key}>
+                  <div className="flex items-center gap-3 px-5 py-2.5">
+                    <span className="whitespace-nowrap text-[10px] font-black uppercase tracking-widest text-[#554a70]">
+                      {group.label}
                     </span>
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setCatchPage((p) => Math.min(catchTotalPages - 1, p + 1))
-                    }
-                    disabled={safeCatchPage >= catchTotalPages - 1}
-                    className="grid h-8 w-8 place-items-center rounded-lg text-[#8f8799] transition-colors hover:bg-white/5 hover:text-[#f8f0df] disabled:opacity-30"
-                  >
-                    <ChevronRight className="h-4 w-4" />
-                  </button>
+                    <div className="h-px flex-1 bg-[#2f2b40]/60" />
+                  </div>
+                  <div className="divide-y divide-[#2f2b40]/40">
+                    {group.entries.map((entry, i) =>
+                      entry.kind === "catch" ? (
+                        <CatchLogRow
+                          key={`${entry.row.event.speciesId}-${entry.row.event.formName}-${entry.row.event.gameId}-${entry.row.event.date}-${i}`}
+                          row={entry.row}
+                          onOpen={openPokemon}
+                          onRemove={removeRecentCatch}
+                        />
+                      ) : (
+                        <HuntCompleteRow
+                          key={entry.hunt.id}
+                          hunt={entry.hunt}
+                          entry={entry.entry}
+                          onOpen={openPokemon}
+                          onRemove={removeShinyHunt}
+                        />
+                      ),
+                    )}
+                  </div>
                 </div>
-              )}
-            </section>
+              ))
+            ) : (
+              <p className="m-5 rounded-xl border border-dashed border-[#2f2b40] py-12 text-center text-xs font-semibold text-[#554a70]">
+                {q
+                  ? "No results match your search."
+                  : tab === "hunts"
+                    ? "No completed hunts yet."
+                    : tab === "catches"
+                      ? "No catches recorded yet."
+                      : "Nothing logged yet. Start catching!"}
+              </p>
+            )}
+
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between border-t border-[#2f2b40] px-5 py-3">
+                <button
+                  type="button"
+                  onClick={() => setPage((p) => Math.max(0, p - 1))}
+                  disabled={safePage === 0}
+                  className="grid h-8 w-8 place-items-center rounded-lg text-[#8f8799] transition-colors hover:bg-white/5 hover:text-[#f8f0df] disabled:opacity-30"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </button>
+                <span className="text-[11px] font-semibold text-[#8f8799]">
+                  {safePage + 1} / {totalPages}
+                  <span className="ml-2 text-[#3d3456]">
+                    ({logEntries.length.toLocaleString()} total)
+                  </span>
+                </span>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setPage((p) => Math.min(totalPages - 1, p + 1))
+                  }
+                  disabled={safePage >= totalPages - 1}
+                  className="grid h-8 w-8 place-items-center rounded-lg text-[#8f8799] transition-colors hover:bg-white/5 hover:text-[#f8f0df] disabled:opacity-30"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </button>
+              </div>
+            )}
+          </section>
+
+          {/* Active hunts sidebar — first on mobile, second on desktop */}
+          {showSidebar && (
+            <aside className="order-1 xl:sticky xl:top-4 xl:order-2">
+              <div className="overflow-hidden rounded-xl border border-[#2f2b40] bg-[#1a1a27]/80">
+                <div className="border-b border-[#2f2b40] px-4 py-3.5">
+                  <h2 className="flex items-center gap-2 text-sm font-black">
+                    <Sparkles className="h-3.5 w-3.5 text-[#f8d85a]" />
+                    Active Hunts
+                  </h2>
+                  <p className="mt-0.5 text-[10px] text-[#8f8799]">
+                    {filteredActiveHunts.length} ongoing
+                  </p>
+                </div>
+                <div className="divide-y divide-[#2f2b40]/40">
+                  {filteredActiveHunts.length > 0 ? (
+                    filteredActiveHunts.map((hunt) => (
+                      <ActiveHuntRow
+                        key={hunt.id}
+                        hunt={hunt}
+                        entry={entryByKey.get(
+                          ownedKey(hunt.speciesId, hunt.formName),
+                        )}
+                        onOpen={openPokemon}
+                        onRemove={removeShinyHunt}
+                      />
+                    ))
+                  ) : (
+                    <p className="m-4 rounded-xl border border-dashed border-[#2f2b40] py-8 text-center text-xs font-semibold text-[#554a70]">
+                      {q ? "No hunts match." : "No active hunts."}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </aside>
           )}
         </div>
       </div>
@@ -256,10 +381,29 @@ export function HistoryView() {
   );
 }
 
-function SummaryCard({ label, value }: { label: string; value: number }) {
+// ─── Sub-components ───────────────────────────────────────────────────────────
+
+function StatCard({
+  label,
+  value,
+  color,
+}: {
+  label: string;
+  value: number;
+  color?: "gold" | "green";
+}) {
+  const valueColor =
+    color === "gold"
+      ? "text-[#f8d85a]"
+      : color === "green"
+        ? "text-[#b9ec86]"
+        : "text-[#f8f0df]";
+
   return (
-    <div className="rounded-lg border border-[#2f2b40] bg-[#1a1a27]/80 px-4 py-3">
-      <p className="text-2xl font-black tabular-nums text-[#f8f0df]">{value}</p>
+    <div className="rounded-xl border border-[#2f2b40] bg-[#1a1a27]/80 px-4 py-3.5">
+      <p className={`text-2xl font-black tabular-nums ${valueColor}`}>
+        {value.toLocaleString()}
+      </p>
       <p className="mt-0.5 text-[10px] font-black uppercase tracking-widest text-[#8f8799]">
         {label}
       </p>
@@ -267,64 +411,109 @@ function SummaryCard({ label, value }: { label: string; value: number }) {
   );
 }
 
-function HuntGroup({
-  title,
-  hunts,
-  entryByKey,
-  onOpenPokemon,
+function CatchLogRow({
+  row,
+  onOpen,
   onRemove,
 }: {
-  title: string;
-  hunts: ShinyHunt[];
-  entryByKey: Map<string, LivingDexEntry>;
-  onOpenPokemon: (speciesId: number, formName: string | null) => void;
-  onRemove: (id: string) => void;
+  row: CatchRow;
+  onOpen: (speciesId: number, formName: string | null) => void;
+  onRemove: (event: CatchEvent) => void;
 }) {
+  const time = formatTime(row.event.date);
+
   return (
-    <div>
-      <h3 className="mb-2 text-[10px] font-black uppercase tracking-widest text-[#8f8799]">
-        {title}
-      </h3>
-      <div className="space-y-2">
-        {hunts.length > 0 ? (
-          hunts.map((hunt) => (
-            <HuntRow
-              key={hunt.id}
-              hunt={hunt}
-              entry={entryByKey.get(ownedKey(hunt.speciesId, hunt.formName))}
-              onOpenPokemon={onOpenPokemon}
-              onRemove={onRemove}
-            />
-          ))
-        ) : (
-          <EmptyState label={`No ${title.toLowerCase()} hunts.`} compact />
+    <div className="group grid grid-cols-[52px_1fr_auto] items-center gap-3 px-5 py-3 transition-colors hover:bg-white/[0.02]">
+      <button
+        type="button"
+        onClick={() => onOpen(row.speciesId, row.formName)}
+        className={`relative grid h-12 w-12 shrink-0 place-items-center rounded-xl transition-transform hover:scale-105 ${
+          row.isShiny
+            ? "bg-[#2a2010] ring-2 ring-[#f8d85a]/50"
+            : row.isAlpha
+              ? "bg-[#1e1230] ring-2 ring-[#c084fc]/50"
+              : "bg-[#151520]"
+        }`}
+      >
+        <Image
+          src={row.spriteUrl}
+          alt=""
+          width={44}
+          height={44}
+          unoptimized
+          className="h-11 w-11 object-contain [image-rendering:pixelated]"
+        />
+        {row.isShiny && (
+          <span className="absolute -right-1 -top-1 grid h-4 w-4 place-items-center rounded-full bg-[#f8d85a] text-[8px] font-black leading-none text-black">
+            ✦
+          </span>
         )}
+      </button>
+
+      <div className="min-w-0">
+        <button
+          type="button"
+          onClick={() => onOpen(row.speciesId, row.formName)}
+          className="block max-w-full truncate text-left text-sm font-black text-[#f8f0df] hover:text-[#b9ec86]"
+        >
+          {row.name}
+        </button>
+        <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-px">
+          <span className="text-[11px] text-[#8f8799]">{row.gameName}</span>
+          {row.isShiny && (
+            <span className="text-[10px] font-black text-[#f8d85a]">
+              ✦ Shiny
+            </span>
+          )}
+          {row.isAlpha && (
+            <span className="text-[10px] font-black text-[#c084fc]">
+              α Alpha
+            </span>
+          )}
+        </div>
+      </div>
+
+      <div className="flex shrink-0 items-center gap-1.5">
+        {time && (
+          <span className="text-[11px] tabular-nums text-[#3d3456]">{time}</span>
+        )}
+        <button
+          type="button"
+          onClick={() => onRemove(row.event)}
+          aria-label={`Remove ${row.name} from catch log`}
+          className="grid h-7 w-7 place-items-center rounded-lg text-[#554a70] opacity-0 transition-all hover:bg-white/5 hover:text-[#f8f0df] group-hover:opacity-100"
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+        </button>
       </div>
     </div>
   );
 }
 
-function HuntRow({
+function HuntCompleteRow({
   hunt,
   entry,
-  onOpenPokemon,
+  onOpen,
   onRemove,
 }: {
   hunt: ShinyHunt;
   entry?: LivingDexEntry;
-  onOpenPokemon: (speciesId: number, formName: string | null) => void;
+  onOpen: (speciesId: number, formName: string | null) => void;
   onRemove: (id: string) => void;
 }) {
   const spriteUrl = entry?.shinySpriteUrl ?? entry?.spriteUrl;
-  const methodLabel = METHOD_LABELS[hunt.method] ?? titleCaseLabel(hunt.method);
+  const name =
+    entry?.displayName ?? `#${String(hunt.speciesId).padStart(4, "0")}`;
+  const methodLabel = METHOD_LABELS[hunt.method] ?? titleCase(hunt.method);
   const gameName = getGameById(hunt.gameId)?.name ?? hunt.gameId;
+  const time = formatTime(hunt.completedAt ?? "");
 
   return (
-    <div className="grid grid-cols-[44px_1fr_auto] items-center gap-3 rounded-lg bg-[#151520] px-3 py-2.5">
+    <div className="group grid grid-cols-[52px_1fr_auto] items-center gap-3 bg-[#1a1630]/70 px-5 py-3 transition-colors hover:bg-[#1e1a30]">
       <button
         type="button"
-        onClick={() => onOpenPokemon(hunt.speciesId, hunt.formName)}
-        className="relative grid h-11 w-11 place-items-center rounded-lg bg-[#0f101a] ring-1 ring-[#2f2b40] transition-transform hover:scale-[1.03]"
+        onClick={() => onOpen(hunt.speciesId, hunt.formName)}
+        className="relative grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-[#241b40] ring-2 ring-[#f8d85a]/30 transition-transform hover:scale-105"
       >
         {spriteUrl && (
           <Image
@@ -333,191 +522,149 @@ function HuntRow({
             width={44}
             height={44}
             unoptimized
+            className="h-11 w-11 object-contain [image-rendering:pixelated]"
+          />
+        )}
+        <span className="absolute -right-1 -top-1 grid h-4 w-4 place-items-center rounded-full bg-[#f8d85a] text-[8px] font-black leading-none text-black">
+          ✦
+        </span>
+      </button>
+
+      <div className="min-w-0">
+        <p className="text-[9px] font-black uppercase tracking-widest text-[#f8d85a]/60">
+          Hunt Complete
+        </p>
+        <button
+          type="button"
+          onClick={() => onOpen(hunt.speciesId, hunt.formName)}
+          className="block max-w-full truncate text-left text-sm font-black text-[#f8f0df] hover:text-[#b9ec86]"
+        >
+          {name}
+        </button>
+        <p className="mt-0.5 truncate text-[11px] text-[#8f8799]">
+          {methodLabel} · {gameName}
+        </p>
+        <div className="mt-0.5 flex items-center gap-1.5 text-[10px]">
+          <span className="font-mono font-black text-[#f8d85a]/70">
+            {hunt.count.toLocaleString()}
+          </span>
+          <span className="text-[#3d3456]">{hunt.counterMode}</span>
+          <span className="text-[#3d3456]">·</span>
+          <span className="text-[#3d3456]">
+            {formatDuration(hunt.startedAt, hunt.completedAt)}
+          </span>
+        </div>
+      </div>
+
+      <div className="flex shrink-0 items-center gap-1.5">
+        {time && (
+          <span className="text-[11px] tabular-nums text-[#3d3456]">{time}</span>
+        )}
+        <button
+          type="button"
+          onClick={() => onRemove(hunt.id)}
+          aria-label={`Delete ${name} hunt`}
+          className="grid h-7 w-7 place-items-center rounded-lg text-[#554a70] opacity-0 transition-all hover:bg-white/5 hover:text-[#f8f0df] group-hover:opacity-100"
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function ActiveHuntRow({
+  hunt,
+  entry,
+  onOpen,
+  onRemove,
+}: {
+  hunt: ShinyHunt;
+  entry?: LivingDexEntry;
+  onOpen: (speciesId: number, formName: string | null) => void;
+  onRemove: (id: string) => void;
+}) {
+  const spriteUrl = entry?.shinySpriteUrl ?? entry?.spriteUrl;
+  const name =
+    entry?.displayName ?? `#${String(hunt.speciesId).padStart(4, "0")}`;
+  const methodLabel = METHOD_LABELS[hunt.method] ?? titleCase(hunt.method);
+  const gameName = getGameById(hunt.gameId)?.name ?? hunt.gameId;
+
+  return (
+    <div className="group grid grid-cols-[44px_1fr_auto] items-center gap-3 px-4 py-3 transition-colors hover:bg-white/[0.02]">
+      <button
+        type="button"
+        onClick={() => onOpen(hunt.speciesId, hunt.formName)}
+        className="relative grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-[#241b40] ring-1 ring-[#f8d85a]/25 transition-transform hover:scale-105"
+      >
+        {spriteUrl && (
+          <Image
+            src={spriteUrl}
+            alt=""
+            width={40}
+            height={40}
+            unoptimized
             className="h-10 w-10 object-contain [image-rendering:pixelated]"
           />
         )}
-        <Sparkles className="absolute right-1 top-1 h-3 w-3 text-[#f8d85a]" />
       </button>
+
       <div className="min-w-0">
         <button
           type="button"
-          onClick={() => onOpenPokemon(hunt.speciesId, hunt.formName)}
+          onClick={() => onOpen(hunt.speciesId, hunt.formName)}
           className="block max-w-full truncate text-left text-sm font-black text-[#f8f0df] hover:text-[#b9ec86]"
         >
-          {entry?.displayName ?? `#${String(hunt.speciesId).padStart(4, "0")}`}
+          {name}
         </button>
-        <p className="mt-0.5 truncate text-[11px] font-semibold text-[#8f8799]">
-          {gameName} / {methodLabel}
+        <p className="mt-0.5 truncate text-[10px] text-[#8f8799]">
+          {methodLabel} · {gameName}
         </p>
-        <p className="mt-0.5 flex items-center gap-1 truncate text-[10px] text-[#8f8799]">
-          <Clock3 className="h-3 w-3 shrink-0" />
-          {hunt.completedAt
-            ? `Completed ${formatDateLabel(hunt.completedAt)}`
-            : `Started ${formatDateLabel(hunt.startedAt)}`}
-          {" / "}
-          {formatDuration(hunt.startedAt, hunt.completedAt)}
+        <p className="mt-0.5 text-[10px] text-[#3d3456]">
+          {formatRelativeDate(hunt.startedAt)}
         </p>
       </div>
-      <div className="flex items-center gap-1.5">
-        <span
-          className={`inline-flex items-center gap-1 rounded-full px-2 py-1 font-mono text-[10px] font-black ${
-            hunt.completedAt
-              ? "bg-[#b9ec86]/10 text-[#b9ec86]"
-              : "bg-[#f8d85a]/10 text-[#f8d85a]"
-          }`}
-        >
-          {hunt.completedAt && <Check className="h-3 w-3" />}
+
+      <div className="flex shrink-0 flex-col items-end gap-0.5">
+        <span className="font-mono text-base font-black tabular-nums text-[#f8d85a]">
           {hunt.count.toLocaleString()}
+        </span>
+        <span className="text-[9px] font-semibold uppercase tracking-wider text-[#554a70]">
+          {hunt.counterMode}
         </span>
         <button
           type="button"
           onClick={() => onRemove(hunt.id)}
-          aria-label="Delete hunt"
-          title="Delete hunt"
-          className="grid h-8 w-8 place-items-center rounded-lg text-[#8f8799] transition-colors hover:bg-white/5 hover:text-[#f8f0df]"
+          aria-label={`Delete ${name} hunt`}
+          className="mt-1 grid h-6 w-6 place-items-center rounded-lg text-[#554a70] opacity-0 transition-all hover:bg-white/5 hover:text-[#f8f0df] group-hover:opacity-100"
         >
-          <Trash2 className="h-3.5 w-3.5" />
+          <Trash2 className="h-3 w-3" />
         </button>
       </div>
     </div>
   );
 }
 
-function CatchRow({
-  catchRow,
-  onOpenPokemon,
-  onRemove,
-}: {
-  catchRow: CatchHistoryRow;
-  onOpenPokemon: (speciesId: number, formName: string | null) => void;
-  onRemove: (event: CatchEvent) => void;
-}) {
-  return (
-    <div className="grid grid-cols-[48px_1fr_auto] items-center gap-3 px-4 py-3">
-      <button
-        type="button"
-        onClick={() =>
-          onOpenPokemon(catchRow.event.speciesId, catchRow.event.formName)
-        }
-        className="grid h-12 w-12 place-items-center rounded-lg bg-[#151520] transition-transform hover:scale-[1.03]"
-      >
-        <Image
-          src={catchRow.spriteUrl}
-          alt=""
-          width={48}
-          height={48}
-          unoptimized
-          className="h-11 w-11 object-contain [image-rendering:pixelated]"
-        />
-      </button>
-      <div className="min-w-0">
-        <button
-          type="button"
-          onClick={() =>
-            onOpenPokemon(catchRow.event.speciesId, catchRow.event.formName)
-          }
-          className="block max-w-full truncate text-left text-sm font-black text-[#f8f0df] hover:text-[#b9ec86]"
-        >
-          {catchRow.name}
-        </button>
-        <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] font-semibold text-[#8f8799]">
-          <span>{catchRow.gameName}</span>
-          {catchRow.isShiny && <span className="text-[#f8d85a]">shiny</span>}
-          {catchRow.isAlpha && <span className="text-[#c084fc]">alpha</span>}
-        </div>
-      </div>
-      <div className="flex items-center gap-2">
-        <span className="whitespace-nowrap text-xs font-bold text-[#d4cedb]">
-          {catchRow.dateLabel}
-        </span>
-        <button
-          type="button"
-          onClick={() => onRemove(catchRow.event)}
-          aria-label={`Delete ${catchRow.name} from catch history`}
-          title="Delete catch"
-          className="grid h-8 w-8 place-items-center rounded-lg text-[#8f8799] transition-colors hover:bg-white/5 hover:text-[#f8f0df]"
-        >
-          <Trash2 className="h-3.5 w-3.5" />
-        </button>
-      </div>
-    </div>
-  );
-}
+// ─── Pure helpers ─────────────────────────────────────────────────────────────
 
-function EmptyState({
-  label,
-  compact = false,
-}: {
-  label: string;
-  compact?: boolean;
-}) {
-  return (
-    <p
-      className={`rounded-lg border border-dashed border-[#2f2b40] bg-[#151520]/60 text-center text-xs font-semibold text-[#8f8799] ${
-        compact ? "px-3 py-4" : "m-4 px-3 py-8"
-      }`}
-    >
-      {label}
-    </p>
-  );
-}
-
-function matchesHunt(
-  hunt: ShinyHunt,
-  entryByKey: Map<string, LivingDexEntry>,
-  query: string,
-): boolean {
-  if (!query) return true;
-  const entry = entryByKey.get(ownedKey(hunt.speciesId, hunt.formName));
-  const gameName = getGameById(hunt.gameId)?.name ?? hunt.gameId;
-  const methodLabel = METHOD_LABELS[hunt.method] ?? titleCaseLabel(hunt.method);
-  const haystack = [
-    entry?.displayName,
-    String(hunt.speciesId),
-    gameName,
-    methodLabel,
-    hunt.counterMode,
-  ]
-    .filter((value): value is string => typeof value === "string")
-    .join(" ")
-    .toLowerCase();
-  return haystack.includes(query);
-}
-
-function matchesCatch(catchRow: CatchHistoryRow, query: string): boolean {
-  if (!query) return true;
-  return [
-    catchRow.name,
-    String(catchRow.id),
-    catchRow.gameName,
-    catchRow.isShiny ? "shiny" : "",
-    catchRow.isAlpha ? "alpha" : "",
-  ]
-    .join(" ")
-    .toLowerCase()
-    .includes(query);
-}
-
-function getCatchHistory(
+function buildCatchRows(
   entries: LivingDexEntry[],
   catchLog: CatchEvent[],
-): CatchHistoryRow[] {
-  const entryMap = new Map<string, LivingDexEntry>();
-  for (const entry of entries) {
-    entryMap.set(ownedKey(entry.speciesId, entry.formName), entry);
-  }
+): CatchRow[] {
+  const map = new Map<string, LivingDexEntry>();
+  for (const e of entries) map.set(ownedKey(e.speciesId, e.formName), e);
 
   return catchLog.flatMap((event) => {
-    const entry = entryMap.get(ownedKey(event.speciesId, event.formName));
+    const entry = map.get(ownedKey(event.speciesId, event.formName));
     if (!entry) return [];
     return [
       {
-        id: event.speciesId,
+        speciesId: event.speciesId,
+        formName: event.formName,
         name: entry.displayName,
         spriteUrl: event.isShiny
           ? (entry.shinySpriteUrl ?? entry.spriteUrl)
           : entry.spriteUrl,
-        dateLabel: formatDateLabel(event.date),
         gameName: getGameById(event.gameId)?.name ?? event.gameId,
         isShiny: event.isShiny,
         isAlpha: event.isAlpha,
@@ -527,21 +674,99 @@ function getCatchHistory(
   });
 }
 
-function titleCaseLabel(value: string): string {
-  return value
-    .split("-")
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(" ");
+function matchesCatch(row: CatchRow, q: string): boolean {
+  return [
+    row.name,
+    String(row.speciesId),
+    row.gameName,
+    row.isShiny ? "shiny" : "",
+    row.isAlpha ? "alpha" : "",
+  ]
+    .join(" ")
+    .toLowerCase()
+    .includes(q);
+}
+
+function matchesHunt(
+  hunt: ShinyHunt,
+  entry: LivingDexEntry | undefined,
+  q: string,
+): boolean {
+  const method = METHOD_LABELS[hunt.method] ?? hunt.method;
+  const game = getGameById(hunt.gameId)?.name ?? hunt.gameId;
+  return [entry?.displayName, String(hunt.speciesId), game, method, hunt.counterMode]
+    .filter((v): v is string => !!v)
+    .join(" ")
+    .toLowerCase()
+    .includes(q);
+}
+
+function groupByDay(entries: LogEntry[]): DayGroup[] {
+  const groups = new Map<string, LogEntry[]>();
+  for (const entry of entries) {
+    const key = entry.date.slice(0, 10);
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key)!.push(entry);
+  }
+  return [...groups.entries()].map(([key, items]) => ({
+    key,
+    label: formatDayLabel(key),
+    entries: items,
+  }));
+}
+
+function formatDayLabel(dateKey: string): string {
+  const now = new Date();
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const todayKey = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+  const yest = new Date(now);
+  yest.setDate(now.getDate() - 1);
+  const yesterdayKey = `${yest.getFullYear()}-${pad(yest.getMonth() + 1)}-${pad(yest.getDate())}`;
+
+  if (dateKey === todayKey) return "Today";
+  if (dateKey === yesterdayKey) return "Yesterday";
+
+  // noon avoids DST-related off-by-one when parsing date-only strings
+  const date = new Date(`${dateKey}T12:00:00`);
+  return date.toLocaleDateString("en-US", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+function formatTime(dateString: string): string {
+  if (!dateString || dateString.length <= 10) return "";
+  const date = new Date(dateString);
+  if (isNaN(date.getTime())) return "";
+  return date.toLocaleTimeString("en-US", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+}
+
+function formatRelativeDate(dateString?: string): string {
+  if (!dateString) return "—";
+  const date = new Date(dateString);
+  if (isNaN(date.getTime())) return "—";
+  const now = new Date();
+  const diff = Math.round(
+    (now.getTime() - date.getTime()) / 86_400_000,
+  );
+  if (diff === 0) return "started today";
+  if (diff === 1) return "started yesterday";
+  if (diff < 7) return `started ${diff}d ago`;
+  if (diff < 30) return `started ${Math.floor(diff / 7)}w ago`;
+  return `started ${date.toLocaleDateString("en-US", { month: "short", day: "numeric" })}`;
 }
 
 function formatDuration(startedAt: string, completedAt?: string): string {
   const start = new Date(startedAt).getTime();
   const end = completedAt ? new Date(completedAt).getTime() : Date.now();
-  if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) {
-    return "same day";
-  }
-
-  const totalHours = Math.max(1, Math.round((end - start) / 36e5));
+  if (!isFinite(start) || !isFinite(end) || end <= start) return "0h";
+  const totalHours = Math.max(1, Math.round((end - start) / 3_600_000));
   if (totalHours < 24) return `${totalHours}h`;
   const days = Math.floor(totalHours / 24);
   const hours = totalHours % 24;
@@ -551,18 +776,9 @@ function formatDuration(startedAt: string, completedAt?: string): string {
   return remDays > 0 ? `${months}mo ${remDays}d` : `${months}mo`;
 }
 
-function formatDateLabel(dateString?: string): string {
-  if (!dateString) return "Tracked";
-  const date = new Date(dateString);
-  if (Number.isNaN(date.getTime())) return "Tracked";
-  const now = new Date();
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const yesterday = new Date(today);
-  yesterday.setDate(today.getDate() - 1);
-  const d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-  if (d.getTime() === today.getTime()) return "Today";
-  if (d.getTime() === yesterday.getTime()) return "Yesterday";
-  return `${String(date.getDate()).padStart(2, "0")}/${String(
-    date.getMonth() + 1,
-  ).padStart(2, "0")}/${date.getFullYear()}`;
+function titleCase(value: string): string {
+  return value
+    .split("-")
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(" ");
 }
