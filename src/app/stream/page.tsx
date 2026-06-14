@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Image from 'next/image';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { usePokedexStore, ownedKey } from '@/store/pokedexStore';
@@ -172,6 +172,11 @@ export default function StreamPage() {
     hour12: false,
   });
 
+  const activeItemRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    activeItemRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }, [safeIndex]);
+
   const prev = () => setBoxIndex((i) => Math.max(0, i - 1));
   const next = () => setBoxIndex((i) => Math.min(totalBoxes - 1, i + 1));
 
@@ -245,6 +250,61 @@ export default function StreamPage() {
 
       {/* ─── Body ─── */}
       <div className="flex min-h-0 flex-1 overflow-hidden">
+
+        {/* ─── Left panel: box list ─── */}
+        <aside className="flex w-[152px] shrink-0 flex-col overflow-hidden border-r border-[#131620]">
+          <p className="shrink-0 px-3 py-2 font-mono text-[9px] font-black uppercase tracking-widest text-[#3a3f52]">
+            Boxes
+          </p>
+          <div className="flex-1 overflow-y-auto">
+            {boxes.map((_, i) => {
+              const s = boxStats[i];
+              const pct = s.total > 0 ? s.owned / s.total : 0;
+              const isComplete = pct === 1 && s.total > 0;
+              const isCurrent = i === safeIndex;
+              return (
+                <button
+                  key={i}
+                  ref={isCurrent ? activeItemRef : undefined}
+                  type="button"
+                  onClick={() => setBoxIndex(i)}
+                  className={`flex w-full flex-col gap-1 px-3 py-2 text-left transition-colors ${
+                    isCurrent ? 'bg-[#1a1e2e]' : 'hover:bg-[#0f1016]'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span
+                      className={`font-mono text-[11px] font-black ${
+                        isCurrent
+                          ? 'text-[#e0ddf5]'
+                          : isComplete
+                          ? 'text-[#b9ec86]'
+                          : 'text-[#525870]'
+                      }`}
+                    >
+                      BOX {String(i + 1).padStart(2, '0')}
+                    </span>
+                    {isComplete && (
+                      <span className="text-[8px] text-[#b9ec86]">✓</span>
+                    )}
+                  </div>
+                  <div className="h-0.5 w-full overflow-hidden rounded-full bg-[#0b0c10]">
+                    <div
+                      className={`h-full rounded-full transition-all duration-300 ${
+                        isComplete
+                          ? 'bg-[#b9ec86]'
+                          : pct >= 0.5
+                          ? 'bg-[#67e8f9]'
+                          : 'bg-[#2d3348]'
+                      }`}
+                      style={{ width: `${pct * 100}%` }}
+                    />
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </aside>
 
         {/* ─── Center: empty — Switch capture goes here in OBS ─── */}
         <div className="flex min-h-0 flex-1 items-center justify-center">
@@ -354,61 +414,14 @@ export default function StreamPage() {
 
       {/* ─── Footer ─── */}
       <footer className="flex h-[60px] shrink-0 items-stretch border-t border-[#131620]">
-        {/* Box overview — all boxes as numbered tiles */}
-        <div className="flex min-w-0 flex-1 items-center gap-0.5 overflow-hidden px-3">
-          {boxes.map((_, i) => {
-            const s = boxStats[i];
-            const pct = s.total > 0 ? s.owned / s.total : 0;
-            const isCurrent = i === safeIndex;
-            const isComplete = pct === 1 && s.total > 0;
-            return (
-              <button
-                key={i}
-                type="button"
-                onClick={() => setBoxIndex(i)}
-                title={`Box ${i + 1} — ${s.owned}/${s.total}`}
-                className={`flex shrink-0 flex-col items-center gap-0.5 rounded px-1.5 py-1 transition-colors ${
-                  isCurrent ? 'bg-[#1a1e2e]' : 'hover:bg-[#0f1016]'
-                }`}
-              >
-                <span
-                  className={`font-mono text-[9px] font-black tabular-nums leading-none ${
-                    isCurrent
-                      ? 'text-[#e0ddf5]'
-                      : isComplete
-                      ? 'text-[#b9ec86]'
-                      : 'text-[#3a3f52]'
-                  }`}
-                >
-                  {i + 1}
-                </span>
-                <div className="h-0.5 w-4 overflow-hidden rounded-full bg-[#131620]">
-                  <div
-                    className={`h-full rounded-full ${
-                      isComplete
-                        ? 'bg-[#b9ec86]'
-                        : pct >= 0.5
-                        ? 'bg-[#67e8f9]'
-                        : 'bg-[#2d3348]'
-                    }`}
-                    style={{ width: `${pct * 100}%` }}
-                  />
-                </div>
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Divider */}
-        <div className="w-px shrink-0 bg-[#131620]" />
-
-        {/* Overall progress */}
-        <div className="flex w-40 shrink-0 flex-col items-center justify-center px-4">
+        {/* Overall dex progress */}
+        <div className="flex w-[152px] shrink-0 flex-col items-start justify-center border-r border-[#131620] px-4">
           <p className="font-mono text-[9px] font-black uppercase tracking-widest text-[#3a3f52]">
-            Dex
+            Living Dex
           </p>
-          <p className="mt-0.5 font-mono text-xs font-black text-[#b9ec86]">
-            {overallPct.toFixed(1)}%
+          <p className="mt-0.5 font-mono text-sm font-black text-[#b9ec86]">
+            {overallPct.toFixed(1)}
+            <span className="text-xs font-normal text-[#3a3f52]">%</span>
           </p>
           <div className="mt-1 h-0.5 w-full overflow-hidden rounded-full bg-[#131620]">
             <div
@@ -418,11 +431,8 @@ export default function StreamPage() {
           </div>
         </div>
 
-        {/* Divider */}
-        <div className="w-px shrink-0 bg-[#131620]" />
-
         {/* Recently placed */}
-        <div className="flex w-[300px] shrink-0 items-center gap-3 px-4">
+        <div className="flex min-w-0 flex-1 items-center gap-3 px-4">
           <p className="shrink-0 font-mono text-[9px] font-black uppercase tracking-widest text-[#3a3f52]">
             Recent
           </p>
