@@ -47,7 +47,6 @@ export const ALPHA_GAMES = new Set([
   "legends-za-hyperspace",
 ]);
 
-
 const DEFAULT_HOME_BOX_LAYOUT_ID = "national-dex";
 const LEGACY_DEFAULT_HOME_BOX_LAYOUT: HomeBoxLayoutProfile = {
   id: DEFAULT_HOME_BOX_LAYOUT_ID,
@@ -214,7 +213,7 @@ type PokedexState = {
     gameId: string,
     method: ShinyHuntMethod,
     counterMode: HuntCounterMode,
-  ) => void;
+  ) => string;
   updateShinyHunt: (
     id: string,
     patch: Pick<
@@ -624,7 +623,9 @@ export const usePokedexStore = create<PokedexState>()(
         void Promise.all([
           syncSingleHomeBoxLayout(layout),
           syncActiveHomeBoxLayoutId(id),
-        ]).finally(() => { pendingWriteCount--; });
+        ]).finally(() => {
+          pendingWriteCount--;
+        });
       },
 
       updateHomeBoxLayout: (id, patch) =>
@@ -638,7 +639,10 @@ export const usePokedexStore = create<PokedexState>()(
           return {
             homeBoxLayouts,
             ...(isActive && patch.mode !== undefined
-              ? { homeBoxMode: patch.mode, showShinyDex: patch.mode === "paired" }
+              ? {
+                  homeBoxMode: patch.mode,
+                  showShinyDex: patch.mode === "paired",
+                }
               : {}),
             ...(isActive && patch.showCosmeticForms !== undefined
               ? { showCosmeticForms: patch.showCosmeticForms }
@@ -1162,8 +1166,9 @@ export const usePokedexStore = create<PokedexState>()(
         !!get().gameHomeBoxes[gameId]?.[ownedKey(speciesId, formName)],
 
       addShinyHunt: (speciesId, formName, gameId, method, counterMode) => {
+        const id = crypto.randomUUID();
         const hunt: ShinyHunt = {
-          id: crypto.randomUUID(),
+          id,
           speciesId,
           formName,
           gameId,
@@ -1176,6 +1181,7 @@ export const usePokedexStore = create<PokedexState>()(
           shinyHunts: [...state.shinyHunts, hunt],
         }));
         void syncShinyHunt(hunt);
+        return id;
       },
 
       updateShinyHunt: (id, patch) => {
