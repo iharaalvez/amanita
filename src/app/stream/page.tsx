@@ -2,124 +2,101 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Image from 'next/image';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { usePokedexStore, ownedKey } from '@/store/pokedexStore';
 import { useLivingDexEntries } from '@/hooks/usePokemon';
-import { isLivingDexSpecies } from '@/lib/livingDex';
+import { compareLivingDexEntries, isHomeTrackedEntry } from '@/lib/livingDex';
 import type { LivingDexEntry } from '@/types/pokemon';
 
 // ─────────────────────────────────────────────────
-// Constants
+// Constants + helpers
 // ─────────────────────────────────────────────────
 
-const GEN_ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX'] as const;
-const MILESTONES = [50, 100, 250, 500, 750, 1025] as const;
+const BOX_SIZE = 30;
+const COLS = 6;
+const ROWS = BOX_SIZE / COLS; // 5
 
-function nextMilestone(count: number): { target: number; remaining: number } | null {
-  for (const m of MILESTONES) {
-    if (count < m) return { target: m, remaining: m - count };
+function buildBoxes(entries: LivingDexEntry[]): (LivingDexEntry | null)[][] {
+  const total = Math.ceil(entries.length / BOX_SIZE);
+  return Array.from({ length: total }, (_, i) => {
+    const chunk: (LivingDexEntry | null)[] = entries.slice(
+      i * BOX_SIZE,
+      (i + 1) * BOX_SIZE,
+    );
+    while (chunk.length < BOX_SIZE) chunk.push(null);
+    return chunk;
+  });
+}
+
+// ─────────────────────────────────────────────────
+// Slot — clickable, toggles owned state
+// ─────────────────────────────────────────────────
+
+function StreamSlot({ entry }: { entry: LivingDexEntry | null }) {
+  const key = entry ? ownedKey(entry.speciesId, entry.formName) : '';
+  const isOwned = usePokedexStore((s) =>
+    entry ? !!s.owned[key]?.owned : false,
+  );
+  const markOwned = usePokedexStore((s) => s.markOwned);
+  const clearOwnership = usePokedexStore((s) => s.clearOwnership);
+
+  if (!entry) {
+    return (
+      <div className="aspect-square rounded-lg bg-[#0c0d12]" />
+    );
   }
-  return null;
-}
 
-function formatRelativeTime(dateStr: string): string {
-  const diff = Date.now() - new Date(dateStr).getTime();
-  const secs = Math.floor(diff / 1000);
-  if (secs < 60) return 'now';
-  const mins = Math.floor(secs / 60);
-  if (mins < 60) return `${mins}m`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}h`;
-  return `${Math.floor(hrs / 24)}d`;
-}
-
-// ─────────────────────────────────────────────────
-// Derived data hook
-// ─────────────────────────────────────────────────
-
-function useStreamData() {
-  const storeOwned = usePokedexStore((s) => s.owned);
-  const recentCatches = usePokedexStore((s) => s.recentCatches);
-  const shinyHunts = usePokedexStore((s) => s.shinyHunts);
-  const { data: allEntries, isLoading } = useLivingDexEntries();
-
-  const entryByKey = useMemo(() => {
-    const map = new Map<string, LivingDexEntry>();
-    for (const entry of allEntries ?? []) {
-      map.set(ownedKey(entry.speciesId, entry.formName), entry);
+  const toggle = () => {
+    if (isOwned) {
+      clearOwnership(entry.speciesId, entry.formName);
+    } else {
+      markOwned(entry.speciesId, entry.formName);
     }
-    return map;
-  }, [allEntries]);
-
-  const baseEntries = useMemo(
-    () => (allEntries ?? []).filter(isLivingDexSpecies),
-    [allEntries],
-  );
-
-  const totalOwned = useMemo(
-    () =>
-      baseEntries.filter((e) => storeOwned[ownedKey(e.speciesId, e.formName)]?.owned)
-        .length,
-    [baseEntries, storeOwned],
-  );
-
-  const shinyOwned = useMemo(
-    () =>
-      baseEntries.filter((e) => storeOwned[ownedKey(e.speciesId, e.formName)]?.shiny_owned)
-        .length,
-    [baseEntries, storeOwned],
-  );
-
-  const totalSpecies = baseEntries.length;
-
-  const genGroups = useMemo(() => {
-    const groups = new Map<number, { total: number; ownedCount: number }>();
-    for (const entry of baseEntries) {
-      const gen = entry.generation;
-      if (!groups.has(gen)) groups.set(gen, { total: 0, ownedCount: 0 });
-      const g = groups.get(gen)!;
-      g.total += 1;
-      if (storeOwned[ownedKey(entry.speciesId, entry.formName)]?.owned) g.ownedCount += 1;
-    }
-    return Array.from(groups.entries())
-      .sort(([a], [b]) => a - b)
-      .map(([gen, { total, ownedCount }]) => ({ gen, total, ownedCount }));
-  }, [baseEntries, storeOwned]);
-
-  const nearestGen = useMemo(
-    () =>
-      genGroups
-        .filter(({ ownedCount, total }) => ownedCount < total)
-        .sort((a, b) => b.ownedCount / b.total - a.ownedCount / a.total)[0] ?? null,
-    [genGroups],
-  );
-
-  const activeHunts = useMemo(
-    () => shinyHunts.filter((h) => !h.completedAt),
-    [shinyHunts],
-  );
-
-  const recentWithEntries = useMemo(
-    () =>
-      recentCatches.slice(0, 24).map((event) => ({
-        event,
-        entry:
-          entryByKey.get(ownedKey(event.speciesId, event.formName)) ??
-          entryByKey.get(ownedKey(event.speciesId, null)),
-      })),
-    [recentCatches, entryByKey],
-  );
-
-  return {
-    isLoading,
-    totalOwned,
-    shinyOwned,
-    totalSpecies,
-    genGroups,
-    nearestGen,
-    activeHunts,
-    recentWithEntries,
-    entryByKey,
   };
+
+  const firstName = entry.displayName.split(' ')[0];
+
+  return (
+    <button
+      type="button"
+      onClick={toggle}
+      title={`${isOwned ? 'Unmark' : 'Mark'} ${entry.displayName} as owned`}
+      className={`group relative flex flex-col items-center justify-between rounded-lg px-1 pb-1.5 pt-2 transition-all duration-150 ${
+        isOwned
+          ? 'bg-[#0a1510] ring-1 ring-[#b9ec86]/20 hover:ring-[#b9ec86]/40'
+          : 'bg-[#0c0d12] hover:bg-[#101118]'
+      }`}
+    >
+      {/* owned check */}
+      {isOwned && (
+        <span className="absolute right-1.5 top-1.5 text-[8px] leading-none text-[#b9ec86]">
+          ✓
+        </span>
+      )}
+
+      {/* sprite */}
+      <div className="flex flex-1 items-center justify-center">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={entry.spriteUrl}
+          alt={entry.displayName}
+          className={`h-14 w-14 object-contain transition-all duration-150 ${
+            isOwned ? '' : 'opacity-25 grayscale'
+          }`}
+          loading="lazy"
+        />
+      </div>
+
+      {/* name */}
+      <p
+        className={`w-full truncate text-center font-mono text-[9px] leading-none transition-colors ${
+          isOwned ? 'text-[#b9ec86]/60' : 'text-[#2a2e3e]'
+        }`}
+      >
+        {firstName}
+      </p>
+    </button>
+  );
 }
 
 // ─────────────────────────────────────────────────
@@ -127,26 +104,72 @@ function useStreamData() {
 // ─────────────────────────────────────────────────
 
 export default function StreamPage() {
+  const [boxIndex, setBoxIndex] = useState(0);
   const [, forceUpdate] = useState(0);
-  const {
-    isLoading,
-    totalOwned,
-    shinyOwned,
-    totalSpecies,
-    genGroups,
-    nearestGen,
-    activeHunts,
-    recentWithEntries,
-    entryByKey,
-  } = useStreamData();
+
+  const storeOwned = usePokedexStore((s) => s.owned);
+  const showCosmeticForms = usePokedexStore((s) => s.showCosmeticForms);
+  const showGenderForms = usePokedexStore((s) => s.showGenderForms);
+  const showGigantamaxForms = usePokedexStore((s) => s.showGigantamaxForms);
+
+  const { data: allEntries, isLoading } = useLivingDexEntries();
 
   useEffect(() => {
     const id = setInterval(() => forceUpdate((n) => n + 1), 1000);
     return () => clearInterval(id);
   }, []);
 
-  const pct = totalSpecies > 0 ? (totalOwned / totalSpecies) * 100 : 0;
-  const milestone = nextMilestone(totalOwned);
+  // Derive filtered + sorted entries matching the home box view
+  const filteredEntries = useMemo(() => {
+    if (!allEntries) return [];
+    return [...allEntries]
+      .filter((e) =>
+        isHomeTrackedEntry(e, showCosmeticForms, showGenderForms, showGigantamaxForms),
+      )
+      .sort(compareLivingDexEntries);
+  }, [allEntries, showCosmeticForms, showGenderForms, showGigantamaxForms]);
+
+  const boxes = useMemo(() => buildBoxes(filteredEntries), [filteredEntries]);
+  const totalBoxes = boxes.length;
+
+  // Clamp boxIndex when entries load
+  const safeIndex = Math.min(boxIndex, Math.max(0, totalBoxes - 1));
+  const currentBox = boxes[safeIndex] ?? [];
+  const currentEntries = currentBox.filter((e): e is LivingDexEntry => e !== null);
+
+  // Per-box stats
+  const ownedInBox = useMemo(
+    () =>
+      currentEntries.filter(
+        (e) => storeOwned[ownedKey(e.speciesId, e.formName)]?.owned,
+      ).length,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [currentEntries, storeOwned],
+  );
+
+  const missingInBox = useMemo(
+    () =>
+      currentEntries.filter(
+        (e) => !storeOwned[ownedKey(e.speciesId, e.formName)]?.owned,
+      ),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [currentEntries, storeOwned],
+  );
+
+  // Overall stats
+  const totalOwned = useMemo(
+    () =>
+      filteredEntries.filter(
+        (e) => storeOwned[ownedKey(e.speciesId, e.formName)]?.owned,
+      ).length,
+    [filteredEntries, storeOwned],
+  );
+
+  const totalSpecies = filteredEntries.length;
+  const boxPct =
+    currentEntries.length > 0 ? (ownedInBox / currentEntries.length) * 100 : 0;
+  const overallPct = totalSpecies > 0 ? (totalOwned / totalSpecies) * 100 : 0;
+
   const timeStr = new Date().toLocaleTimeString('en-US', {
     hour: '2-digit',
     minute: '2-digit',
@@ -154,12 +177,15 @@ export default function StreamPage() {
     hour12: false,
   });
 
+  const prev = () => setBoxIndex((i) => Math.max(0, i - 1));
+  const next = () => setBoxIndex((i) => Math.min(totalBoxes - 1, i + 1));
+
   if (isLoading) {
     return (
       <div className="flex h-screen items-center justify-center">
         <div className="flex items-center gap-2 font-mono text-xs text-[#2d3348]">
           <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#2d3348]" />
-          Loading dex data…
+          Loading…
         </div>
       </div>
     );
@@ -168,8 +194,9 @@ export default function StreamPage() {
   return (
     <div className="flex h-screen flex-col overflow-hidden">
       {/* ─── Header ─── */}
-      <div className="flex h-9 shrink-0 items-center justify-between border-b border-[#131620] px-4">
-        <div className="flex items-center gap-3">
+      <header className="flex h-10 shrink-0 items-center justify-between border-b border-[#131620] px-4">
+        {/* left: live + logo */}
+        <div className="flex w-[200px] items-center gap-3">
           <div className="flex items-center gap-1.5">
             <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#f87171]" />
             <span className="font-mono text-[9px] font-black uppercase tracking-widest text-[#3a3f52]">
@@ -185,279 +212,145 @@ export default function StreamPage() {
             className="h-3 w-auto opacity-30"
           />
         </div>
-        <time className="font-mono text-[10px] text-[#3a3f52]">{timeStr}</time>
-      </div>
+
+        {/* center: box navigation */}
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={prev}
+            disabled={safeIndex === 0}
+            className="grid h-7 w-7 place-items-center rounded-lg bg-[#131620] text-[#3a3f52] transition-colors hover:bg-[#1a1e2e] hover:text-[#e0ddf5] disabled:opacity-30"
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </button>
+          <span className="font-mono text-sm font-black text-[#e0ddf5]">
+            BOX {safeIndex + 1}
+          </span>
+          <span className="font-mono text-sm text-[#2d3348]">/ {totalBoxes}</span>
+          <button
+            type="button"
+            onClick={next}
+            disabled={safeIndex === totalBoxes - 1}
+            className="grid h-7 w-7 place-items-center rounded-lg bg-[#131620] text-[#3a3f52] transition-colors hover:bg-[#1a1e2e] hover:text-[#e0ddf5] disabled:opacity-30"
+          >
+            <ChevronRight className="h-4 w-4" />
+          </button>
+        </div>
+
+        {/* right: time */}
+        <div className="flex w-[200px] justify-end">
+          <time className="font-mono text-[10px] text-[#3a3f52]">{timeStr}</time>
+        </div>
+      </header>
 
       {/* ─── Body ─── */}
       <div className="flex min-h-0 flex-1 overflow-hidden">
-        {/* ─── Left: Progress ─── */}
-        <aside className="flex w-[256px] shrink-0 flex-col gap-6 overflow-hidden border-r border-[#131620] p-5">
-          {/* Overall count */}
+        {/* ─── Box grid ─── */}
+        <main className="flex min-w-0 flex-1 items-stretch overflow-hidden border-r border-[#131620] p-4">
+          <div
+            className="grid h-full w-full gap-2"
+            style={{
+              gridTemplateColumns: `repeat(${COLS}, 1fr)`,
+              gridTemplateRows: `repeat(${ROWS}, 1fr)`,
+            }}
+          >
+            {currentBox.map((entry, i) => (
+              <StreamSlot key={entry ? ownedKey(entry.speciesId, entry.formName) : `empty-${i}`} entry={entry} />
+            ))}
+          </div>
+        </main>
+
+        {/* ─── Guide panel ─── */}
+        <aside className="flex w-[272px] shrink-0 flex-col gap-5 overflow-hidden p-5">
+          {/* Box progress */}
           <section>
             <p className="mb-1 font-mono text-[9px] font-black uppercase tracking-widest text-[#3a3f52]">
+              Current Box
+            </p>
+            <div className="flex items-baseline gap-1.5">
+              <span className="font-mono text-4xl font-black leading-none text-[#e0ddf5]">
+                {ownedInBox}
+              </span>
+              <span className="font-mono text-base text-[#2d3348]">
+                / {currentEntries.length}
+              </span>
+            </div>
+            <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[#131620]">
+              <div
+                className={`h-full rounded-full transition-all duration-500 ${
+                  boxPct === 100 ? 'bg-[#b9ec86]' : boxPct >= 50 ? 'bg-[#67e8f9]' : 'bg-[#a78bfa]'
+                }`}
+                style={{ width: `${boxPct}%` }}
+              />
+            </div>
+            <p className="mt-1 font-mono text-[10px] text-[#3a3f52]">
+              {boxPct.toFixed(0)}% of this box
+            </p>
+          </section>
+
+          {/* Missing list */}
+          <section className="min-h-0 flex-1 overflow-hidden">
+            <p className="mb-2.5 font-mono text-[9px] font-black uppercase tracking-widest text-[#3a3f52]">
+              Missing{missingInBox.length > 0 && (
+                <span className="ml-1.5 text-[#f87171]">({missingInBox.length})</span>
+              )}
+            </p>
+
+            {missingInBox.length === 0 ? (
+              <div className="flex items-center gap-1.5">
+                <span className="text-[10px] text-[#b9ec86]">✓</span>
+                <p className="font-mono text-xs text-[#b9ec86]">Box complete!</p>
+              </div>
+            ) : (
+              <div className="space-y-1.5 overflow-hidden">
+                {missingInBox.slice(0, 14).map((entry) => (
+                  <div key={ownedKey(entry.speciesId, entry.formName)} className="flex items-center gap-2">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={entry.spriteUrl}
+                      alt=""
+                      className="h-7 w-7 shrink-0 object-contain grayscale opacity-40"
+                      loading="lazy"
+                    />
+                    <div className="min-w-0">
+                      <p className="truncate text-xs text-[#8892a4]">
+                        {entry.displayName}
+                      </p>
+                      <p className="font-mono text-[9px] text-[#2d3348]">
+                        #{String(entry.speciesId).padStart(4, '0')}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+                {missingInBox.length > 14 && (
+                  <p className="font-mono text-[10px] text-[#2d3348]">
+                    +{missingInBox.length - 14} more
+                  </p>
+                )}
+              </div>
+            )}
+          </section>
+
+          {/* Overall progress */}
+          <section className="border-t border-[#131620] pt-4">
+            <p className="mb-1.5 font-mono text-[9px] font-black uppercase tracking-widest text-[#3a3f52]">
               Living Dex
             </p>
             <div className="flex items-baseline gap-1.5">
-              <span className="font-mono text-[42px] font-black leading-none tracking-tight text-[#b9ec86]">
+              <span className="font-mono text-lg font-black text-[#b9ec86]">
                 {totalOwned.toLocaleString()}
               </span>
-              <span className="font-mono text-base text-[#222638]">
-                /{totalSpecies}
-              </span>
+              <span className="font-mono text-sm text-[#2d3348]">/ {totalSpecies}</span>
             </div>
-            {/* Main progress bar */}
-            <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[#131620]">
+            <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-[#131620]">
               <div
                 className="h-full rounded-full bg-[#b9ec86] transition-all duration-700"
-                style={{ width: `${pct}%` }}
+                style={{ width: `${overallPct}%` }}
               />
             </div>
-            <div className="mt-1 flex items-center justify-between">
-              <span className="font-mono text-[10px] text-[#3a3f52]">
-                {pct.toFixed(1)}%
-              </span>
-              {shinyOwned > 0 && (
-                <span className="font-mono text-[10px] text-[#f8d85a]">
-                  ✦ {shinyOwned.toLocaleString()}
-                </span>
-              )}
-            </div>
-          </section>
-
-          {/* Gen breakdown */}
-          <section className="min-h-0 flex-1 overflow-hidden">
-            <p className="mb-2.5 font-mono text-[9px] font-black uppercase tracking-widest text-[#3a3f52]">
-              Generation
+            <p className="mt-1 font-mono text-[10px] text-[#3a3f52]">
+              {overallPct.toFixed(1)}%
             </p>
-            <div className="space-y-2">
-              {genGroups.map(({ gen, total, ownedCount }) => {
-                const genPct = total > 0 ? (ownedCount / total) * 100 : 0;
-                const isComplete = ownedCount === total && total > 0;
-                const barColor = isComplete
-                  ? 'bg-[#b9ec86]'
-                  : genPct >= 75
-                  ? 'bg-[#67e8f9]'
-                  : genPct >= 50
-                  ? 'bg-[#a78bfa]'
-                  : 'bg-[#222638]';
-                return (
-                  <div key={gen}>
-                    <div className="mb-0.5 flex items-center justify-between">
-                      <span className="font-mono text-[10px] text-[#525870]">
-                        Gen {GEN_ROMAN[gen - 1]}
-                      </span>
-                      <span
-                        className={`font-mono text-[10px] tabular-nums ${
-                          isComplete ? 'text-[#b9ec86]' : 'text-[#3a3f52]'
-                        }`}
-                      >
-                        {ownedCount}/{total}
-                      </span>
-                    </div>
-                    <div className="h-1 overflow-hidden rounded-full bg-[#131620]">
-                      <div
-                        className={`h-full rounded-full ${barColor} transition-all duration-700`}
-                        style={{ width: `${genPct}%` }}
-                      />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </section>
-
-          {/* Goals / next targets */}
-          <section className="border-t border-[#131620] pt-4">
-            <p className="mb-2 font-mono text-[9px] font-black uppercase tracking-widest text-[#3a3f52]">
-              Goals
-            </p>
-            <div className="space-y-1.5">
-              {milestone && (
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] text-[#525870]">Next milestone</span>
-                  <span className="font-mono text-[10px] text-[#b9ec86]">
-                    {milestone.remaining} until {milestone.target}
-                  </span>
-                </div>
-              )}
-              {nearestGen && (
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] text-[#525870]">
-                    Closest gen
-                  </span>
-                  <span className="font-mono text-[10px] text-[#67e8f9]">
-                    Gen {GEN_ROMAN[nearestGen.gen - 1]} —{' '}
-                    {nearestGen.total - nearestGen.ownedCount} left
-                  </span>
-                </div>
-              )}
-              {!milestone && (
-                <p className="font-mono text-[10px] text-[#b9ec86]">
-                  Living Dex complete!
-                </p>
-              )}
-            </div>
-          </section>
-        </aside>
-
-        {/* ─── Center: Sprite parade ─── */}
-        <main className="flex min-w-0 flex-1 flex-col overflow-hidden border-r border-[#131620] p-5">
-          <p className="mb-3 font-mono text-[9px] font-black uppercase tracking-widest text-[#3a3f52]">
-            Recent Catches
-          </p>
-
-          {recentWithEntries.length === 0 ? (
-            <div className="flex flex-1 items-center justify-center">
-              <p className="font-mono text-xs text-[#222638]">
-                No catches logged yet
-              </p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-6 gap-2 overflow-hidden" style={{ gridAutoRows: '5.5rem' }}>
-              {recentWithEntries.map(({ event, entry }, i) => {
-                const isNewest = i === 0;
-                const spriteUrl = event.isShiny
-                  ? (entry?.shinySpriteUrl ?? entry?.spriteUrl)
-                  : entry?.spriteUrl;
-
-                return (
-                  <div
-                    key={`${event.speciesId}-${event.formName ?? 'base'}-${event.date}-${i}`}
-                    className={`relative flex flex-col items-center justify-center rounded-lg px-1 pb-1.5 pt-2 ${
-                      isNewest
-                        ? 'bg-[#0c1220] ring-1 ring-[#b9ec86]/30'
-                        : event.isShiny
-                        ? 'bg-[#130f05]'
-                        : event.isAlpha
-                        ? 'bg-[#0d0818]'
-                        : 'bg-[#0d0e14]'
-                    }`}
-                  >
-                    {(event.isShiny || event.isAlpha) && (
-                      <span
-                        className={`absolute right-1 top-1 text-[8px] leading-none ${
-                          event.isShiny ? 'text-[#f8d85a]' : 'text-[#c084fc]'
-                        }`}
-                      >
-                        {event.isShiny ? '✦' : 'α'}
-                      </span>
-                    )}
-
-                    {spriteUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={spriteUrl}
-                        alt={entry?.displayName ?? ''}
-                        className={`h-10 w-10 object-contain${
-                          event.isShiny
-                            ? ' drop-shadow-[0_0_6px_rgba(248,216,90,0.5)]'
-                            : event.isAlpha
-                            ? ' drop-shadow-[0_0_6px_rgba(192,132,252,0.45)]'
-                            : ''
-                        }`}
-                        loading="lazy"
-                      />
-                    ) : (
-                      <div className="h-10 w-10 rounded-md bg-[#131620]" />
-                    )}
-
-                    <p className="mt-1 w-full truncate text-center font-mono text-[8px] leading-none text-[#3a3f52]">
-                      {entry?.displayName?.split(' ')[0] ?? `#${event.speciesId}`}
-                    </p>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </main>
-
-        {/* ─── Right: Hunts + Activity ─── */}
-        <aside className="flex w-[256px] shrink-0 flex-col gap-6 overflow-hidden p-5">
-          {/* Active shiny hunts */}
-          <section>
-            <p className="mb-2.5 font-mono text-[9px] font-black uppercase tracking-widest text-[#3a3f52]">
-              Now Hunting
-            </p>
-            {activeHunts.length === 0 ? (
-              <p className="font-mono text-[10px] text-[#222638]">—</p>
-            ) : (
-              <div className="space-y-2">
-                {activeHunts.slice(0, 4).map((hunt) => {
-                  const entry =
-                    entryByKey.get(ownedKey(hunt.speciesId, hunt.formName)) ??
-                    entryByKey.get(ownedKey(hunt.speciesId, null));
-                  return (
-                    <div
-                      key={hunt.id}
-                      className="flex items-center gap-2.5 rounded-lg bg-[#0d0e14] px-2.5 py-2"
-                    >
-                      {entry?.spriteUrl ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={entry.spriteUrl}
-                          alt=""
-                          className="h-9 w-9 shrink-0 object-contain opacity-60"
-                          loading="lazy"
-                        />
-                      ) : (
-                        <div className="h-9 w-9 shrink-0 rounded bg-[#131620]" />
-                      )}
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-xs font-bold text-[#c8c0d8]">
-                          {entry?.displayName ?? `#${hunt.speciesId}`}
-                        </p>
-                        <p className="mt-0.5 font-mono text-[10px] text-[#f8d85a]">
-                          ✦ {hunt.count.toLocaleString()}{' '}
-                          <span className="text-[#3a3f52]">{hunt.counterMode}</span>
-                        </p>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </section>
-
-          {/* Activity log */}
-          <section className="min-h-0 flex-1 overflow-hidden">
-            <p className="mb-2.5 font-mono text-[9px] font-black uppercase tracking-widest text-[#3a3f52]">
-              Activity
-            </p>
-            {recentWithEntries.length === 0 ? (
-              <p className="font-mono text-[10px] text-[#222638]">—</p>
-            ) : (
-              <div className="space-y-2">
-                {recentWithEntries.slice(0, 10).map(({ event, entry }, i) => (
-                  <div key={i} className="flex items-center gap-2">
-                    <span
-                      className={`w-2.5 shrink-0 text-center font-mono text-[9px] leading-none ${
-                        event.isShiny
-                          ? 'text-[#f8d85a]'
-                          : event.isAlpha
-                          ? 'text-[#c084fc]'
-                          : 'text-[#222638]'
-                      }`}
-                    >
-                      {event.isShiny ? '✦' : event.isAlpha ? 'α' : '·'}
-                    </span>
-                    <span
-                      className={`min-w-0 flex-1 truncate text-xs ${
-                        event.isShiny
-                          ? 'text-[#f8d85a]'
-                          : event.isAlpha
-                          ? 'text-[#c084fc]'
-                          : 'text-[#8892a4]'
-                      }`}
-                    >
-                      {entry?.displayName ?? `#${event.speciesId}`}
-                    </span>
-                    <span className="shrink-0 font-mono text-[9px] text-[#2d3348]">
-                      {formatRelativeTime(event.date)}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            )}
           </section>
         </aside>
       </div>
