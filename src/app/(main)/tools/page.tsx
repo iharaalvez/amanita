@@ -3,6 +3,7 @@ import {
   Calculator,
   ChefHat,
   Donut,
+  Gamepad2,
   MonitorPlay,
   Sparkles,
 } from "lucide-react";
@@ -25,11 +26,19 @@ const tools = [
     available: true,
   },
   {
-    title: "Stream Overlay",
+    title: "HOME Organizer Overlay",
     description:
       "Open Amanita's HOME organizer overlay for OBS and live sorting sessions.",
     Icon: MonitorPlay,
     href: "/stream",
+    available: true,
+  },
+  {
+    title: "Gameplay Overlay",
+    description:
+      "Show the current game, goal, shiny hunt, recent finds, and party on stream.",
+    Icon: Gamepad2,
+    href: "/stream/game",
     available: true,
   },
   {

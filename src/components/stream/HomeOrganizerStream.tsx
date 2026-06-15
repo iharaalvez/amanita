@@ -17,6 +17,8 @@ import {
   X,
 } from "lucide-react";
 import { useLivingDexEntries } from "@/hooks/usePokemon";
+import { useGameHomeBoxDex } from "@/hooks/useGamePokedex";
+import { GAME_LIST, getGameById } from "@/config/games";
 import { GENDER_DIFFERENCE_FORM_KEYS } from "@/config/cosmetic-forms";
 import { api } from "@/lib/api";
 import { loadFromSupabase } from "@/lib/sync";
@@ -29,6 +31,7 @@ import {
 import { ownedKey, usePokedexStore } from "@/store/pokedexStore";
 import type {
   GameHomeBoxFormRule,
+  GameHomeBoxEntry,
   HomeBoxLayoutProfile,
   LivingDexEntry,
 } from "@/types/pokemon";
@@ -38,6 +41,7 @@ const COLS = 6;
 const ROWS = BOX_SIZE / COLS;
 const HOME_DEX_GAME_ID = "home";
 const EMPTY_BOX: (SlotData | null)[] = [];
+const DEFAULT_GAME_BOX_ID = "legends-za";
 const UNSYNCED_PREVIEW_LAYOUT: HomeBoxLayoutProfile = {
   id: "stream-unsynced-preview",
   name: "Unsynced Preview",
@@ -46,10 +50,15 @@ const UNSYNCED_PREVIEW_LAYOUT: HomeBoxLayoutProfile = {
   showGenderForms: false,
 };
 
+type BoxSource = "home" | "game";
+
 type SlotData = {
   entry: LivingDexEntry;
   isShiny: boolean;
   shinyAvailable: boolean;
+  source: BoxSource;
+  gameId?: string;
+  entryNumber?: number;
 };
 
 type PositionedSlot = {
@@ -70,7 +79,7 @@ type BoxStat = {
 };
 
 function slotKey(slot: SlotData): string {
-  return `${ownedKey(slot.entry.speciesId, slot.entry.formName)}-${slot.isShiny ? "shiny" : "normal"}`;
+  return `${slot.source}-${slot.gameId ?? "home"}-${ownedKey(slot.entry.speciesId, slot.entry.formName)}-${slot.isShiny ? "shiny" : "normal"}`;
 }
 
 function formRuleKey(formName: string | null): string {
@@ -93,6 +102,13 @@ function dexNumber(speciesId: number): string {
   return `#${String(speciesId).padStart(4, "0")}`;
 }
 
+function slotNumberLabel(slot: SlotData): string {
+  if (slot.entryNumber !== undefined) {
+    return `#${String(slot.entryNumber).padStart(3, "0")}`;
+  }
+  return dexNumber(slot.entry.speciesId);
+}
+
 function buildSlotBoxes(slots: SlotData[]): (SlotData | null)[][] {
   const total = Math.max(1, Math.ceil(slots.length / BOX_SIZE));
   return Array.from({ length: total }, (_, i) => {
@@ -108,7 +124,9 @@ function buildSlotBoxes(slots: SlotData[]): (SlotData | null)[][] {
 function isSlotOwned(
   slot: SlotData,
   record: { owned?: boolean; shiny_owned?: boolean } | undefined,
+  gameBoxed = false,
 ): boolean {
+  if (slot.source === "game") return gameBoxed;
   if (slot.isShiny && !slot.shinyAvailable) return false;
   return slot.isShiny ? !!record?.shiny_owned : !!record?.owned;
 }
@@ -149,10 +167,17 @@ function TemplateSlot({
 }) {
   const key = slot ? ownedKey(slot.entry.speciesId, slot.entry.formName) : "";
   const record = usePokedexStore((s) => (slot ? s.owned[key] : undefined));
+  const gameBoxed = usePokedexStore((s) =>
+    slot?.source === "game" && slot.gameId
+      ? !!s.gameHomeBoxes[slot.gameId]?.[key]
+      : false,
+  );
   const markOwned = usePokedexStore((s) => s.markOwned);
   const clearOwnership = usePokedexStore((s) => s.clearOwnership);
   const markShinyOwned = usePokedexStore((s) => s.markShinyOwned);
   const clearShinyOwned = usePokedexStore((s) => s.clearShinyOwned);
+  const markInGameHomeBox = usePokedexStore((s) => s.markInGameHomeBox);
+  const clearFromGameHomeBox = usePokedexStore((s) => s.clearFromGameHomeBox);
 
   if (!slot) {
     return (
@@ -160,13 +185,30 @@ function TemplateSlot({
     );
   }
 
-  const owned = isSlotOwned(slot, record);
+  const owned = isSlotOwned(slot, record, gameBoxed);
   const sprite = spriteForSlot(slot);
   const female = isFemaleForm(slot.entry);
   const compactName = compactSlotName(slot.entry);
   const shinyUnavailable = slot.isShiny && !slot.shinyAvailable;
 
   const toggle = () => {
+    if (slot.source === "game") {
+      if (!slot.gameId) return;
+      if (owned)
+        clearFromGameHomeBox(
+          slot.entry.speciesId,
+          slot.gameId,
+          slot.entry.formName,
+        );
+      else
+        markInGameHomeBox(
+          slot.entry.speciesId,
+          slot.gameId,
+          slot.entry.formName,
+        );
+      return;
+    }
+
     if (shinyUnavailable) return;
     if (slot.isShiny) {
       if (owned) clearShinyOwned(slot.entry.speciesId, slot.entry.formName);
@@ -183,7 +225,15 @@ function TemplateSlot({
       type="button"
       onClick={toggle}
       title={`Slot ${slotNumber}: ${slot.entry.displayName}${
-        shinyUnavailable ? " shiny unavailable" : owned ? " owned" : " missing"
+        shinyUnavailable
+          ? " shiny unavailable"
+          : slot.source === "game"
+            ? owned
+              ? " boxed"
+              : " missing from game box"
+            : owned
+              ? " owned"
+              : " missing"
       }`}
       className={`group relative grid min-h-0 grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden rounded border px-1.5 py-1 text-left transition ${
         isSearchFocus
@@ -211,7 +261,7 @@ function TemplateSlot({
         <span
           className={`truncate ${owned ? "text-[#8fe388]" : "text-[#75809c]"}`}
         >
-          {dexNumber(slot.entry.speciesId)}
+          {slotNumberLabel(slot)}
         </span>
         <span className="shrink-0 text-[#53607c]">
           {String(slotNumber).padStart(2, "0")}
@@ -358,6 +408,8 @@ function SearchBox({
 
 export default function HomeOrganizerStream() {
   const [boxIndex, setBoxIndex] = useState(0);
+  const [boxSource, setBoxSource] = useState<BoxSource>("home");
+  const [selectedGameId, setSelectedGameId] = useState(DEFAULT_GAME_BOX_ID);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedLayoutId, setSelectedLayoutId] = useState("");
   const [isRefreshingLayouts, setIsRefreshingLayouts] = useState(false);
@@ -369,6 +421,7 @@ export default function HomeOrganizerStream() {
   const boxScrollerRef = useRef<HTMLDivElement>(null);
 
   const storeOwned = usePokedexStore((s) => s.owned);
+  const gameHomeBoxes = usePokedexStore((s) => s.gameHomeBoxes);
   const homeBoxLayouts = usePokedexStore((s) => s.homeBoxLayouts);
   const activeHomeBoxLayoutId = usePokedexStore((s) => s.activeHomeBoxLayoutId);
   const setProgressSnapshot = usePokedexStore((s) => s.setProgressSnapshot);
@@ -377,6 +430,7 @@ export default function HomeOrganizerStream() {
   );
 
   const { data: allEntries, isLoading } = useLivingDexEntries();
+  const gameBoxQuery = useGameHomeBoxDex(selectedGameId);
   const homeRulesQuery = useQuery({
     queryKey: ["game-home-box-form-rules", HOME_DEX_GAME_ID],
     queryFn: () =>
@@ -404,6 +458,42 @@ export default function HomeOrganizerStream() {
   const layoutShowGenderForms = activeHomeBoxLayout.showGenderForms;
   const isPairedMode = layoutMode === "paired";
   const isShinyMode = layoutMode === "shiny";
+  const selectedGame = getGameById(selectedGameId);
+  const sourceName =
+    boxSource === "game"
+      ? (selectedGame?.name ?? selectedGameId)
+      : activeHomeBoxLayout.name;
+  const sourceMeta =
+    boxSource === "game"
+      ? "game dex boxes"
+      : `${activeHomeBoxLayout.mode}${activeHomeBoxLayout.showCosmeticForms ? " / forms" : ""}${activeHomeBoxLayout.showGenderForms ? " / gender" : ""}`;
+  const captureLabel = boxSource === "game" ? "Game Dex Boxes" : "Pokemon HOME";
+
+  const getSlotOwned = useCallback(
+    (slot: SlotData) =>
+      isSlotOwned(
+        slot,
+        storeOwned[ownedKey(slot.entry.speciesId, slot.entry.formName)],
+        slot.source === "game" && slot.gameId
+          ? !!gameHomeBoxes[slot.gameId]?.[
+              ownedKey(slot.entry.speciesId, slot.entry.formName)
+            ]
+          : false,
+      ),
+    [gameHomeBoxes, storeOwned],
+  );
+
+  const handleSourceChange = (source: BoxSource) => {
+    setBoxSource(source);
+    setBoxIndex(0);
+    setSearchQuery("");
+  };
+
+  const handleGameChange = (gameId: string) => {
+    setSelectedGameId(gameId);
+    setBoxIndex(0);
+    setSearchQuery("");
+  };
 
   const handleLayoutChange = (layoutId: string) => {
     setSelectedLayoutId(layoutId);
@@ -491,15 +581,27 @@ export default function HomeOrganizerStream() {
   );
 
   const allSlots = useMemo((): SlotData[] => {
+    if (boxSource === "game") {
+      return (gameBoxQuery.data ?? []).map((entry: GameHomeBoxEntry) => ({
+        entry,
+        isShiny: false,
+        shinyAvailable: true,
+        source: "game",
+        gameId: selectedGameId,
+        entryNumber: entry.entryNumber,
+      }));
+    }
+
     if (isPairedMode) {
       return filteredEntries.flatMap((entry) => [
-        { entry, isShiny: false, shinyAvailable: true },
+        { entry, isShiny: false, shinyAvailable: true, source: "home" },
         ...(hasShinySlot(entry)
           ? [
               {
                 entry,
                 isShiny: true,
                 shinyAvailable: isShinyTrackedEntry(entry),
+                source: "home" as const,
               },
             ]
           : []),
@@ -510,19 +612,24 @@ export default function HomeOrganizerStream() {
         entry,
         isShiny: true,
         shinyAvailable: isShinyTrackedEntry(entry),
+        source: "home",
       }));
     }
     return filteredEntries.map((entry) => ({
       entry,
       isShiny: false,
       shinyAvailable: true,
+      source: "home",
     }));
   }, [
+    boxSource,
     filteredEntries,
+    gameBoxQuery.data,
     hasShinySlot,
     isPairedMode,
     isShinyMode,
     isShinyTrackedEntry,
+    selectedGameId,
   ]);
 
   const boxes = useMemo(() => buildSlotBoxes(allSlots), [allSlots]);
@@ -542,15 +649,10 @@ export default function HomeOrganizerStream() {
       boxes.map((box) => {
         const slots = box.filter((slot): slot is SlotData => slot !== null);
         const trackableSlots = slots.filter(isSlotTrackable);
-        const owned = slots.filter((slot) =>
-          isSlotOwned(
-            slot,
-            storeOwned[ownedKey(slot.entry.speciesId, slot.entry.formName)],
-          ),
-        ).length;
+        const owned = slots.filter(getSlotOwned).length;
         return { total: trackableSlots.length, owned };
       }),
-    [boxes, storeOwned],
+    [boxes, getSlotOwned],
   );
 
   const positionedSlots = useMemo<PositionedSlot[]>(
@@ -561,14 +663,9 @@ export default function HomeOrganizerStream() {
   const missingInBox = useMemo(
     () =>
       positionedSlots.filter(
-        ({ slot }) =>
-          isSlotTrackable(slot) &&
-          !isSlotOwned(
-            slot,
-            storeOwned[ownedKey(slot.entry.speciesId, slot.entry.formName)],
-          ),
+        ({ slot }) => isSlotTrackable(slot) && !getSlotOwned(slot),
       ),
-    [positionedSlots, storeOwned],
+    [getSlotOwned, positionedSlots],
   );
 
   const trackableInBox = currentSlots.filter(isSlotTrackable);
@@ -577,14 +674,8 @@ export default function HomeOrganizerStream() {
     trackableInBox.length > 0 ? (ownedInBox / trackableInBox.length) * 100 : 0;
 
   const totalOwned = useMemo(
-    () =>
-      allSlots.filter((slot) =>
-        isSlotOwned(
-          slot,
-          storeOwned[ownedKey(slot.entry.speciesId, slot.entry.formName)],
-        ),
-      ).length,
-    [allSlots, storeOwned],
+    () => allSlots.filter(getSlotOwned).length,
+    [allSlots, getSlotOwned],
   );
   const totalTrackableSlots = allSlots.filter(isSlotTrackable).length;
   const overallPct =
@@ -612,7 +703,9 @@ export default function HomeOrganizerStream() {
             String(slot.entry.speciesId).startsWith(normalizedNumber) ||
             String(slot.entry.speciesId)
               .padStart(4, "0")
-              .includes(normalizedNumber)
+              .includes(normalizedNumber) ||
+            (slot.entryNumber !== undefined &&
+              String(slot.entryNumber).includes(normalizedNumber))
           );
         })
         .map(({ slot }) => slotKey(slot)),
@@ -628,12 +721,9 @@ export default function HomeOrganizerStream() {
         slot,
         boxIndex,
         slotIndex,
-        owned: isSlotOwned(
-          slot,
-          storeOwned[ownedKey(slot.entry.speciesId, slot.entry.formName)],
-        ),
+        owned: getSlotOwned(slot),
       }));
-  }, [allPositionedSlots, highlightedKeys, searchNorm, storeOwned]);
+  }, [allPositionedSlots, getSlotOwned, highlightedKeys, searchNorm]);
 
   const boxHasMatch = useMemo(
     () =>
@@ -677,6 +767,10 @@ export default function HomeOrganizerStream() {
   }, [allEntries]);
 
   const recentlyPlaced = useMemo(() => {
+    if (boxSource === "game") {
+      return allSlots.filter(getSlotOwned).slice(0, 8);
+    }
+
     return Object.entries(storeOwned)
       .filter(([, record]) =>
         isShinyMode
@@ -698,18 +792,37 @@ export default function HomeOrganizerStream() {
 
         const slots: SlotData[] = [];
         if (!isShinyMode && record.owned) {
-          slots.push({ entry, isShiny: false, shinyAvailable: true });
+          slots.push({
+            entry,
+            isShiny: false,
+            shinyAvailable: true,
+            source: "home",
+          });
         }
         if (
           (isShinyMode || isPairedMode) &&
           record.shiny_owned &&
           isShinyTrackedEntry(entry)
         ) {
-          slots.push({ entry, isShiny: true, shinyAvailable: true });
+          slots.push({
+            entry,
+            isShiny: true,
+            shinyAvailable: true,
+            source: "home",
+          });
         }
         return slots;
       });
-  }, [entryByKey, isPairedMode, isShinyMode, isShinyTrackedEntry, storeOwned]);
+  }, [
+    allSlots,
+    boxSource,
+    entryByKey,
+    getSlotOwned,
+    isPairedMode,
+    isShinyMode,
+    isShinyTrackedEntry,
+    storeOwned,
+  ]);
 
   const timeStr = new Date().toLocaleTimeString("en-US", {
     hour: "2-digit",
@@ -728,7 +841,7 @@ export default function HomeOrganizerStream() {
     });
   };
 
-  if (isLoading) {
+  if (isLoading || (boxSource === "game" && gameBoxQuery.isLoading)) {
     return (
       <div className="grid h-screen place-items-center bg-[#070914]">
         <div className="flex items-center gap-2 font-mono text-xs uppercase tracking-[0.2em] text-[#8fe388]">
@@ -776,7 +889,7 @@ export default function HomeOrganizerStream() {
             <div className="flex items-center gap-2 rounded border border-[#27304c] bg-[#060915] px-4 py-2">
               <LayoutGrid className="h-4 w-4 text-[#8fe388]" />
               <span className="font-mono text-sm font-black uppercase tracking-[0.16em] text-[#8fe388]">
-                Home Organizer Mode
+                Box Guide Mode
               </span>
             </div>
             <button
@@ -811,7 +924,7 @@ export default function HomeOrganizerStream() {
                   <Gamepad2 className="h-4 w-4" />
                 </div>
                 <span className="text-lg font-black uppercase tracking-wide text-[#ff8a00]">
-                  Pokemon HOME
+                  {captureLabel}
                 </span>
               </div>
               <div className="flex items-center gap-3 font-mono text-sm font-black text-[#10131d]">
@@ -849,14 +962,10 @@ export default function HomeOrganizerStream() {
                         BOX {safeIndex + 1}
                       </h1>
                       <p className="mt-1 truncate text-sm text-[#9ca8c4]">
-                        {activeHomeBoxLayout.name}
+                        {sourceName}
                       </p>
                       <p className="mt-0.5 truncate font-mono text-[10px] uppercase tracking-[0.12em] text-[#687696]">
-                        {activeHomeBoxLayout.mode}
-                        {activeHomeBoxLayout.showCosmeticForms
-                          ? " / forms"
-                          : ""}
-                        {activeHomeBoxLayout.showGenderForms ? " / gender" : ""}
+                        {sourceMeta}
                       </p>
                     </div>
                   </div>
@@ -890,39 +999,74 @@ export default function HomeOrganizerStream() {
               />
               <div className="mt-2 grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2">
                 <span className="font-mono text-[10px] font-black uppercase tracking-[0.16em] text-[#687696]">
-                  Layout
+                  Source
                 </span>
                 <select
-                  value={activeHomeBoxLayout.id}
-                  onChange={(event) => handleLayoutChange(event.target.value)}
+                  value={boxSource}
+                  onChange={(event) =>
+                    handleSourceChange(event.target.value as BoxSource)
+                  }
                   className="h-8 min-w-0 rounded border border-[#27304c] bg-[#060915] px-2 font-mono text-[11px] font-black text-[#d7c8ff] outline-none transition focus:border-[#8fe388]"
                 >
-                  {selectableLayouts.map((layout) => (
-                    <option key={layout.id} value={layout.id}>
-                      {layout.name} - {layout.mode}
-                      {layout.showCosmeticForms ? " + forms" : ""}
-                      {layout.showGenderForms ? " + gender" : ""}
-                    </option>
-                  ))}
+                  <option value="home">HOME layouts</option>
+                  <option value="game">Game National / DLC boxes</option>
                 </select>
                 <button
                   type="button"
                   onClick={refreshLayouts}
-                  disabled={isRefreshingLayouts}
+                  disabled={isRefreshingLayouts || boxSource !== "home"}
                   className="grid h-8 w-8 place-items-center rounded border border-[#27304c] bg-[#060915] text-[#8ca0c9] transition hover:border-[#8fe388] hover:text-[#8fe388] disabled:opacity-45"
-                  title="Refresh HOME layouts from Supabase"
+                  title={
+                    boxSource === "home"
+                      ? "Refresh HOME layouts from Supabase"
+                      : "Game boxes load from app data"
+                  }
                 >
                   <RefreshCw
                     className={`h-3.5 w-3.5 ${isRefreshingLayouts ? "animate-spin" : ""}`}
                   />
                 </button>
               </div>
-              {homeBoxLayouts.length === 0 && (
+
+              <div className="mt-2 grid grid-cols-[auto_minmax(0,1fr)] items-center gap-2">
+                <span className="font-mono text-[10px] font-black uppercase tracking-[0.16em] text-[#687696]">
+                  {boxSource === "home" ? "Layout" : "Dex"}
+                </span>
+                {boxSource === "home" ? (
+                  <select
+                    value={activeHomeBoxLayout.id}
+                    onChange={(event) => handleLayoutChange(event.target.value)}
+                    className="h-8 min-w-0 rounded border border-[#27304c] bg-[#060915] px-2 font-mono text-[11px] font-black text-[#d7c8ff] outline-none transition focus:border-[#8fe388]"
+                  >
+                    {selectableLayouts.map((layout) => (
+                      <option key={layout.id} value={layout.id}>
+                        {layout.name} - {layout.mode}
+                        {layout.showCosmeticForms ? " + forms" : ""}
+                        {layout.showGenderForms ? " + gender" : ""}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <select
+                    value={selectedGameId}
+                    onChange={(event) => handleGameChange(event.target.value)}
+                    className="h-8 min-w-0 rounded border border-[#27304c] bg-[#060915] px-2 font-mono text-[11px] font-black text-[#d7c8ff] outline-none transition focus:border-[#8fe388]"
+                  >
+                    {GAME_LIST.map((game) => (
+                      <option key={game.id} value={game.id}>
+                        {game.dlcOf ? "DLC - " : ""}
+                        {game.name}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
+              {boxSource === "home" && homeBoxLayouts.length === 0 && (
                 <p className="mt-2 font-mono text-[10px] text-[#687696]">
                   No saved HOME layouts in this browser source yet.
                 </p>
               )}
-              {layoutSyncMessage && (
+              {boxSource === "home" && layoutSyncMessage && (
                 <p className="mt-1 font-mono text-[10px] text-[#8ca0c9]">
                   {layoutSyncMessage}
                 </p>
@@ -1016,6 +1160,7 @@ export default function HomeOrganizerStream() {
                       entry,
                       isShiny,
                       shinyAvailable: !isShiny || isShinyTrackedEntry(entry),
+                      source: "home" as const,
                     };
                     return (
                       <div
