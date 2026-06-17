@@ -100,7 +100,7 @@ type UserShinyHuntRow = {
   game_id: string;
   method: string;
   counter_mode: string;
-  count: number;
+  count: number | null;
   started_at: string;
   completed_at: string | null;
 };
@@ -117,6 +117,25 @@ type UserRecentCatchRow = {
 type SupabaseMutationResult = {
   error: unknown;
 };
+
+function shinyHuntRow(
+  hunt: ShinyHunt,
+  userId: string,
+  options: { nullableCount: boolean },
+) {
+  return {
+    id: hunt.id,
+    user_id: userId,
+    species_id: hunt.speciesId,
+    form_name: toDbFormName(hunt.formName),
+    game_id: hunt.gameId,
+    method: hunt.method,
+    counter_mode: hunt.counterMode,
+    count: options.nullableCount ? hunt.count : (hunt.count ?? 0),
+    started_at: hunt.startedAt,
+    completed_at: hunt.completedAt ?? null,
+  };
+}
 
 function reportMutationError(result: SupabaseMutationResult): void {
   if (result.error) reportAuthError(result.error);
@@ -720,29 +739,20 @@ export async function syncShinyHunts(hunts: ShinyHunt[]): Promise<void> {
   } = await supabase.auth.getUser();
   if (!user) return;
 
-  const deleteResult = await supabase
-    .from("user_shiny_hunts")
-    .delete()
-    .eq("user_id", user.id);
-  reportMutationError(deleteResult);
-  if (deleteResult.error) return;
-
   if (hunts.length === 0) return;
-  const result = await supabase.from("user_shiny_hunts").upsert(
-    hunts.map((hunt) => ({
-      id: hunt.id,
-      user_id: user.id,
-      species_id: hunt.speciesId,
-      form_name: toDbFormName(hunt.formName),
-      game_id: hunt.gameId,
-      method: hunt.method,
-      counter_mode: hunt.counterMode,
-      count: hunt.count,
-      started_at: hunt.startedAt,
-      completed_at: hunt.completedAt ?? null,
-    })),
+  const hasUncountedHunts = hunts.some((hunt) => hunt.count === null);
+  let result = await supabase.from("user_shiny_hunts").upsert(
+    hunts.map((hunt) => shinyHuntRow(hunt, user.id, { nullableCount: true })),
     { onConflict: "id" },
   );
+  if (result.error && hasUncountedHunts) {
+    result = await supabase.from("user_shiny_hunts").upsert(
+      hunts.map((hunt) =>
+        shinyHuntRow(hunt, user.id, { nullableCount: false }),
+      ),
+      { onConflict: "id" },
+    );
+  }
   reportMutationError(result);
 }
 
@@ -752,21 +762,16 @@ export async function syncShinyHunt(hunt: ShinyHunt): Promise<void> {
   } = await supabase.auth.getUser();
   if (!user) return;
 
-  const result = await supabase.from("user_shiny_hunts").upsert(
-    {
-      id: hunt.id,
-      user_id: user.id,
-      species_id: hunt.speciesId,
-      form_name: toDbFormName(hunt.formName),
-      game_id: hunt.gameId,
-      method: hunt.method,
-      counter_mode: hunt.counterMode,
-      count: hunt.count,
-      started_at: hunt.startedAt,
-      completed_at: hunt.completedAt ?? null,
-    },
+  let result = await supabase.from("user_shiny_hunts").upsert(
+    shinyHuntRow(hunt, user.id, { nullableCount: true }),
     { onConflict: "id" },
   );
+  if (result.error && hunt.count === null) {
+    result = await supabase.from("user_shiny_hunts").upsert(
+      shinyHuntRow(hunt, user.id, { nullableCount: false }),
+      { onConflict: "id" },
+    );
+  }
   reportMutationError(result);
 }
 

@@ -820,7 +820,7 @@ export default function GameStreamOverlay() {
                         </div>
                       </div>
 
-                      {settings.showHuntCount && (
+                      {settings.showHuntCount && activeHunt.count !== null && (
                         <div className="mt-3 grid grid-cols-[40px_1fr_40px] items-center gap-2 rounded-lg border border-[#27304c] bg-[#050814] p-2">
                           <button
                             type="button"

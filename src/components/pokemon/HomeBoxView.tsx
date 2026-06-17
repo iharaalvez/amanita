@@ -582,7 +582,7 @@ export function HomeBoxView({ onSelect }: Props) {
           ? summary.total + summary.shinySlotTotal
           : summary.total,
       activeClass:
-        "bg-slate-700 text-white dark:bg-slate-200 dark:text-slate-900",
+        "bg-[#62b6ff] text-[#061016]",
     },
     {
       value: "owned",
@@ -593,8 +593,8 @@ export function HomeBoxView({ onSelect }: Props) {
           ? summary.owned + summary.shiny
           : summary.owned,
       activeClass: isShinyOnlyMode
-        ? "bg-yellow-400 text-white"
-        : "bg-green-500 text-white",
+        ? "bg-[#f8d85a] text-[#151006]"
+        : "bg-[#82ee88] text-[#061016]",
     },
     {
       value: "missing",
@@ -605,13 +605,13 @@ export function HomeBoxView({ onSelect }: Props) {
           ? summary.total + summary.shinyTotal - summary.owned - summary.shiny
           : summary.total - summary.owned,
       activeClass:
-        "bg-slate-600 text-white dark:bg-slate-300 dark:text-slate-900",
+        "bg-[#3f3860] text-[#f8f0df]",
     },
     {
       value: "shiny",
       label: "Shiny",
       count: summary.shiny,
-      activeClass: "bg-yellow-400 text-white",
+      activeClass: "bg-[#f8d85a] text-[#151006]",
     },
   ];
   const filterOptions = allFilterOptions.filter(
@@ -626,76 +626,79 @@ export function HomeBoxView({ onSelect }: Props) {
   };
 
   return (
-    <div className="mx-auto max-w-7xl px-2 pb-8 sm:px-4">
+    <div className="mx-auto max-w-7xl px-3 pb-8 sm:px-4">
       {/* Header */}
-      <header className="py-3 sm:py-5">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex min-w-0 items-center gap-3">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-green-50 text-green-500 dark:bg-green-950/40 dark:text-green-300">
+      <header className="mb-4 overflow-hidden rounded-lg border border-[#302a43] bg-[#151421]">
+        <div className="grid gap-4 bg-[radial-gradient(circle_at_12%_0%,rgba(130,238,136,0.16),transparent_34%),linear-gradient(135deg,rgba(48,42,67,0.72),rgba(16,19,31,0.92))] p-4 lg:grid-cols-[1fr_auto] lg:items-end">
+          <div className="flex min-w-0 items-start gap-3">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-[#82ee88]/15 text-[#82ee88] ring-1 ring-[#82ee88]/25">
               <HomeIcon className="h-6 w-6" />
             </div>
             <div className="min-w-0">
-              <h1 className="text-xl font-black tracking-tight text-gray-950 dark:text-white sm:text-2xl">
+              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#82ee88]">
+                Box Library
+              </p>
+              <h1 className="mt-1 text-2xl font-black tracking-tight text-[#f8f0df] sm:text-3xl">
                 HOME Boxes
               </h1>
-              <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+              <p className="mt-1 text-sm leading-6 text-[#aaa2ba]">
                 Your Living Dex arranged in 30-slot boxes.
               </p>
             </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-1.5 sm:min-w-80 sm:gap-2">
-            <div className="rounded-lg border border-green-100 bg-green-50 px-2 py-2 dark:border-green-900/40 dark:bg-green-950/30 sm:px-3">
-              <p className="text-base font-black tabular-nums text-green-600 dark:text-green-400 sm:text-lg">
+          <div className="grid grid-cols-3 gap-2 lg:min-w-96">
+            <div className="rounded-lg border border-[#302a43] bg-[#0d1220]/70 px-3 py-2">
+              <p className="text-base font-black tabular-nums text-[#82ee88] sm:text-lg">
                 {displayedOwnedTotal}/{displayedSlotTotal}
               </p>
-              <p className="text-[10px] font-bold uppercase tracking-wide text-green-700/70 dark:text-green-300/70">
+              <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[#9189a4]">
                 Owned
               </p>
             </div>
-            <div className="rounded-lg border border-blue-100 bg-blue-50 px-2 py-2 dark:border-blue-900/40 dark:bg-blue-950/30 sm:px-3">
-              <p className="text-base font-black tabular-nums text-blue-950 dark:text-white sm:text-lg">
+            <div className="rounded-lg border border-[#302a43] bg-[#0d1220]/70 px-3 py-2">
+              <p className="text-base font-black tabular-nums text-[#f8f0df] sm:text-lg">
                 {summary.baseOwned}/{summary.baseTotal}
               </p>
-              <p className="text-[10px] font-bold uppercase tracking-wide text-blue-400">
+              <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[#9189a4]">
                 Species Dex
               </p>
             </div>
-            <div className="rounded-lg border border-yellow-100 bg-yellow-50 px-2 py-2 dark:border-yellow-900/40 dark:bg-yellow-950/30 sm:px-3">
-              <p className="flex items-center gap-1 text-base font-black tabular-nums text-yellow-600 dark:text-yellow-400 sm:text-lg">
+            <div className="rounded-lg border border-[#302a43] bg-[#0d1220]/70 px-3 py-2">
+              <p className="flex items-center gap-1 text-base font-black tabular-nums text-[#f8d85a] sm:text-lg">
                 <SparkleIcon className="h-4 w-4" />
                 {summary.shiny}
               </p>
-              <p className="text-[10px] font-bold uppercase tracking-wide text-yellow-700/70 dark:text-yellow-300/70">
+              <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[#9189a4]">
                 Shiny
               </p>
             </div>
           </div>
         </div>
-        <div className="mt-3 h-2 overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800">
+        <div className="h-2 overflow-hidden bg-[#0d1220]">
           <div
-            className="h-full rounded-full bg-green-400 transition-all duration-700"
+            className="h-full bg-[#82ee88] transition-all duration-700"
             style={{ width: `${completionPct}%` }}
           />
         </div>
       </header>
 
       {homeBoxLayouts.length === 0 ? (
-        <section className="rounded-xl border border-dashed border-gray-200 bg-white/80 px-4 py-8 text-center dark:border-gray-700 dark:bg-[#0f172a]/80">
-          <div className="mx-auto grid h-12 w-12 place-items-center rounded-xl bg-green-50 text-green-500 dark:bg-green-950/40 dark:text-green-300">
+        <section className="rounded-lg border border-dashed border-[#302a43] bg-[#151421]/80 px-4 py-8 text-center">
+          <div className="mx-auto grid h-12 w-12 place-items-center rounded-xl bg-[#82ee88]/15 text-[#82ee88] ring-1 ring-[#82ee88]/25">
             <HomeIcon className="h-6 w-6" />
           </div>
-          <h2 className="mt-4 text-lg font-black text-gray-950 dark:text-white">
+          <h2 className="mt-4 text-lg font-black text-[#f8f0df]">
             Create your first HOME box layout
           </h2>
-          <p className="mx-auto mt-2 max-w-md text-sm font-medium leading-6 text-gray-500 dark:text-gray-400">
+          <p className="mx-auto mt-2 max-w-md text-sm font-medium leading-6 text-[#aaa2ba]">
             Choose how this account is organised once, then switch between saved
             layouts when you use another HOME account or box strategy.
           </p>
           <button
             type="button"
             onClick={() => setShowCreateModal(true)}
-            className="mt-5 inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-green-500 px-4 text-sm font-black text-white transition-colors hover:bg-green-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-400"
+            className="mt-5 inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-[#82ee88] px-4 text-sm font-black text-[#061016] transition-colors hover:bg-[#a5f2a9] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#82ee88]"
           >
             <Plus className="h-4 w-4" />
             New layout
@@ -704,7 +707,7 @@ export function HomeBoxView({ onSelect }: Props) {
       ) : (
         <>
           {/* Controls */}
-          <div className="mb-3 space-y-2.5 rounded-lg border border-gray-100 bg-white/95 p-2.5 backdrop-blur dark:border-gray-800 dark:bg-[#0f172a]/95 sm:px-4">
+          <div className="mb-3 space-y-2.5 rounded-lg border border-[#302a43] bg-[#151421]/90 p-2.5 backdrop-blur sm:px-4">
             {/* Row 1: layout selector + search + action buttons */}
             <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 min-[560px]:grid-cols-[minmax(0,220px)_minmax(0,1fr)_auto]">
               <label htmlFor="home-layout" className="sr-only">
@@ -714,7 +717,7 @@ export function HomeBoxView({ onSelect }: Props) {
                 id="home-layout"
                 value={activeHomeBoxLayoutId}
                 onChange={(e) => setActiveHomeBoxLayout(e.target.value)}
-                className="h-9 min-w-0 rounded-full border border-gray-200 bg-white pl-3 pr-9 text-xs font-bold text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+                className="h-9 min-w-0 rounded-full border border-[#302a43] bg-[#0d1220] pl-3 pr-9 text-xs font-bold text-[#f8f0df] focus:outline-none focus:ring-2 focus:ring-[#62b6ff]"
               >
                 {homeBoxLayouts.map((layout) => (
                   <option key={layout.id} value={layout.id}>
@@ -733,7 +736,7 @@ export function HomeBoxView({ onSelect }: Props) {
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder="Search..."
-                  className="h-9 w-full rounded-full border border-gray-200 bg-white pl-3 pr-7 text-xs text-gray-700 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-400 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+                  className="h-9 w-full rounded-full border border-[#302a43] bg-[#0d1220] pl-3 pr-7 text-xs text-[#f8f0df] placeholder:text-[#554a70] focus:outline-none focus:ring-2 focus:ring-[#62b6ff]"
                 />
                 {search && (
                   <button
@@ -752,7 +755,7 @@ export function HomeBoxView({ onSelect }: Props) {
                   href="/stream"
                   aria-label="Open stream overlay"
                   title="Stream overlay"
-                  className="grid h-9 w-9 place-items-center rounded-full bg-violet-100 text-violet-600 transition-colors hover:bg-violet-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400 dark:bg-violet-950/50 dark:text-violet-300 dark:hover:bg-violet-900/70"
+                  className="grid h-9 w-9 place-items-center rounded-full bg-[#2a1948] text-[#c4b5fd] transition-colors hover:bg-[#34215a] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8b5cf6]"
                 >
                   <MonitorPlay className="h-4 w-4" />
                 </Link>
@@ -762,7 +765,7 @@ export function HomeBoxView({ onSelect }: Props) {
                   disabled={refreshing}
                   aria-label="Refresh from server"
                   title="Refresh"
-                  className="grid h-9 w-9 place-items-center rounded-full bg-gray-100 text-gray-600 transition-colors hover:bg-gray-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700"
+                  className="grid h-9 w-9 place-items-center rounded-full border border-[#302a43] bg-[#0d1220] text-[#9189a4] transition-colors hover:bg-[#1d2637] hover:text-[#f8f0df] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#62b6ff]"
                 >
                   <RefreshCw
                     className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`}
@@ -773,7 +776,7 @@ export function HomeBoxView({ onSelect }: Props) {
                   onClick={() => setShowCreateModal(true)}
                   aria-label="New HOME layout"
                   title="New layout"
-                  className="grid h-9 w-9 place-items-center rounded-full bg-gray-100 text-gray-600 transition-colors hover:bg-gray-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700"
+                  className="grid h-9 w-9 place-items-center rounded-full border border-[#302a43] bg-[#0d1220] text-[#9189a4] transition-colors hover:bg-[#1d2637] hover:text-[#f8f0df] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#62b6ff]"
                 >
                   <Plus className="h-4 w-4" />
                 </button>
@@ -782,7 +785,7 @@ export function HomeBoxView({ onSelect }: Props) {
                   onClick={() => setShowEditModal(true)}
                   aria-label="Edit current layout"
                   title="Edit layout"
-                  className="grid h-9 w-9 place-items-center rounded-full bg-gray-100 text-gray-600 transition-colors hover:bg-gray-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700"
+                  className="grid h-9 w-9 place-items-center rounded-full border border-[#302a43] bg-[#0d1220] text-[#9189a4] transition-colors hover:bg-[#1d2637] hover:text-[#f8f0df] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#62b6ff]"
                 >
                   <Pencil className="h-4 w-4" />
                 </button>
@@ -791,7 +794,7 @@ export function HomeBoxView({ onSelect }: Props) {
                   onClick={() => setShowDeleteModal(true)}
                   aria-label="Delete current layout"
                   title="Delete layout"
-                  className="grid h-9 w-9 place-items-center rounded-full bg-gray-100 text-gray-500 transition-colors hover:bg-red-50 hover:text-red-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-red-400"
+                  className="grid h-9 w-9 place-items-center rounded-full border border-[#302a43] bg-[#0d1220] text-[#9189a4] transition-colors hover:bg-[#2a1720] hover:text-[#fca5a5] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#fca5a5]"
                 >
                   <Trash2 className="h-4 w-4" />
                 </button>
@@ -810,7 +813,7 @@ export function HomeBoxView({ onSelect }: Props) {
                     className={`flex items-center gap-1 rounded-full px-2.5 py-1.5 text-[11px] font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${
                       activeStatusFilter === value
                         ? activeClass
-                        : "bg-gray-100 text-gray-500 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700"
+                        : "border border-[#302a43] bg-[#0d1220] text-[#aaa2ba] hover:bg-[#1d2637] hover:text-[#f8f0df]"
                     }`}
                   >
                     <span>{label}</span>
@@ -825,7 +828,7 @@ export function HomeBoxView({ onSelect }: Props) {
 
               {/* Active layout badge showing mode */}
               {activeHomeBoxLayout && (
-                <span className="shrink-0 rounded-full border border-gray-200 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-gray-400 dark:border-gray-700 dark:text-gray-500">
+                <span className="shrink-0 rounded-full border border-[#302a43] bg-[#0d1220] px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-[#9189a4]">
                   {activeHomeBoxLayout.mode}
                   {activeHomeBoxLayout.showCosmeticForms ? " · forms" : ""}
                   {activeHomeBoxLayout.showGenderForms ? " · gender" : ""}
@@ -836,7 +839,7 @@ export function HomeBoxView({ onSelect }: Props) {
             {summary.includesForms &&
               (isShinyOnlyMode || isPairedMode) &&
               summary.shinyLocked > 0 && (
-                <p className="text-[10px] font-medium leading-snug text-gray-500 dark:text-gray-500 sm:text-[11px]">
+                <p className="text-[10px] font-medium leading-snug text-[#9189a4] sm:text-[11px]">
                   Shiny targets exclude{" "}
                   <span className="tabular-nums text-slate-400">
                     {summary.shinyLocked}

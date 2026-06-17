@@ -46,7 +46,7 @@ export type ShinyHunt = {
   gameId: string;
   method: ShinyHuntMethod;
   counterMode: HuntCounterMode;
-  count: number;
+  count: number | null;
   startedAt: string; // ISO timestamp
   completedAt?: string; // ISO timestamp
 };

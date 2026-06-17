@@ -3,10 +3,10 @@
 import Image from "next/image";
 import { useMemo, useState, type ReactNode } from "react";
 import { useGamePokedex } from "@/hooks/useGamePokedex";
-import { usePokedexStore, ALPHA_GAMES } from "@/store/pokedexStore";
-import { getGameById } from "@/config/games";
+import { usePokedexStore, ALPHA_GAMES, ownedKey } from "@/store/pokedexStore";
+import { GAME_ALT_LOGOS, getGameById } from "@/config/games";
 import { getExclusiveVersion } from "@/config/version-exclusives";
-import { CheckIcon, SparkleIcon } from "@/components/ui";
+import { CheckIcon } from "@/components/ui";
 import { PokemonSprite } from "@/components/pokemon/PokemonSprite";
 import { isShinyLocked } from "@/config/pokemon-flags";
 import type { GameDexEntry, GameDexFlags } from "@/types/pokemon";
@@ -362,7 +362,77 @@ function QuickToggle({
   );
 }
 
-type CompletionFilter = "all" | "missing" | "registered";
+function ProgressTrack({
+  label,
+  value,
+  total,
+  tone,
+}: {
+  label: string;
+  value: number;
+  total: number;
+  tone: "green" | "yellow" | "blue";
+}) {
+  const pct = total > 0 ? (value / total) * 100 : 0;
+  const barClass =
+    tone === "yellow"
+      ? "bg-yellow-300"
+      : tone === "blue"
+        ? "bg-[#62b6ff]"
+        : "bg-[#82ee88]";
+
+  return (
+    <div>
+      <div className="mb-1.5 flex items-center justify-between gap-3">
+        <span className="text-[10px] font-black uppercase tracking-[0.18em] text-[#9189a4]">
+          {label}
+        </span>
+        <span className="text-xs font-black tabular-nums text-[#f8f0df]">
+          {value} / {total}
+        </span>
+      </div>
+      <div className="h-2 overflow-hidden rounded-full bg-[#0d1220] ring-1 ring-white/5">
+        <div
+          className={`h-full rounded-full ${barClass} transition-all duration-500`}
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+    </div>
+  );
+}
+
+function StatTile({
+  label,
+  value,
+  detail,
+  tone = "neutral",
+}: {
+  label: string;
+  value: string | number;
+  detail?: string;
+  tone?: "neutral" | "green" | "yellow" | "blue";
+}) {
+  const valueClass =
+    tone === "green"
+      ? "text-[#82ee88]"
+      : tone === "yellow"
+        ? "text-[#f8d85a]"
+        : tone === "blue"
+          ? "text-[#62b6ff]"
+          : "text-[#f8f0df]";
+
+  return (
+    <div className="rounded-lg border border-[#302a43] bg-[#151421]/80 px-3 py-2">
+      <p className={`text-lg font-black tabular-nums ${valueClass}`}>{value}</p>
+      <p className="text-[9px] font-black uppercase tracking-[0.14em] text-[#9189a4]">
+        {label}
+      </p>
+      {detail && <p className="text-[11px] text-[#aaa2ba]">{detail}</p>}
+    </div>
+  );
+}
+
+type CompletionFilter = "all" | "required" | "missing" | "registered";
 
 type Props = {
   gameId: string;
@@ -392,15 +462,25 @@ export function GameDexView({ gameId, onSelect }: Props) {
     () => (gameDex ?? []).filter((entry) => !entry.optional),
     [gameDex],
   );
+  const optionalEntries = useMemo(
+    () => (gameDex ?? []).filter((entry) => entry.optional),
+    [gameDex],
+  );
 
   const filteredGamePokemon = useMemo(() => {
     const normalizedQuery = searchQuery.trim().toLowerCase();
     const entries = gameDex ?? [];
     const numericQuery = normalizedQuery.replace(/^#/, "").replace(/^0+/, "");
     return entries.filter((entry) => {
-      const key = `${entry.speciesId}-${entry.formName ?? "base"}`;
+      const key = ownedKey(entry.speciesId, entry.formName);
       const registered = !!gameFlags[key]?.owned;
+      if (completionFilter === "required" && entry.optional) {
+        return false;
+      }
       if (completionFilter === "missing" && registered) {
+        return false;
+      }
+      if (completionFilter === "missing" && entry.optional) {
         return false;
       }
       if (completionFilter === "registered" && !registered) {
@@ -420,27 +500,39 @@ export function GameDexView({ gameId, onSelect }: Props) {
 
   const totalDexEntries = gameDex?.length ?? 0;
   const registeredDexEntries = (gameDex ?? []).filter((entry) => {
-    const key = `${entry.speciesId}-${entry.formName ?? "base"}`;
+    const key = ownedKey(entry.speciesId, entry.formName);
     return !!gameFlags[key]?.owned;
   }).length;
   const missingDexEntries = Math.max(0, totalDexEntries - registeredDexEntries);
   const totalInGame = requiredEntries.length;
   const ownedInGame = requiredEntries.filter((entry) => {
-    const key = `${entry.speciesId}-${entry.formName ?? "base"}`;
+    const key = ownedKey(entry.speciesId, entry.formName);
     return !!gameFlags[key]?.owned;
   }).length;
-  const progressPct =
-    totalDexEntries > 0 ? (registeredDexEntries / totalDexEntries) * 100 : 0;
-  const shinyCharmReady =
-    selectedGame?.hasShinyCharm &&
-    ownedInGame >= totalInGame &&
-    totalInGame > 0;
+  const optionalRegistered = optionalEntries.filter((entry) => {
+    const key = ownedKey(entry.speciesId, entry.formName);
+    return !!gameFlags[key]?.owned;
+  }).length;
+  const shinyRegistered = (gameDex ?? []).filter((entry) => {
+    const key = ownedKey(entry.speciesId, entry.formName);
+    return !!gameFlags[key]?.shiny;
+  }).length;
+  const alphaRegistered = ALPHA_GAMES.has(gameId)
+    ? (gameDex ?? []).filter((entry) => {
+        const key = ownedKey(entry.speciesId, entry.formName);
+        const flags = gameFlags[key];
+        return !!flags?.alpha || !!flags?.shiny_alpha;
+      }).length
+    : 0;
+  const progressPct = totalInGame > 0 ? (ownedInGame / totalInGame) * 100 : 0;
   const missingInGame = Math.max(0, totalInGame - ownedInGame);
   const hasShinyCharmTarget = !!selectedGame?.hasShinyCharm;
-  const charmStatusLabel = shinyCharmReady
-    ? "Charm unlocked"
-    : "Shiny Charm target";
   const shinyCharmNote = GAME_SHINY_CHARM_NOTES[gameId];
+  const generationLabel = selectedGame
+    ? `Generation ${selectedGame.generation}`
+    : "Game Dex";
+  const logoAlt = `${selectedGame?.name ?? gameId} logo`;
+  const visibleCount = filteredGamePokemon.length;
 
   const completionFilters: {
     value: CompletionFilter;
@@ -448,40 +540,99 @@ export function GameDexView({ gameId, onSelect }: Props) {
     count: number;
   }[] = [
     { value: "all", label: "All", count: totalDexEntries },
-    { value: "missing", label: "Missing", count: missingDexEntries },
+    { value: "required", label: "Required", count: totalInGame },
+    { value: "missing", label: "Missing", count: missingInGame },
     { value: "registered", label: "Registered", count: registeredDexEntries },
   ];
 
   return (
     <div className="mx-auto max-w-7xl px-3 pb-8 sm:px-4">
-      {/* Game header / progress */}
-      <div className="mb-4 rounded-xl border border-gray-100 bg-gray-50 p-3 dark:border-gray-700 dark:bg-gray-800 sm:p-4">
-        <div className="mb-3 flex flex-col gap-2 min-[420px]:flex-row min-[420px]:items-center min-[420px]:justify-between">
-          <h2 className="text-base font-bold dark:text-white sm:text-lg">
-            {selectedGame?.name ?? gameId}
-          </h2>
-          {hasShinyCharmTarget && (
-            <span
-              className={`flex w-fit items-center gap-1 rounded-full px-2.5 py-1 text-xs font-bold ${
-                shinyCharmReady
-                  ? "bg-yellow-400 text-white"
-                  : "bg-yellow-50 text-yellow-600 dark:bg-yellow-950/40 dark:text-yellow-400"
-              }`}
-            >
-              <SparkleIcon className="h-3.5 w-3.5" />
-              {charmStatusLabel}
-            </span>
-          )}
-        </div>
-        {totalInGame > 0 && (
-          <>
-            <div className="mb-2 h-2.5 overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700">
-              <div
-                className="h-full rounded-full bg-green-400 transition-all duration-500"
-                style={{ width: `${progressPct}%` }}
+      {/* Game overview */}
+      <section className="mb-4 grid gap-3 rounded-lg border border-[#302a43] bg-[#151421] p-3 shadow-[0_14px_40px_rgba(0,0,0,0.18)] xl:grid-cols-[minmax(460px,540px)_minmax(0,1fr)] xl:items-center">
+        <div className="flex flex-col gap-3 rounded-lg bg-[radial-gradient(circle_at_18%_0%,rgba(98,182,255,0.14),transparent_36%),linear-gradient(135deg,rgba(48,42,67,0.52),rgba(16,19,31,0.78))] p-3 min-[620px]:flex-row min-[620px]:items-center min-[620px]:justify-between xl:justify-start">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="grid h-12 w-16 shrink-0 place-items-center rounded-lg border border-white/10 bg-[#0d1220]/70 px-2">
+              <Image
+                src={`/icons/games/${gameId}.png`}
+                alt={logoAlt}
+                width={100}
+                height={44}
+                className="max-h-9 w-auto object-contain"
+                priority={false}
               />
             </div>
-            <p className="text-xs text-gray-500 dark:text-gray-400">
+            {GAME_ALT_LOGOS.has(gameId) && (
+              <div className="hidden h-12 w-16 shrink-0 place-items-center rounded-lg border border-white/10 bg-[#0d1220]/50 px-2 min-[520px]:grid">
+                <Image
+                  src={`/icons/games/${gameId}-alt.png`}
+                  alt={`${logoAlt} alternate version`}
+                  width={100}
+                  height={44}
+                  className="max-h-9 w-auto object-contain"
+                />
+              </div>
+            )}
+            <div className="min-w-0 flex-1">
+              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#62b6ff]">
+                {generationLabel}
+              </p>
+              <h2 className="text-xl font-black leading-tight text-[#f8f0df] sm:text-2xl">
+                {selectedGame?.name ?? gameId}
+              </h2>
+              <p className="mt-1 max-w-2xl text-xs leading-5 text-[#b8b0c8] xl:hidden">
+                Track Shiny Charm progress, optional entries, and version
+                targets from one checklist.
+              </p>
+            </div>
+          </div>
+        </div>
+        {totalInGame > 0 && (
+          <div className="grid gap-3 xl:grid-cols-[minmax(260px,1fr)_minmax(280px,360px)] xl:items-start">
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
+              <ProgressTrack
+                label="Required Dex"
+                value={ownedInGame}
+                total={totalInGame}
+                tone="green"
+              />
+              <ProgressTrack
+                label="Full Checklist"
+                value={registeredDexEntries}
+                total={totalDexEntries}
+                tone="blue"
+              />
+            </div>
+            <div className="grid grid-cols-4 gap-2 max-lg:grid-cols-2">
+              <StatTile
+                label="Missing"
+                value={missingInGame}
+                detail="Required"
+                tone={missingInGame === 0 ? "green" : "yellow"}
+              />
+              <StatTile
+                label="Optional"
+                value={`${optionalRegistered}/${optionalEntries.length}`}
+                detail="Extra entries"
+                tone="blue"
+              />
+              <StatTile
+                label="Shinies"
+                value={shinyRegistered}
+                detail="Marked here"
+                tone="yellow"
+              />
+              <StatTile
+                label={ALPHA_GAMES.has(gameId) ? "Alphas" : "Progress"}
+                value={
+                  ALPHA_GAMES.has(gameId)
+                    ? alphaRegistered
+                    : `${progressPct.toFixed(1)}%`
+                }
+                detail={ALPHA_GAMES.has(gameId) ? "Alpha variants" : "Required"}
+                tone={ALPHA_GAMES.has(gameId) ? "green" : "neutral"}
+              />
+            </div>
+            <p className="sr-only">
               <span className="font-bold tabular-nums text-green-600 dark:text-green-400">
                 {registeredDexEntries}
               </span>
@@ -506,102 +657,116 @@ export function GameDexView({ gameId, onSelect }: Props) {
             </p>
 
             {hasShinyCharmTarget && (
-              <p className="mt-2 text-[11px] font-medium leading-snug text-gray-500 dark:text-gray-400">
-                Shiny Charm target:{" "}
-                <span className="font-bold tabular-nums text-yellow-600 dark:text-yellow-400">
+              <p className="rounded-lg border border-[#f8d85a]/20 bg-[#161813]/75 px-3 py-2 text-xs leading-5 text-[#d8d0b8] xl:col-span-2">
+                <span className="font-black text-[#f8d85a]">Shiny Charm:</span>{" "}
+                <span className="font-black tabular-nums text-[#f8d85a]">
                   {ownedInGame}/{totalInGame}
                 </span>{" "}
-                required registered
-                {missingInGame > 0 ? ` (${missingInGame} remaining)` : ""}.
+                registered
+                {missingInGame > 0 ? `, ${missingInGame} remaining` : ""}.
                 {shinyCharmNote ? ` ${shinyCharmNote}` : ""}
               </p>
             )}
-          </>
+          </div>
         )}
-      </div>
+      </section>
 
       {/* Search + filter */}
-      <div className="mb-4">
-        <label htmlFor="game-dex-search" className="sr-only">
-          Search Pokédex
-        </label>
-        <div className="flex flex-col gap-2 lg:flex-row lg:items-center">
-          <input
-            id="game-dex-search"
-            type="search"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder={`Search ${selectedGame?.name ?? "this game"}`}
-            className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 outline-none transition-colors placeholder:text-gray-400 focus:border-blue-400 focus:ring-2 focus:ring-blue-100 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 dark:focus:border-blue-400 dark:focus:ring-blue-950 lg:max-w-sm"
-          />
-          <div className="flex min-w-0 flex-col gap-2 min-[430px]:flex-row min-[430px]:items-center">
-            <div
-              className="grid grid-cols-3 rounded-lg bg-gray-100 p-1 dark:bg-gray-800 min-[430px]:flex"
-              aria-label="Completion filter"
-            >
-              {completionFilters.map(({ value, label, count }) => (
-                <button
-                  key={value}
-                  type="button"
-                  onClick={() => setCompletionFilter(value)}
-                  aria-pressed={completionFilter === value}
-                  className={`min-w-0 rounded-md px-2 py-1.5 text-xs font-semibold transition-colors sm:px-3 ${
-                    completionFilter === value
-                      ? "bg-blue-500 text-white"
-                      : "text-gray-500 hover:text-gray-800 dark:text-gray-300 dark:hover:text-white"
-                  }`}
-                >
-                  <span className="truncate">{label}</span>{" "}
-                  <span className="tabular-nums opacity-75">({count})</span>
-                </button>
-              ))}
-            </div>
-            {searchQuery && (
-              <button
-                type="button"
-                onClick={() => setSearchQuery("")}
-                className="rounded-lg px-3 py-2 text-sm font-medium text-gray-500 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"
+      <section className="rounded-lg border border-[#302a43] bg-[#151421]/80">
+        <div className="border-b border-[#302a43] p-3 sm:p-4">
+          <div className="mb-3">
+            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#9189a4]">
+              Dex Workspace
+            </p>
+            <h3 className="mt-1 text-lg font-black text-[#f8f0df]">
+              Checklist
+            </h3>
+            <p className="mt-1 text-sm text-[#aaa2ba]">
+              Showing {visibleCount} of {totalDexEntries} entries.
+            </p>
+          </div>
+          <label htmlFor="game-dex-search" className="sr-only">
+            Search Pokédex
+          </label>
+          <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+            <input
+              id="game-dex-search"
+              type="search"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder={`Search ${selectedGame?.name ?? "this game"}`}
+              className="h-10 w-full rounded-lg border border-[#302a43] bg-[#0d1220] px-3 text-sm text-[#f8f0df] outline-none transition-colors placeholder:text-[#70687f] focus:border-[#62b6ff] focus:ring-2 focus:ring-[#62b6ff]/20 lg:max-w-sm"
+            />
+            <div className="flex min-w-0 flex-col gap-2 min-[430px]:flex-row min-[430px]:items-center">
+              <div
+                className="grid grid-cols-2 rounded-lg bg-[#0d1220] p-1 ring-1 ring-[#302a43] min-[520px]:grid-cols-4"
+                aria-label="Completion filter"
               >
-                Clear
-              </button>
-            )}
+                {completionFilters.map(({ value, label, count }) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => setCompletionFilter(value)}
+                    aria-pressed={completionFilter === value}
+                    className={`min-w-0 rounded-md px-2 py-1.5 text-xs font-black transition-colors sm:px-3 ${
+                      completionFilter === value
+                        ? "bg-[#62b6ff] text-[#061016]"
+                        : "text-[#aaa2ba] hover:bg-[#1d2637] hover:text-[#f8f0df]"
+                    }`}
+                  >
+                    <span className="truncate">{label}</span>{" "}
+                    <span className="tabular-nums opacity-75">{count}</span>
+                  </button>
+                ))}
+              </div>
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery("")}
+                  className="h-10 rounded-lg border border-[#302a43] px-3 text-sm font-bold text-[#aaa2ba] transition-colors hover:bg-[#1d2637] hover:text-[#f8f0df]"
+                >
+                  Clear
+                </button>
+              )}
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* Grid */}
-      {dexError ? (
-        <div className="py-4 text-sm text-red-500">
-          Failed to load Pokédex for this game. Try refreshing.
-        </div>
-      ) : dexLoading ? (
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(96px,1fr))] gap-2 sm:grid-cols-[repeat(auto-fill,minmax(132px,140px))]">
-          {Array.from({ length: 48 }).map((_, i) => (
-            <div
-              key={i}
-              className="h-[188px] w-full animate-pulse rounded-xl bg-gray-200 sm:h-[202px] sm:w-[140px] dark:bg-gray-700"
-            />
-          ))}
-        </div>
-      ) : (
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(96px,1fr))] gap-2 sm:grid-cols-[repeat(auto-fill,minmax(132px,140px))]">
-          {filteredGamePokemon.map((entry) => (
-            <GameSlot
-              key={`${entry.speciesId}-${entry.formName ?? "base"}`}
-              entry={entry}
-              gameId={gameId}
-              onSelect={(speciesId, formName) =>
-                onSelect(speciesId, formName, gameId)
-              }
-            />
-          ))}
-          {filteredGamePokemon.length === 0 && (
-            <div className="col-span-full py-8 text-sm text-gray-400">
-              No Pokémon match this view.
+        <div className="p-3 sm:p-4">
+          {dexError ? (
+            <div className="py-4 text-sm text-red-500">
+              Failed to load Pokédex for this game. Try refreshing.
+            </div>
+          ) : dexLoading ? (
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(96px,1fr))] gap-2 sm:grid-cols-[repeat(auto-fill,minmax(132px,140px))]">
+              {Array.from({ length: 48 }).map((_, i) => (
+                <div
+                  key={i}
+                  className="h-[188px] w-full animate-pulse rounded-xl bg-[#202635] sm:h-[202px] sm:w-[140px]"
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(96px,1fr))] gap-2 sm:grid-cols-[repeat(auto-fill,minmax(132px,140px))]">
+              {filteredGamePokemon.map((entry) => (
+                <GameSlot
+                  key={`${entry.speciesId}-${entry.formName ?? "base"}`}
+                  entry={entry}
+                  gameId={gameId}
+                  onSelect={(speciesId, formName) =>
+                    onSelect(speciesId, formName, gameId)
+                  }
+                />
+              ))}
+              {filteredGamePokemon.length === 0 && (
+                <div className="col-span-full rounded-lg border border-dashed border-[#302a43] px-4 py-10 text-center text-sm text-[#9189a4]">
+                  No Pokémon match this view.
+                </div>
+              )}
             </div>
           )}
         </div>
-      )}
+      </section>
     </div>
   );
 }

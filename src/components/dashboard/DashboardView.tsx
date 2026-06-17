@@ -119,6 +119,7 @@ export function DashboardView() {
   const [huntMethod, setHuntMethod] = useState<ShinyHuntMethod>("random");
   const [huntCounterMode, setHuntCounterMode] =
     useState<HuntCounterMode>("encounters");
+  const [huntCountEnabled, setHuntCountEnabled] = useState(true);
 
   // Log catch modal state
   const [showLogCatchModal, setShowLogCatchModal] = useState(false);
@@ -181,6 +182,7 @@ export function DashboardView() {
     setHuntGameId("");
     setHuntMethod("random");
     setHuntCounterMode("encounters");
+    setHuntCountEnabled(true);
   };
 
   const openAddHuntModal = () => {
@@ -198,6 +200,7 @@ export function DashboardView() {
     setHuntGameId(hunt.gameId);
     setHuntMethod(hunt.method);
     setHuntCounterMode(hunt.counterMode);
+    setHuntCountEnabled(hunt.count !== null);
     setShowAddModal(true);
   };
 
@@ -246,6 +249,9 @@ export function DashboardView() {
   const shinyCount = getShinyEntryCount(shinyEntries, ownedRecords);
   const progress = livingTotal > 0 ? (ownedCount / livingTotal) * 100 : 0;
   const roundedProgress = Math.round(progress);
+  const shinyProgress =
+    shinyTotal > 0 ? (shinyCount / shinyTotal) * 100 : 0;
+  const roundedShinyProgress = Math.round(shinyProgress);
 
   const stats: Stat[] = [
     {
@@ -573,23 +579,12 @@ export function DashboardView() {
             <section className="order-2 rounded-lg border border-[#2f2b40] bg-[#1a1a27]/80 p-4 lg:col-start-2 lg:row-start-1">
               <h2 className="mb-3 text-xs font-black">Living Dex Progress</h2>
               <div className="flex items-center gap-5">
-                <div
-                  className="grid h-[88px] w-[88px] shrink-0 place-items-center rounded-full"
-                  style={{
-                    background: `conic-gradient(#b9ec86 ${progress}%, #343045 0)`,
-                  }}
-                >
-                  <div className="grid h-[68px] w-[68px] place-items-center rounded-full bg-[#1a1a27]">
-                    <div className="text-center">
-                      <p className="text-xl font-black leading-none">
-                        {roundedProgress}%
-                      </p>
-                      <p className="mt-0.5 text-[9px] text-[#cfc8d8]">
-                        {ownedCount} / {livingTotal}
-                      </p>
-                    </div>
-                  </div>
-                </div>
+                <DualProgressDonut
+                  livingPct={progress}
+                  shinyPct={shinyProgress}
+                  livingLabel={`${roundedProgress}%`}
+                  shinyLabel={`${roundedShinyProgress}% shiny`}
+                />
                 <div className="min-w-0 flex-1 space-y-2.5">
                   {stats.map((stat) => {
                     const pct =
@@ -819,12 +814,34 @@ export function DashboardView() {
               ))}
             </select>
 
+            <label className="mb-3 flex cursor-pointer items-center justify-between gap-3 rounded-lg border border-[#2f2b40] bg-[#151520] px-3 py-2">
+              <span className="min-w-0">
+                <span className="block text-xs font-black text-[#f8f0df]">
+                  Track count
+                </span>
+                <span className="mt-0.5 block text-[10px] leading-4 text-[#8f8799]">
+                  Turn off for turbo/reset hunts where you are not counting.
+                </span>
+              </span>
+              <input
+                type="checkbox"
+                checked={huntCountEnabled}
+                onChange={(event) => setHuntCountEnabled(event.target.checked)}
+                className="h-4 w-4 accent-[#f8d85a]"
+              />
+            </label>
+
             {/* Counter mode */}
-            <div className="mb-4 grid grid-cols-2 gap-2 min-[420px]:grid-cols-3">
+            <div
+              className={`mb-4 grid grid-cols-2 gap-2 min-[420px]:grid-cols-3 ${
+                huntCountEnabled ? "" : "opacity-45"
+              }`}
+            >
               {COUNTER_MODE_OPTIONS.map(({ value: mode, label }) => (
                 <button
                   key={mode}
                   type="button"
+                  disabled={!huntCountEnabled}
                   onClick={() => setHuntCounterMode(mode)}
                   className={`rounded-lg px-2 py-1.5 text-[11px] font-bold transition-colors ${
                     huntCounterMode === mode
@@ -851,12 +868,16 @@ export function DashboardView() {
                 onClick={() => {
                   if (!selectedHuntEntry || !huntGameId) return;
                   if (editingHuntId) {
+                    const existingHunt = shinyHunts.find(
+                      (hunt) => hunt.id === editingHuntId,
+                    );
                     updateShinyHunt(editingHuntId, {
                       speciesId: selectedHuntEntry.speciesId,
                       formName: selectedHuntEntry.formName,
                       gameId: huntGameId,
                       method: huntMethod,
                       counterMode: huntCounterMode,
+                      count: huntCountEnabled ? (existingHunt?.count ?? 0) : null,
                     });
                   } else {
                     addShinyHunt(
@@ -865,6 +886,7 @@ export function DashboardView() {
                       huntGameId,
                       huntMethod,
                       huntCounterMode,
+                      huntCountEnabled ? 0 : null,
                     );
                   }
                   resetHuntModal();
@@ -1108,7 +1130,7 @@ function ShinyHuntCard({
   onComplete: () => void;
   onIncrement: () => void;
   onDecrement: () => void;
-  onCountChange: (count: number) => void;
+  onCountChange: (count: number | null) => void;
   onEdit: () => void;
 }) {
   const spriteUrl = entry?.shinySpriteUrl ?? entry?.spriteUrl;
@@ -1119,7 +1141,8 @@ function ShinyHuntCard({
       ?.label ?? titleCaseLabel(hunt.counterMode);
   const [isEditingCount, setIsEditingCount] = useState(false);
   const [countDraft, setCountDraft] = useState("");
-  const displayedCount = isEditingCount ? countDraft : String(hunt.count);
+  const countTracked = hunt.count !== null;
+  const displayedCount = isEditingCount ? countDraft : String(hunt.count ?? 0);
 
   const commitCountDraft = () => {
     const nextCount = Number.parseInt(countDraft, 10);
@@ -1130,13 +1153,22 @@ function ShinyHuntCard({
   };
 
   return (
-    <article className="relative overflow-hidden rounded-xl border border-[#3b3350] bg-[radial-gradient(circle_at_50%_0%,rgba(248,216,90,0.16),transparent_38%),#151520] shadow-sm">
-      <div className="flex flex-col items-center px-3 pb-3 pt-4 text-center">
+    <article className="relative flex h-full flex-col overflow-hidden rounded-xl border border-[#3b3350] bg-[radial-gradient(circle_at_50%_0%,rgba(248,216,90,0.16),transparent_38%),#151520] shadow-sm">
+      <div
+        className={`grid min-h-[150px] flex-1 items-center gap-3 px-3 py-4 text-left ${
+          countTracked
+            ? "grid-cols-[80px_minmax(0,1fr)] sm:grid-cols-[80px_minmax(0,1fr)_132px]"
+            : "grid-cols-[80px_minmax(0,1fr)]"
+        }`}
+      >
         <button
           type="button"
-          onClick={onIncrement}
-          className="relative grid h-20 w-20 place-items-center rounded-2xl bg-[#0f101a] ring-1 ring-[#f8d85a]/25 transition-transform hover:scale-[1.03]"
-          aria-label="Add one shiny hunt check"
+          onClick={countTracked ? onIncrement : undefined}
+          disabled={!countTracked}
+          className="relative grid h-20 w-20 place-items-center rounded-2xl bg-[#0f101a] ring-1 ring-[#f8d85a]/25 transition-transform enabled:hover:scale-[1.03]"
+          aria-label={
+            countTracked ? "Add one shiny hunt check" : "Uncounted shiny hunt"
+          }
         >
           {spriteUrl && (
             <Image
@@ -1151,20 +1183,18 @@ function ShinyHuntCard({
           <Sparkles className="absolute right-2 top-2 h-4 w-4 text-[#f8d85a]" />
         </button>
 
-        <div className="mt-2.5 w-full min-w-0">
-          <div className="flex min-w-0 flex-col items-center gap-2">
-            <div className="max-w-full min-w-0 text-center">
-              <p className="truncate text-sm font-black">
-                {entry?.displayName ??
-                  `#${String(hunt.speciesId).padStart(4, "0")}`}
-              </p>
-              <p className="mt-1 truncate text-[11px] font-semibold text-[#8f8799]">
-                {gameName} / {methodLabel}
-              </p>
-            </div>
-          </div>
+        <div className="min-w-0">
+          <p className="truncate text-base font-black">
+            {entry?.displayName ??
+              `#${String(hunt.speciesId).padStart(4, "0")}`}
+          </p>
+          <p className="mt-1 line-clamp-2 text-[11px] font-semibold leading-4 text-[#8f8799]">
+            {gameName} / {methodLabel}
+          </p>
+        </div>
 
-          <div className="mt-2.5 grid grid-cols-[36px_1fr_42px] items-center gap-2 rounded-xl bg-[#0f101a] p-2 ring-1 ring-white/5">
+        {countTracked ? (
+          <div className="col-span-2 grid grid-cols-[34px_1fr_42px] items-center gap-2 rounded-xl bg-[#0f101a] p-2 ring-1 ring-white/5 sm:col-span-1 sm:grid-cols-[34px_minmax(0,1fr)]">
             <button
               type="button"
               onClick={onDecrement}
@@ -1173,14 +1203,14 @@ function ShinyHuntCard({
             >
               <Minus className="h-4 w-4" />
             </button>
-            <div className="min-w-0 text-center">
+            <div className="min-w-0 text-center sm:order-first sm:col-span-2">
               <input
                 aria-label="Edit shiny hunt count"
                 inputMode="numeric"
                 pattern="[0-9]*"
                 value={displayedCount}
                 onFocus={() => {
-                  setCountDraft(String(hunt.count));
+                  setCountDraft(String(hunt.count ?? 0));
                   setIsEditingCount(true);
                 }}
                 onChange={(event) =>
@@ -1192,7 +1222,7 @@ function ShinyHuntCard({
                     event.currentTarget.blur();
                   }
                   if (event.key === "Escape") {
-                    setCountDraft(String(hunt.count));
+                    setCountDraft(String(hunt.count ?? 0));
                     setIsEditingCount(false);
                     event.currentTarget.blur();
                   }
@@ -1212,7 +1242,7 @@ function ShinyHuntCard({
               +1
             </button>
           </div>
-        </div>
+        ) : null}
       </div>
 
       <div className="grid grid-cols-2 gap-1.5 border-t border-[#2f2b40]/70 px-3 py-2.5">
@@ -1234,6 +1264,55 @@ function ShinyHuntCard({
         </button>
       </div>
     </article>
+  );
+}
+
+function DualProgressDonut({
+  livingPct,
+  shinyPct,
+  livingLabel,
+  shinyLabel,
+}: {
+  livingPct: number;
+  shinyPct: number;
+  livingLabel: string;
+  shinyLabel: string;
+}) {
+  const living = Math.max(0, Math.min(livingPct, 100));
+  const shiny = Math.max(0, Math.min(shinyPct, 100));
+
+  return (
+    <div
+      className="relative grid h-[96px] w-[96px] shrink-0 place-items-center rounded-full"
+      title={`Living Dex ${livingLabel}; ${shinyLabel}`}
+      aria-label={`Living Dex ${livingLabel}; ${shinyLabel}`}
+      role="img"
+      style={{
+        background: `conic-gradient(#b9ec86 ${living}%, #343045 0)`,
+      }}
+    >
+      <div className="grid h-[76px] w-[76px] place-items-center rounded-full bg-[#1a1a27]">
+        <div
+          className="grid h-[64px] w-[64px] place-items-center rounded-full"
+          style={{
+            background: `conic-gradient(#f8d85a ${shiny}%, #343045 0)`,
+          }}
+        >
+          <div className="grid h-[48px] w-[48px] place-items-center rounded-full bg-[#1a1a27]">
+            <div className="text-center">
+              <p className="text-lg font-black leading-none">{livingLabel}</p>
+              <p className="mt-0.5 text-[8px] font-bold uppercase tracking-wide text-[#f8d85a]">
+                {shinyLabel}
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+      <span className="absolute -bottom-1 left-1/2 flex -translate-x-1/2 gap-1 rounded-full border border-[#2f2b40] bg-[#151520] px-1.5 py-0.5">
+        <span className="h-1.5 w-1.5 rounded-full bg-[#b9ec86]" />
+        <span className="h-1.5 w-1.5 rounded-full bg-[#f8d85a]" />
+      </span>
+    </div>
   );
 }
 
@@ -1270,9 +1349,11 @@ function CompletedHuntRow({
           {formatDuration(hunt.startedAt, hunt.completedAt)} · {methodLabel}
         </span>
       </span>
-      <span className="rounded-full bg-[#f8d85a]/10 px-2 py-1 font-mono text-[10px] font-black text-[#f8d85a]">
-        {hunt.count.toLocaleString()}
-      </span>
+      {hunt.count !== null && (
+        <span className="rounded-full bg-[#f8d85a]/10 px-2 py-1 font-mono text-[10px] font-black text-[#f8d85a]">
+          {hunt.count.toLocaleString()}
+        </span>
+      )}
     </div>
   );
 }

@@ -37,16 +37,23 @@ function AuthSync({
       }
     };
 
-    // Cold-start only: fetch remote and OVERWRITE local. Restores last session.
-    // No write-back: individual user actions write to Supabase immediately.
+    // Cold-start only: fetch remote and apply it as the source of truth.
+    // If a previous failed bulk sync left remote hunts empty, keep local hunts.
     const loadAndApply = (userId: string) => {
       if (hasPendingWrites()) {
         markInitialSyncDone();
         return;
       }
       loadFromSupabase(userId)
-        .then((snapshot) => {
+        .then(async (snapshot) => {
           if (!active || !snapshot) return;
+          const localHuntCount = usePokedexStore.getState().shinyHunts.length;
+          const remoteHuntCount = snapshot.shinyHunts?.length ?? 0;
+          if (localHuntCount > 0 && remoteHuntCount === 0) {
+            const merged = mergeProgressSnapshot(snapshot);
+            await syncAllRecords(merged);
+            return;
+          }
           setProgressSnapshot(snapshot);
         })
         .catch(reportAuthError)
@@ -181,7 +188,7 @@ function AuthSync({
           if (!active) return;
           if (session?.user) {
             if (!initialSyncDoneRef.current) {
-              // Cold start: overwrite local with server to restore last session.
+              // Cold start: restore the server snapshot, with hunt recovery.
               onSyncingChange(true);
               loadAndApply(session.user.id);
             } else {

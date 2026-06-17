@@ -78,6 +78,8 @@ export default function DonutToolPage() {
   const [selection, setSelection] = useState<DonutSelection>({});
   const [query, setQuery] = useState("");
   const [flavorFilter, setFlavorFilter] = useState<FlavorFilter>("all");
+  const [recipeCategory, setRecipeCategory] =
+    useState<RecommendedDonutRecipe["category"]>("Shiny Hunting");
 
   const totals = useMemo(() => calculateDonutTotals(selection), [selection]);
   const dominantFlavors = useMemo(() => getDominantFlavors(totals), [totals]);
@@ -112,6 +114,22 @@ export default function DonutToolPage() {
 
   const selectedBerries = DONUT_BERRIES.filter(
     (b) => (selection[b.id] ?? 0) > 0,
+  );
+  const activeRecipes = useMemo(
+    () =>
+      RECOMMENDED_DONUT_RECIPES.filter((r) => r.category === recipeCategory),
+    [recipeCategory],
+  );
+  const recipeCounts = useMemo(
+    () =>
+      Object.fromEntries(
+        CATEGORY_ORDER.map((category) => [
+          category,
+          RECOMMENDED_DONUT_RECIPES.filter((r) => r.category === category)
+            .length,
+        ]),
+      ) as Record<RecommendedDonutRecipe["category"], number>,
+    [],
   );
 
   // Slot colors: each of the 8 slots gets the color of the berry filling it.
@@ -204,38 +222,63 @@ export default function DonutToolPage() {
           <div className="space-y-6">
             {/* ── Recipes ── */}
             <section>
-              <h2 className="mb-3 text-[10px] font-black uppercase tracking-widest text-[#554a70]">
-                Best Recipes
-              </h2>
-              <div className="space-y-5">
+              <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
+                <div>
+                  <h2 className="text-[10px] font-black uppercase tracking-widest text-[#554a70]">
+                    Best Recipes
+                  </h2>
+                  <p className="mt-1 text-xs font-semibold text-[#8f8799]">
+                    Pick a goal, then load a recipe into the builder.
+                  </p>
+                </div>
+                <span className="rounded-full border border-[#2f2b40] bg-[#1a1a27] px-3 py-1 text-[10px] font-black text-[#8f8799]">
+                  {activeRecipes.length} recipes
+                </span>
+              </div>
+              <div className="mb-3 flex gap-1.5 overflow-x-auto rounded-xl border border-[#2f2b40] bg-[#151520] p-1">
                 {CATEGORY_ORDER.map((category) => {
-                  const recipes = RECOMMENDED_DONUT_RECIPES.filter(
-                    (r) => r.category === category,
-                  );
                   const meta = CATEGORY_META[category];
+                  const active = recipeCategory === category;
                   return (
-                    <div key={category}>
-                      <div className="mb-2 flex items-center gap-2">
-                        <span
-                          className="text-xs font-black"
-                          style={{ color: meta.color }}
-                        >
-                          {meta.label}
-                        </span>
-                        <div className="h-px flex-1 bg-[#2f2b40]/60" />
-                      </div>
-                      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                        {recipes.map((recipe) => (
-                          <RecipeCard
-                            key={recipe.id}
-                            recipe={recipe}
-                            onLoad={() => loadRecipe(recipe)}
-                          />
-                        ))}
-                      </div>
-                    </div>
+                    <button
+                      key={category}
+                      type="button"
+                      onClick={() => setRecipeCategory(category)}
+                      aria-pressed={active}
+                      className={`shrink-0 rounded-lg px-3 py-2 text-left transition-colors ${
+                        active
+                          ? "bg-[#1f1b2c] text-[#f8f0df]"
+                          : "text-[#8f8799] hover:bg-white/5 hover:text-[#f8f0df]"
+                      }`}
+                      style={
+                        active
+                          ? {
+                              boxShadow: `inset 0 0 0 1px ${meta.color}55`,
+                            }
+                          : undefined
+                      }
+                    >
+                      <span
+                        className="block text-[10px] font-black uppercase tracking-widest"
+                        style={{ color: active ? meta.color : undefined }}
+                      >
+                        {meta.label}
+                      </span>
+                      <span className="mt-0.5 block text-[9px] font-bold text-[#554a70]">
+                        {recipeCounts[category]} saved
+                      </span>
+                    </button>
                   );
                 })}
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {activeRecipes.map((recipe) => (
+                  <RecipeCard
+                    key={recipe.id}
+                    recipe={recipe}
+                    onLoad={() => loadRecipe(recipe)}
+                  />
+                ))}
               </div>
             </section>
 

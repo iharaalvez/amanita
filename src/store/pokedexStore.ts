@@ -213,17 +213,20 @@ type PokedexState = {
     gameId: string,
     method: ShinyHuntMethod,
     counterMode: HuntCounterMode,
+    count?: number | null,
   ) => string;
   updateShinyHunt: (
     id: string,
-    patch: Pick<
-      ShinyHunt,
-      "speciesId" | "formName" | "gameId" | "method" | "counterMode"
+    patch: Partial<
+      Pick<
+        ShinyHunt,
+        "speciesId" | "formName" | "gameId" | "method" | "counterMode" | "count"
+      >
     >,
   ) => void;
   incrementShinyHunt: (id: string) => void;
   decrementShinyHunt: (id: string) => void;
-  setShinyHuntCount: (id: string, count: number) => void;
+  setShinyHuntCount: (id: string, count: number | null) => void;
   setShinyHuntCounterMode: (id: string, counterMode: HuntCounterMode) => void;
   removeShinyHunt: (id: string) => void;
   completeShinyHunt: (id: string) => void;
@@ -1165,7 +1168,14 @@ export const usePokedexStore = create<PokedexState>()(
       isInGameHomeBox: (speciesId, gameId, formName) =>
         !!get().gameHomeBoxes[gameId]?.[ownedKey(speciesId, formName)],
 
-      addShinyHunt: (speciesId, formName, gameId, method, counterMode) => {
+      addShinyHunt: (
+        speciesId,
+        formName,
+        gameId,
+        method,
+        counterMode,
+        count = 0,
+      ) => {
         const id = crypto.randomUUID();
         const hunt: ShinyHunt = {
           id,
@@ -1174,7 +1184,7 @@ export const usePokedexStore = create<PokedexState>()(
           gameId,
           method,
           counterMode,
-          count: 0,
+          count,
           startedAt: new Date().toISOString(),
         };
         set((state) => ({
@@ -1197,7 +1207,7 @@ export const usePokedexStore = create<PokedexState>()(
       incrementShinyHunt: (id) => {
         set((state) => ({
           shinyHunts: state.shinyHunts.map((h) =>
-            h.id === id ? { ...h, count: h.count + 1 } : h,
+            h.id === id ? { ...h, count: (h.count ?? 0) + 1 } : h,
           ),
         }));
         const hunt = get().shinyHunts.find((h) => h.id === id);
@@ -1207,7 +1217,9 @@ export const usePokedexStore = create<PokedexState>()(
       decrementShinyHunt: (id) => {
         set((state) => ({
           shinyHunts: state.shinyHunts.map((h) =>
-            h.id === id ? { ...h, count: Math.max(0, h.count - 1) } : h,
+            h.id === id
+              ? { ...h, count: h.count === null ? null : Math.max(0, h.count - 1) }
+              : h,
           ),
         }));
         const hunt = get().shinyHunts.find((h) => h.id === id);
@@ -1215,7 +1227,8 @@ export const usePokedexStore = create<PokedexState>()(
       },
 
       setShinyHuntCount: (id, count) => {
-        const safeCount = Math.max(0, Math.floor(count));
+        const safeCount =
+          count === null ? null : Math.max(0, Math.floor(count));
         set((state) => ({
           shinyHunts: state.shinyHunts.map((h) =>
             h.id === id ? { ...h, count: safeCount } : h,
