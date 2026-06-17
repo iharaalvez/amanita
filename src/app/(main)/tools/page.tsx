@@ -58,46 +58,64 @@ const tools = [
 ];
 
 export default function ToolsPage() {
+  const availableCount = tools.filter((tool) => tool.available).length;
+  const plannedCount = tools.length - availableCount;
+
   return (
-    <div className="mx-auto max-w-7xl px-4 py-5 pb-10">
-      <div className="mb-5">
-        <div className="mb-2 flex h-11 w-11 items-center justify-center rounded-lg bg-violet-50 text-violet-500 dark:bg-violet-950/40 dark:text-violet-300">
-          <Calculator className="h-6 w-6" />
+    <div className="mx-auto max-w-7xl px-3 py-5 pb-10 sm:px-4">
+      <header className="mb-5 overflow-hidden rounded-lg border border-[#302a43] bg-[#151421]">
+        <div className="bg-[radial-gradient(circle_at_12%_0%,rgba(196,181,253,0.18),transparent_34%),linear-gradient(135deg,rgba(48,42,67,0.72),rgba(16,19,31,0.92))] p-4">
+          <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-lg bg-[#8b5cf6]/15 text-[#c4b5fd] ring-1 ring-[#8b5cf6]/25">
+            <Calculator className="h-6 w-6" />
+          </div>
+          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#c4b5fd]">
+            Utility Library
+          </p>
+          <h1 className="mt-1 text-2xl font-black tracking-tight text-[#f8f0df] sm:text-3xl">
+            Tools
+          </h1>
+          <p className="mt-1 max-w-2xl text-sm leading-6 text-[#aaa2ba]">
+            Utilities for planning hunts, recipes, overlays, and next captures.
+          </p>
         </div>
-        <h1 className="text-2xl font-black tracking-tight text-gray-950 dark:text-white">
-          Tools
-        </h1>
-        <p className="mt-1 max-w-2xl text-sm text-gray-500 dark:text-gray-400">
-          Utilities for planning hunts, recipes, and next captures.
-        </p>
-      </div>
+        <div className="grid border-t border-[#302a43] bg-[#0d1220]/65 sm:grid-cols-3">
+          <ToolStat label="Available" value={availableCount} />
+          <ToolStat label="Planned" value={plannedCount} />
+          <ToolStat label="Total" value={tools.length} />
+        </div>
+      </header>
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
         {tools.map(({ title, description, Icon, href, available }) => {
           const card = (
             <article
-              className={`relative rounded-lg border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900 ${
+              className={`relative flex min-h-[168px] flex-col rounded-lg border bg-[#151421] p-4 shadow-sm transition-all ${
                 available
-                  ? "transition-shadow hover:shadow-md hover:border-violet-300 dark:hover:border-violet-700"
-                  : "opacity-70"
+                  ? "border-[#302a43] hover:-translate-y-0.5 hover:border-[#8b5cf6]/60 hover:shadow-lg hover:shadow-black/20"
+                  : "border-[#302a43]/70 opacity-55"
               }`}
             >
               <div className="mb-4 flex items-start justify-between gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-violet-50 text-violet-500 dark:bg-violet-950/40 dark:text-violet-300">
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#8b5cf6]/15 text-[#c4b5fd] ring-1 ring-[#8b5cf6]/25">
                   <Icon className="h-5 w-5" />
                 </div>
                 {!available && (
-                  <span className="rounded-full bg-violet-50 px-2 py-1 text-[10px] font-black uppercase tracking-wide text-violet-600 dark:bg-violet-950/40 dark:text-violet-300">
+                  <span className="rounded-full bg-[#2a1948] px-2 py-1 text-[10px] font-black uppercase tracking-wide text-[#c4b5fd] ring-1 ring-[#8b5cf6]/25">
                     Coming soon
                   </span>
                 )}
               </div>
-              <h2 className="text-base font-black text-gray-950 dark:text-white">
+              <h2 className="text-base font-black text-[#f8f0df]">
                 {title}
               </h2>
-              <p className="mt-2 text-sm leading-6 text-gray-500 dark:text-gray-400">
+              <p className="mt-2 text-sm leading-6 text-[#aaa2ba]">
                 {description}
               </p>
+              {available && (
+                <span className="mt-auto pt-4 text-xs font-black text-[#c4b5fd]">
+                  Open tool
+                </span>
+              )}
             </article>
           );
 
@@ -110,6 +128,17 @@ export default function ToolsPage() {
           );
         })}
       </div>
+    </div>
+  );
+}
+
+function ToolStat({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="border-t border-[#302a43] px-4 py-3 first:sm:border-l-0 sm:border-l sm:border-t-0">
+      <p className="text-xl font-black tabular-nums text-[#f8f0df]">{value}</p>
+      <p className="mt-0.5 text-[10px] font-black uppercase tracking-[0.16em] text-[#9189a4]">
+        {label}
+      </p>
     </div>
   );
 }

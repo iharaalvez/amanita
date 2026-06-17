@@ -66,7 +66,14 @@ type LogEntry =
   | { kind: "catch"; date: string; row: CatchRow }
   | { kind: "hunt"; date: string; hunt: ShinyHunt; entry?: LivingDexEntry };
 
-type DayGroup = { key: string; label: string; entries: LogEntry[] };
+type DayGroup = {
+  key: string;
+  label: string;
+  entries: LogEntry[];
+  catches: number;
+  shinies: number;
+  hunts: number;
+};
 
 // ─── Main view ────────────────────────────────────────────────────────────────
 
@@ -172,25 +179,27 @@ export function HistoryView() {
   }
 
   return (
-    <div className="min-h-full bg-[#11111b] px-4 py-6 text-[#f8f0df] sm:px-6 lg:px-8">
+    <div className="min-h-full bg-[#11111b] px-3 py-5 text-[#f8f0df] sm:px-4 lg:px-8">
       <div className="mx-auto max-w-7xl space-y-5">
 
         {/* ── Header ── */}
-        <header>
-          <div className="mb-1 flex items-center gap-2 text-[#b9ec86]">
-            <History className="h-4 w-4" />
-            <span className="text-[10px] font-black uppercase tracking-widest">
-              Trainer Log
-            </span>
-          </div>
-          <div className="flex flex-wrap items-end justify-between gap-4">
+        <header className="overflow-hidden rounded-lg border border-[#302a43] bg-[#151421]">
+          <div className="grid gap-4 bg-[radial-gradient(circle_at_12%_0%,rgba(185,236,134,0.16),transparent_34%),linear-gradient(135deg,rgba(48,42,67,0.72),rgba(16,19,31,0.92))] p-4 lg:grid-cols-[1fr_minmax(260px,360px)] lg:items-end">
             <div>
-              <h1 className="text-3xl font-black tracking-tight">History</h1>
-              <p className="mt-1 text-sm text-[#8f8799]">
-                Every catch and shiny hunt — timestamped and searchable.
+              <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-lg bg-[#b9ec86]/15 text-[#b9ec86] ring-1 ring-[#b9ec86]/25">
+                <History className="h-6 w-6" />
+              </div>
+              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#b9ec86]">
+                Trainer Log
+              </p>
+              <h1 className="mt-1 text-2xl font-black tracking-tight sm:text-3xl">
+                History
+              </h1>
+              <p className="mt-1 max-w-2xl text-sm leading-6 text-[#aaa2ba]">
+                Every catch and shiny hunt, timestamped and searchable.
               </p>
             </div>
-            <div className="flex h-9 w-full max-w-xs items-center gap-2 rounded-lg border border-[#2f2b40] bg-[#151520] px-3">
+            <div className="flex h-10 w-full items-center gap-2 rounded-lg border border-[#302a43] bg-[#0d1220] px-3">
               <Search className="h-3.5 w-3.5 shrink-0 text-[#554a70]" />
               <label htmlFor="history-search" className="sr-only">
                 Search history
@@ -203,25 +212,22 @@ export function HistoryView() {
                   setQuery(e.target.value);
                   setPage(0);
                 }}
-                placeholder="Search Pokémon, games, methods…"
+                placeholder="Search Pokemon, games, methods..."
                 className="min-w-0 flex-1 bg-transparent text-[11px] font-medium text-[#f8f0df] outline-none placeholder:text-[#554a70]"
               />
             </div>
           </div>
+          <div className="grid border-t border-[#302a43] bg-[#0d1220]/65 sm:grid-cols-4">
+            <StatCard label="Catches Logged" value={catchLog.length} />
+            <StatCard label="Shinies Caught" value={shinyCount} color="gold" />
+            <StatCard label="Active Hunts" value={activeHunts.length} />
+            <StatCard
+              label="Hunts Completed"
+              value={completedHunts.length}
+              color="green"
+            />
+          </div>
         </header>
-
-        {/* ── Stats ── */}
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <StatCard label="Catches Logged" value={catchLog.length} />
-          <StatCard label="Shinies Caught" value={shinyCount} color="gold" />
-          <StatCard label="Active Hunts" value={activeHunts.length} />
-          <StatCard
-            label="Hunts Completed"
-            value={completedHunts.length}
-            color="green"
-          />
-        </div>
-
         {/* ── Tabs ── */}
         <div className="flex w-fit items-center gap-1 rounded-full bg-[#1a1a27] p-1 ring-1 ring-[#2f2b40]">
           {(["all", "catches", "hunts"] as HistoryTab[]).map((value) => (
@@ -270,12 +276,7 @@ export function HistoryView() {
             {dayGroups.length > 0 ? (
               dayGroups.map((group) => (
                 <div key={group.key}>
-                  <div className="flex items-center gap-3 px-5 py-2.5">
-                    <span className="whitespace-nowrap text-[10px] font-black uppercase tracking-widest text-[#554a70]">
-                      {group.label}
-                    </span>
-                    <div className="h-px flex-1 bg-[#2f2b40]/60" />
-                  </div>
+                  <DayGroupHeader group={group} />
                   <div className="divide-y divide-[#2f2b40]/40">
                     {group.entries.map((entry, i) =>
                       entry.kind === "catch" ? (
@@ -400,13 +401,43 @@ function StatCard({
         : "text-[#f8f0df]";
 
   return (
-    <div className="rounded-xl border border-[#2f2b40] bg-[#1a1a27]/80 px-4 py-3.5">
+    <div className="border-t border-[#302a43] px-4 py-3 first:sm:border-l-0 sm:border-l sm:border-t-0">
       <p className={`text-2xl font-black tabular-nums ${valueColor}`}>
         {value.toLocaleString()}
       </p>
       <p className="mt-0.5 text-[10px] font-black uppercase tracking-widest text-[#8f8799]">
         {label}
       </p>
+    </div>
+  );
+}
+
+function DayGroupHeader({ group }: { group: DayGroup }) {
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[#2f2b40]/40 bg-[#151520]/45 px-5 py-2.5 first:border-t-0">
+      <div className="flex min-w-0 items-center gap-3">
+        <span className="whitespace-nowrap text-[10px] font-black uppercase tracking-widest text-[#b9ec86]">
+          {group.label}
+        </span>
+        <div className="hidden h-px w-16 bg-[#2f2b40]/80 sm:block" />
+      </div>
+      <div className="flex flex-wrap items-center gap-1.5">
+        {group.catches > 0 && (
+          <span className="rounded-full bg-[#0f1421] px-2 py-0.5 text-[10px] font-bold text-[#aaa2ba] ring-1 ring-[#2f2b40]">
+            {group.catches} catch{group.catches === 1 ? "" : "es"}
+          </span>
+        )}
+        {group.shinies > 0 && (
+          <span className="rounded-full bg-[#241f18] px-2 py-0.5 text-[10px] font-black text-[#f8d85a] ring-1 ring-[#f8d85a]/25">
+            {group.shinies} shiny
+          </span>
+        )}
+        {group.hunts > 0 && (
+          <span className="rounded-full bg-[#1e1730] px-2 py-0.5 text-[10px] font-bold text-[#c9b8ff] ring-1 ring-[#6d55a5]/30">
+            {group.hunts} hunt{group.hunts === 1 ? "" : "s"}
+          </span>
+        )}
+      </div>
     </div>
   );
 }
@@ -423,7 +454,18 @@ function CatchLogRow({
   const time = formatTime(row.event.date);
 
   return (
-    <div className="group grid grid-cols-[52px_1fr_auto] items-center gap-3 px-5 py-3 transition-colors hover:bg-white/[0.02]">
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={() => onOpen(row.speciesId, row.formName)}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          onOpen(row.speciesId, row.formName);
+        }
+      }}
+      className="group grid cursor-pointer grid-cols-[52px_1fr_auto] items-center gap-3 px-5 py-3 transition-colors hover:bg-white/[0.04] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8fc5ff]"
+    >
       <button
         type="button"
         onClick={() => onOpen(row.speciesId, row.formName)}
@@ -459,6 +501,9 @@ function CatchLogRow({
           {row.name}
         </button>
         <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-px">
+          <span className="rounded-full bg-[#0f1421] px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wide text-[#b9ec86] ring-1 ring-[#2f2b40]">
+            Catch
+          </span>
           <span className="text-[11px] text-[#8f8799]">{row.gameName}</span>
           {row.isShiny && (
             <span className="text-[10px] font-black text-[#f8d85a]">
@@ -479,7 +524,10 @@ function CatchLogRow({
         )}
         <button
           type="button"
-          onClick={() => onRemove(row.event)}
+          onClick={(event) => {
+            event.stopPropagation();
+            onRemove(row.event);
+          }}
           aria-label={`Remove ${row.name} from catch log`}
           className="grid h-7 w-7 place-items-center rounded-lg text-[#554a70] opacity-0 transition-all hover:bg-white/5 hover:text-[#f8f0df] group-hover:opacity-100"
         >
@@ -509,7 +557,18 @@ function HuntCompleteRow({
   const time = formatTime(hunt.completedAt ?? "");
 
   return (
-    <div className="group grid grid-cols-[52px_1fr_auto] items-center gap-3 bg-[#1a1630]/70 px-5 py-3 transition-colors hover:bg-[#1e1a30]">
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={() => onOpen(hunt.speciesId, hunt.formName)}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          onOpen(hunt.speciesId, hunt.formName);
+        }
+      }}
+      className="group grid cursor-pointer grid-cols-[52px_1fr_auto] items-center gap-3 bg-[#1a1630]/70 px-5 py-3 transition-colors hover:bg-[#211c38] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8fc5ff]"
+    >
       <button
         type="button"
         onClick={() => onOpen(hunt.speciesId, hunt.formName)}
@@ -545,11 +604,19 @@ function HuntCompleteRow({
           {methodLabel} · {gameName}
         </p>
         <div className="mt-0.5 flex items-center gap-1.5 text-[10px]">
-          <span className="font-mono font-black text-[#f8d85a]/70">
-            {hunt.count.toLocaleString()}
+          <span
+            className={`font-mono font-black text-[#f8d85a]/70 ${
+              hunt.count === null ? "hidden" : ""
+            }`}
+          >
+            {hunt.count?.toLocaleString()}
           </span>
-          <span className="text-[#3d3456]">{hunt.counterMode}</span>
-          <span className="text-[#3d3456]">·</span>
+          <span className={hunt.count === null ? "hidden" : "text-[#3d3456]"}>
+            {hunt.counterMode}
+          </span>
+          <span className={hunt.count === null ? "hidden" : "text-[#3d3456]"}>
+              ·
+            </span>
           <span className="text-[#3d3456]">
             {formatDuration(hunt.startedAt, hunt.completedAt)}
           </span>
@@ -562,7 +629,10 @@ function HuntCompleteRow({
         )}
         <button
           type="button"
-          onClick={() => onRemove(hunt.id)}
+          onClick={(event) => {
+            event.stopPropagation();
+            onRemove(hunt.id);
+          }}
           aria-label={`Delete ${name} hunt`}
           className="grid h-7 w-7 place-items-center rounded-lg text-[#554a70] opacity-0 transition-all hover:bg-white/5 hover:text-[#f8f0df] group-hover:opacity-100"
         >
@@ -591,7 +661,18 @@ function ActiveHuntRow({
   const gameName = getGameById(hunt.gameId)?.name ?? hunt.gameId;
 
   return (
-    <div className="group grid grid-cols-[44px_1fr_auto] items-center gap-3 px-4 py-3 transition-colors hover:bg-white/[0.02]">
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={() => onOpen(hunt.speciesId, hunt.formName)}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          onOpen(hunt.speciesId, hunt.formName);
+        }
+      }}
+      className="group grid cursor-pointer grid-cols-[44px_1fr_auto] items-center gap-3 px-4 py-3 transition-colors hover:bg-white/[0.04] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8fc5ff]"
+    >
       <button
         type="button"
         onClick={() => onOpen(hunt.speciesId, hunt.formName)}
@@ -626,15 +707,26 @@ function ActiveHuntRow({
       </div>
 
       <div className="flex shrink-0 flex-col items-end gap-0.5">
-        <span className="font-mono text-base font-black tabular-nums text-[#f8d85a]">
-          {hunt.count.toLocaleString()}
+        <span
+          className={`font-mono text-base font-black tabular-nums text-[#f8d85a] ${
+            hunt.count === null ? "hidden" : ""
+          }`}
+        >
+          {hunt.count?.toLocaleString()}
         </span>
-        <span className="text-[9px] font-semibold uppercase tracking-wider text-[#554a70]">
+        <span
+          className={`text-[9px] font-semibold uppercase tracking-wider text-[#554a70] ${
+            hunt.count === null ? "hidden" : ""
+          }`}
+        >
           {hunt.counterMode}
         </span>
         <button
           type="button"
-          onClick={() => onRemove(hunt.id)}
+          onClick={(event) => {
+            event.stopPropagation();
+            onRemove(hunt.id);
+          }}
           aria-label={`Delete ${name} hunt`}
           className="mt-1 grid h-6 w-6 place-items-center rounded-lg text-[#554a70] opacity-0 transition-all hover:bg-white/5 hover:text-[#f8f0df] group-hover:opacity-100"
         >
@@ -712,6 +804,13 @@ function groupByDay(entries: LogEntry[]): DayGroup[] {
     key,
     label: formatDayLabel(key),
     entries: items,
+    catches: items.filter((entry) => entry.kind === "catch").length,
+    shinies: items.filter(
+      (entry) =>
+        (entry.kind === "catch" && entry.row.isShiny) ||
+        entry.kind === "hunt",
+    ).length,
+    hunts: items.filter((entry) => entry.kind === "hunt").length,
   }));
 }
 

@@ -198,9 +198,9 @@ export function PokemonGrid({ onSelect, search, filtersOpen }: Props) {
     <div className="mx-auto max-w-7xl px-3 pb-8 sm:px-4">
       <div
         id="pokedex-filters"
-        className={`${filtersOpen ? "block" : "hidden"} -mx-3 mb-5 border-b border-[#252033] bg-[#111827]/95 px-3 py-3 backdrop-blur-sm sm:-mx-4 sm:block sm:px-4`}
+        className={`${filtersOpen ? "block" : "hidden"} mb-5 sm:block`}
       >
-        <div className="rounded-xl border border-[#2f2942] bg-[#151421] p-3 shadow-[0_14px_40px_rgba(0,0,0,0.18)] sm:p-4">
+        <div className="rounded-lg border border-[#302a43] bg-[#151421] p-3 shadow-[0_14px_40px_rgba(0,0,0,0.18)] sm:p-4">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
             <div className="min-w-0 flex-1">
               <div className="grid grid-cols-3 gap-2 sm:flex sm:flex-wrap sm:items-center">
@@ -286,7 +286,7 @@ export function PokemonGrid({ onSelect, search, filtersOpen }: Props) {
           </div>
 
           <div
-            className="mt-3 rounded-xl border border-[#252033] bg-[#0f1421] p-1"
+            className="mt-3 rounded-lg border border-[#302a43] bg-[#0d1220] p-1"
             aria-label="Generation filters"
           >
             <div className="flex gap-1 overflow-x-auto pb-0.5 sm:grid sm:grid-cols-10 sm:overflow-visible sm:pb-0">

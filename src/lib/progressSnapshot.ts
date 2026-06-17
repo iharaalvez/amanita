@@ -68,9 +68,10 @@ function isShinyHunt(value: unknown): boolean {
     typeof value.gameId === "string" &&
     typeof value.method === "string" &&
     typeof value.counterMode === "string" &&
-    typeof value.count === "number" &&
-    Number.isInteger(value.count) &&
-    value.count >= 0 &&
+    (value.count === null ||
+      (typeof value.count === "number" &&
+        Number.isInteger(value.count) &&
+        value.count >= 0)) &&
     typeof value.startedAt === "string" &&
     (value.completedAt === undefined || typeof value.completedAt === "string")
   );

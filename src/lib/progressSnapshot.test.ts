@@ -56,6 +56,21 @@ describe("progress snapshot validation", () => {
     assert.equal(isProgressSnapshot(validSnapshot), true);
   });
 
+  it("accepts uncounted shiny hunts", () => {
+    assert.equal(
+      isProgressSnapshot({
+        ...validSnapshot,
+        shinyHunts: [
+          {
+            ...validSnapshot.shinyHunts![0],
+            count: null,
+          },
+        ],
+      }),
+      true,
+    );
+  });
+
   it("rejects snapshots missing the gameDex field", () => {
     const bad = { ...validSnapshot };
     delete (bad as Partial<ProgressSnapshot>).gameDex;

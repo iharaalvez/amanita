@@ -6,7 +6,6 @@ import {
   getDisplayNameWithoutFormLabel,
   getFormLabel,
 } from "@/lib/forms";
-import { ownedKey, usePokedexStore } from "@/store/pokedexStore";
 import type { LivingDexEntry } from "@/types/pokemon";
 
 const REGION_TAG_CLASSES: Record<string, string> = {
@@ -24,10 +23,6 @@ type Props = {
 
 export function PokemonCard({ entry, onSelect }: Props) {
   const { speciesId, formName, displayName, spriteUrl } = entry;
-  const storeKey = ownedKey(speciesId, formName);
-  const record = usePokedexStore((s) => s.owned[storeKey]);
-  const owned = !!record?.owned;
-  const shinyOwned = !!record?.shiny_owned;
   const paddedNumber = `#${String(speciesId).padStart(4, "0")}`;
   const formLabel = formName ? getFormLabel(formName) : null;
   const cosmeticLabel =
@@ -35,13 +30,7 @@ export function PokemonCard({ entry, onSelect }: Props) {
   const formPill = formLabel || cosmeticLabel;
 
   return (
-    <div
-      className={`relative flex flex-col rounded-xl border transition-all ${
-        owned || shinyOwned
-          ? "border-green-200 bg-green-50/50 shadow-sm shadow-green-100 dark:border-green-900/70 dark:bg-green-950/20 dark:shadow-none"
-          : "border-transparent"
-      }`}
-    >
+    <div className="relative flex flex-col rounded-xl">
       <button
         onClick={() => onSelect(speciesId, formName)}
         title={displayName}
