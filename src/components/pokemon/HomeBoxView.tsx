@@ -732,7 +732,7 @@ export function HomeBoxView({ onSelect }: Props) {
                 </label>
                 <input
                   id="home-search"
-                  type="search"
+                  type="text"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder="Search..."

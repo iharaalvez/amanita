@@ -66,17 +66,38 @@ describe("Living Dex entry rules", () => {
   });
 
   it("excludes battle-only forms from HOME boxes even when forms are enabled", () => {
-    const mega = entry(6, "Charizard Mega X", "charizard-mega-x");
-    const primal = entry(383, "Groudon Primal", "groudon-primal");
-    const hangryMorpeko = entry(
-      877,
-      "Morpeko Hangry Mode",
-      "morpeko-hangry",
-    );
+    const battleOnlyForms = [
+      entry(6, "Charizard Mega X", "charizard-mega-x"),
+      entry(351, "Castform Sunny Form", "castform-sunny"),
+      entry(483, "Dialga Origin Forme", "dialga-origin"),
+      entry(487, "Giratina Origin Forme", "giratina-origin"),
+      entry(493, "Arceus Fire Type", "arceus-fire"),
+      entry(383, "Groudon Primal", "groudon-primal"),
+      entry(555, "Darmanitan Galarian Zen Mode", "darmanitan-galar-zen"),
+      entry(648, "Meloetta Pirouette Forme", "meloetta-pirouette"),
+      entry(649, "Genesect Douse Drive", "genesect-douse"),
+      entry(681, "Aegislash Blade Forme", "aegislash-blade"),
+      entry(716, "Xerneas Active Mode", "xerneas-active"),
+      entry(718, "Zygarde Complete Forme", "zygarde-complete"),
+      entry(746, "Wishiwashi School Form", "wishiwashi-school"),
+      entry(773, "Silvally Fire Type", "silvally-fire"),
+      entry(774, "Minior Meteor Form", "minior-meteor"),
+      entry(778, "Mimikyu Busted Form", "mimikyu-busted"),
+      entry(800, "Necrozma Dusk Mane", "necrozma-dusk"),
+      entry(845, "Cramorant Gulping Form", "cramorant-gulping"),
+      entry(875, "Eiscue Noice Face", "eiscue-noice"),
+      entry(877, "Morpeko Hangry Mode", "morpeko-hangry"),
+      entry(888, "Zacian Crowned Sword", "zacian-crowned"),
+      entry(889, "Zamazenta Crowned Shield", "zamazenta-crowned"),
+      entry(898, "Calyrex Ice Rider", "calyrex-ice"),
+      entry(964, "Palafin Hero Form", "palafin-hero"),
+      entry(1017, "Ogerpon Wellspring Mask", "ogerpon-wellspring-mask"),
+      entry(1024, "Terapagos Stellar Form", "terapagos-stellar"),
+    ];
 
-    assert.equal(isHomeTrackedEntry(mega, true, true), false);
-    assert.equal(isHomeTrackedEntry(primal, true, true), false);
-    assert.equal(isHomeTrackedEntry(hangryMorpeko, true, true), false);
+    for (const form of battleOnlyForms) {
+      assert.equal(isHomeTrackedEntry(form, true, true), false);
+    }
   });
 
   it("tracks Gigantamax forms only when the G-Max option is enabled", () => {

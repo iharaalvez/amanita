@@ -272,7 +272,7 @@ export function GameHomeBoxView({ gameId, gameName, onSelect }: Props) {
           </label>
           <input
             id="game-home-box-search"
-            type="search"
+            type="text"
             value={search}
             onChange={(event) => setSearch(event.target.value)}
             placeholder="Search boxes..."
