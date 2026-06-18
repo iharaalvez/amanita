@@ -68,9 +68,15 @@ describe("Living Dex entry rules", () => {
   it("excludes battle-only forms from HOME boxes even when forms are enabled", () => {
     const mega = entry(6, "Charizard Mega X", "charizard-mega-x");
     const primal = entry(383, "Groudon Primal", "groudon-primal");
+    const hangryMorpeko = entry(
+      877,
+      "Morpeko Hangry Mode",
+      "morpeko-hangry",
+    );
 
     assert.equal(isHomeTrackedEntry(mega, true, true), false);
     assert.equal(isHomeTrackedEntry(primal, true, true), false);
+    assert.equal(isHomeTrackedEntry(hangryMorpeko, true, true), false);
   });
 
   it("tracks Gigantamax forms only when the G-Max option is enabled", () => {

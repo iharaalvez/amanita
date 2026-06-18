@@ -30,6 +30,10 @@ import {
 } from "@/lib/livingDex";
 import { ownedKey, usePokedexStore } from "@/store/pokedexStore";
 import type {
+  OrderingAssistDetection,
+  OrderingAssistStoredEvent,
+} from "@/lib/orderingAssist";
+import type {
   GameHomeBoxFormRule,
   GameHomeBoxEntry,
   HomeBoxLayoutProfile,
@@ -73,6 +77,16 @@ type SearchResult = {
   owned: boolean;
 };
 
+type AssistMatch = SearchResult & {
+  key: string;
+};
+
+type AssistGender = "male" | "female";
+
+type OrderingAssistPollResponse = {
+  events: OrderingAssistStoredEvent[];
+};
+
 type BoxStat = {
   total: number;
   owned: number;
@@ -107,6 +121,10 @@ function slotNumberLabel(slot: SlotData): string {
     return `#${String(slot.entryNumber).padStart(3, "0")}`;
   }
   return dexNumber(slot.entry.speciesId);
+}
+
+function slotRangeNumber(slot: SlotData): number {
+  return slot.entryNumber ?? slot.entry.speciesId;
 }
 
 function buildSlotBoxes(slots: SlotData[]): (SlotData | null)[][] {
@@ -152,6 +170,85 @@ function compactSlotName(entry: LivingDexEntry): string {
   return isFemaleForm(entry)
     ? entry.displayName.replace(/\s+Female$/, "")
     : entry.displayName;
+}
+
+function normalizeAssistText(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/♀/g, " female")
+    .replace(/♂/g, " male")
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function slotMatchesAssistName(slot: SlotData, name: string): boolean {
+  const target = normalizeAssistText(name);
+  if (!target) return false;
+
+  const displayName = normalizeAssistText(slot.entry.displayName);
+  const compactName = normalizeAssistText(compactSlotName(slot.entry));
+  return (
+    displayName === target ||
+    compactName === target ||
+    displayName.startsWith(`${target} `) ||
+    compactName.startsWith(`${target} `)
+  );
+}
+
+function levenshteinDistance(a: string, b: string): number {
+  if (a === b) return 0;
+  if (a.length === 0) return b.length;
+  if (b.length === 0) return a.length;
+
+  const previous = Array.from({ length: b.length + 1 }, (_, index) => index);
+  const current = Array.from({ length: b.length + 1 }, () => 0);
+
+  for (let i = 1; i <= a.length; i += 1) {
+    current[0] = i;
+    for (let j = 1; j <= b.length; j += 1) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      current[j] = Math.min(
+        current[j - 1] + 1,
+        previous[j] + 1,
+        previous[j - 1] + cost,
+      );
+    }
+    previous.splice(0, previous.length, ...current);
+  }
+
+  return previous[b.length];
+}
+
+function fuzzyNameDistance(slot: SlotData, name: string): number {
+  const target = normalizeAssistText(name);
+  if (!target) return Number.POSITIVE_INFINITY;
+  const names = [
+    normalizeAssistText(slot.entry.displayName),
+    normalizeAssistText(compactSlotName(slot.entry)),
+  ];
+  return Math.min(
+    ...names.map((candidate) => levenshteinDistance(candidate, target)),
+  );
+}
+
+function fuzzyNameLimit(name: string): number {
+  const length = normalizeAssistText(name).length;
+  if (length >= 9) return 3;
+  if (length >= 6) return 2;
+  return 1;
+}
+
+function filterAssistMatchesByGender<T extends { slot: SlotData }>(
+  matches: T[],
+  gender: AssistGender | null,
+): T[] {
+  if (!gender) return matches;
+  const hasFemaleVariant = matches.some(({ slot }) => isFemaleForm(slot.entry));
+  if (!hasFemaleVariant) return matches;
+  return matches.filter(({ slot }) =>
+    gender === "female" ? isFemaleForm(slot.entry) : !isFemaleForm(slot.entry),
+  );
 }
 
 function TemplateSlot({
@@ -235,7 +332,7 @@ function TemplateSlot({
               ? " owned"
               : " missing"
       }`}
-      className={`group relative grid min-h-0 grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden rounded border px-1.5 py-1 text-left transition ${
+      className={`group relative min-h-0 overflow-hidden rounded border text-left transition ${
         isSearchFocus
           ? "border-[#f7c948] bg-[#211a08] shadow-[0_0_18px_rgba(247,201,72,0.25)]"
           : highlighted
@@ -248,7 +345,7 @@ function TemplateSlot({
       }`}
     >
       <span
-        className={`absolute right-1 top-1 h-1.5 w-1.5 rounded-full ${
+        className={`absolute right-1 top-1 z-20 h-1.5 w-1.5 rounded-full ${
           shinyUnavailable
             ? "bg-[#53607c]"
             : owned
@@ -257,7 +354,7 @@ function TemplateSlot({
         }`}
       />
 
-      <div className="flex min-w-0 items-center justify-between gap-1 pr-2 font-mono text-[9px] leading-none">
+      <div className="absolute left-1 right-1 top-1 z-10 flex min-w-0 items-center justify-between gap-1 pr-2 font-mono text-[8px] leading-none">
         <span
           className={`truncate ${owned ? "text-[#8fe388]" : "text-[#75809c]"}`}
         >
@@ -268,16 +365,16 @@ function TemplateSlot({
         </span>
       </div>
 
-      <div className="relative flex min-h-0 items-center justify-center py-0.5">
+      <div className="absolute inset-x-0 bottom-4 top-2.5 flex items-center justify-center px-0.5">
         {isSearchFocus && (
-          <span className="absolute left-0 top-1 rounded bg-[#f7c948] px-1 font-mono text-[8px] font-black text-[#170f02]">
+          <span className="absolute left-1 top-1 z-20 rounded bg-[#f7c948] px-1 font-mono text-[7px] font-black text-[#170f02]">
             FIND
           </span>
         )}
-        <div className="absolute left-0 top-0 flex gap-0.5">
+        <div className="absolute left-1 top-2.5 z-20 flex gap-0.5">
           {slot.isShiny && (
             <span
-              className={`grid h-4 w-4 place-items-center rounded text-[10px] leading-none ${
+              className={`grid h-3.5 w-3.5 place-items-center rounded text-[9px] leading-none ${
                 shinyUnavailable
                   ? "bg-[#151927] text-[#53607c]"
                   : "bg-[#2a2108] text-[#f7c948]"
@@ -289,7 +386,7 @@ function TemplateSlot({
           )}
           {female && (
             <span
-              className="grid h-4 w-4 place-items-center rounded bg-[#241326] text-[11px] leading-none text-[#ff9ee8]"
+              className="grid h-3.5 w-3.5 place-items-center rounded bg-[#241326] text-[10px] leading-none text-[#ff9ee8]"
               title="Female form"
             >
               ♀
@@ -300,18 +397,18 @@ function TemplateSlot({
         <img
           src={sprite}
           alt={slot.entry.displayName}
-          className={`h-full max-h-[56px] w-full object-contain transition ${
+          className={`h-full max-h-[72px] w-full object-contain transition ${
             owned
               ? "drop-shadow-[0_8px_12px_rgba(0,0,0,0.35)]"
               : shinyUnavailable
                 ? "grayscale opacity-20"
                 : "grayscale opacity-35"
-          } ${isSearchFocus ? "scale-110" : "group-hover:scale-105"}`}
+          } ${isSearchFocus ? "scale-125" : "scale-110 group-hover:scale-125"}`}
           loading="lazy"
         />
       </div>
 
-      <div className="min-w-0 truncate text-center text-[11px] font-semibold leading-tight text-[#f3f0ff]">
+      <div className="absolute inset-x-1 bottom-1 z-10 truncate text-center text-[10px] font-black leading-none text-[#f3f0ff] drop-shadow-[0_1px_2px_rgba(0,0,0,0.85)]">
         {compactName}
       </div>
     </button>
@@ -416,9 +513,24 @@ export default function HomeOrganizerStream() {
   const [layoutSyncMessage, setLayoutSyncMessage] = useState<string | null>(
     null,
   );
+  const [assistDetection, setAssistDetection] =
+    useState<OrderingAssistDetection | null>(null);
+  const [assistPaused, setAssistPaused] = useState(false);
+  const [assistTargetName, setAssistTargetName] = useState("");
+  const [assistTargetIsShiny, setAssistTargetIsShiny] = useState<
+    boolean | null
+  >(null);
+  const [assistTargetGender, setAssistTargetGender] =
+    useState<AssistGender | null>(null);
+  const [assistSelectedKey, setAssistSelectedKey] = useState("");
+  const [assistMessage, setAssistMessage] = useState("Waiting for assist.");
+  const [assistResolving, setAssistResolving] = useState(false);
+  const [assistLastSeenAt, setAssistLastSeenAt] = useState<string | null>(null);
   const [, forceUpdate] = useState(0);
   const activeItemRef = useRef<HTMLButtonElement>(null);
   const boxScrollerRef = useRef<HTMLDivElement>(null);
+  const assistLastEventIdRef = useRef(0);
+  const assistClearTimerRef = useRef<number | null>(null);
 
   const storeOwned = usePokedexStore((s) => s.owned);
   const gameHomeBoxes = usePokedexStore((s) => s.gameHomeBoxes);
@@ -428,6 +540,9 @@ export default function HomeOrganizerStream() {
   const setActiveHomeBoxLayout = usePokedexStore(
     (s) => s.setActiveHomeBoxLayout,
   );
+  const markOwned = usePokedexStore((s) => s.markOwned);
+  const markShinyOwned = usePokedexStore((s) => s.markShinyOwned);
+  const markInGameHomeBox = usePokedexStore((s) => s.markInGameHomeBox);
 
   const { data: allEntries, isLoading } = useLivingDexEntries();
   const gameBoxQuery = useGameHomeBoxDex(selectedGameId);
@@ -672,6 +787,9 @@ export default function HomeOrganizerStream() {
   const ownedInBox = trackableInBox.length - missingInBox.length;
   const boxPct =
     trackableInBox.length > 0 ? (ownedInBox / trackableInBox.length) * 100 : 0;
+  const boxRangeLabel = currentSlots.length
+    ? `${slotRangeNumber(currentSlots[0])} to ${slotRangeNumber(currentSlots[currentSlots.length - 1])}`
+    : "empty";
 
   const totalOwned = useMemo(
     () => allSlots.filter(getSlotOwned).length,
@@ -692,7 +810,63 @@ export default function HomeOrganizerStream() {
     [boxes],
   );
 
-  const highlightedKeys = useMemo(() => {
+  const assistMatches = useMemo<AssistMatch[]>(() => {
+    if (!assistTargetName) return [];
+    const shinyMatches = allPositionedSlots.filter(({ slot }) => {
+      if (assistTargetIsShiny === null) return true;
+      return slot.isShiny === assistTargetIsShiny;
+    });
+    const exactMatches = shinyMatches.filter(({ slot }) =>
+      slotMatchesAssistName(slot, assistTargetName),
+    );
+    const baseMatches =
+      exactMatches.length > 0
+        ? exactMatches
+        : (() => {
+            const scored = shinyMatches.map((match) => ({
+              ...match,
+              distance: fuzzyNameDistance(match.slot, assistTargetName),
+            }));
+            const best = Math.min(...scored.map((match) => match.distance));
+            if (best > fuzzyNameLimit(assistTargetName)) return [];
+            return scored.filter((match) => match.distance === best);
+          })();
+    return filterAssistMatchesByGender(baseMatches, assistTargetGender)
+      .map(({ slot, boxIndex, slotIndex }) => ({
+        slot,
+        boxIndex,
+        slotIndex,
+        key: slotKey(slot),
+        owned: getSlotOwned(slot),
+      }));
+  }, [
+    allPositionedSlots,
+    assistTargetGender,
+    assistTargetIsShiny,
+    assistTargetName,
+    getSlotOwned,
+  ]);
+
+  const assistHighlightedKeys = useMemo(
+    () => new Set(assistMatches.map((match) => match.key)),
+    [assistMatches],
+  );
+  const selectedAssistMatch =
+    assistMatches.find((match) => match.key === assistSelectedKey) ??
+    assistMatches[0] ??
+    null;
+  const shouldShowAssistCandidates = assistMatches.length > 2;
+  const assistStatusLabel = assistTargetName
+    ? selectedAssistMatch?.owned
+      ? "Marked"
+      : "Confirmed"
+    : assistResolving
+      ? "Resolving"
+      : assistDetection
+      ? "Detected"
+      : "Idle";
+
+  const searchHighlightedKeys = useMemo(() => {
     if (!searchNorm) return new Set<string>();
     return new Set(
       allPositionedSlots
@@ -712,10 +886,15 @@ export default function HomeOrganizerStream() {
     );
   }, [allPositionedSlots, searchNorm]);
 
+  const highlightedKeys = useMemo(
+    () => new Set([...searchHighlightedKeys, ...assistHighlightedKeys]),
+    [assistHighlightedKeys, searchHighlightedKeys],
+  );
+
   const searchResults = useMemo<SearchResult[]>(() => {
     if (!searchNorm) return [];
     return allPositionedSlots
-      .filter(({ slot }) => highlightedKeys.has(slotKey(slot)))
+      .filter(({ slot }) => searchHighlightedKeys.has(slotKey(slot)))
       .slice(0, 8)
       .map(({ slot, boxIndex, slotIndex }) => ({
         slot,
@@ -723,7 +902,7 @@ export default function HomeOrganizerStream() {
         slotIndex,
         owned: getSlotOwned(slot),
       }));
-  }, [allPositionedSlots, getSlotOwned, highlightedKeys, searchNorm]);
+  }, [allPositionedSlots, getSlotOwned, searchHighlightedKeys, searchNorm]);
 
   const boxHasMatch = useMemo(
     () =>
@@ -749,6 +928,270 @@ export default function HomeOrganizerStream() {
     });
     if (firstMatch) setBoxIndex(firstMatch.boxIndex);
   };
+
+  const resolveAssistMatches = useCallback(
+    (
+      name: string,
+      isShiny: boolean | null,
+      gender: AssistGender | null,
+    ): AssistMatch[] => {
+      const shinyMatches = allPositionedSlots.filter(({ slot }) => {
+        if (isShiny === null) return true;
+        return slot.isShiny === isShiny;
+      });
+      const exactMatches = shinyMatches.filter(({ slot }) =>
+        slotMatchesAssistName(slot, name),
+      );
+      const baseMatches =
+        exactMatches.length > 0
+          ? exactMatches
+          : (() => {
+              const scored = shinyMatches.map((match) => ({
+                ...match,
+                distance: fuzzyNameDistance(match.slot, name),
+              }));
+              const best = Math.min(...scored.map((match) => match.distance));
+              if (best > fuzzyNameLimit(name)) return [];
+              return scored.filter((match) => match.distance === best);
+            })();
+      return filterAssistMatchesByGender(baseMatches, gender)
+        .map(({ slot, boxIndex, slotIndex }) => ({
+          slot,
+          boxIndex,
+          slotIndex,
+          key: slotKey(slot),
+          owned: getSlotOwned(slot),
+        }));
+    },
+    [allPositionedSlots, getSlotOwned],
+  );
+
+  const chooseAssistMatch = useCallback((matches: AssistMatch[]) => {
+    return matches.find((match) => !match.owned) ?? matches[0] ?? null;
+  }, []);
+
+  const confirmAssistName = useCallback(
+    (
+      name: string,
+      isShiny: boolean | null,
+      gender: AssistGender | null,
+    ) => {
+      if (assistClearTimerRef.current !== null) {
+        window.clearTimeout(assistClearTimerRef.current);
+        assistClearTimerRef.current = null;
+      }
+      const matches = resolveAssistMatches(name, isShiny, gender);
+      setAssistTargetIsShiny(isShiny);
+      setAssistTargetGender(gender);
+
+      const selected = chooseAssistMatch(matches);
+      if (!selected) {
+        setAssistTargetName(name);
+        setAssistSelectedKey("");
+        setAssistMessage(`No destination found for ${name}.`);
+        return;
+      }
+
+      const canonicalName = compactSlotName(selected.slot.entry);
+      setAssistTargetName(canonicalName);
+      setAssistSelectedKey(selected.key);
+      setBoxIndex(selected.boxIndex);
+      setAssistMessage(
+        matches.length === 1
+          ? `${canonicalName} -> Box ${selected.boxIndex + 1}, Slot ${selected.slotIndex + 1}.`
+          : `${canonicalName} has ${matches.length} possible slots.`,
+      );
+    },
+    [chooseAssistMatch, resolveAssistMatches],
+  );
+
+  const markAssistSlot = useCallback(
+    (match: AssistMatch): boolean => {
+      const { slot } = match;
+      if (!isSlotTrackable(slot)) return false;
+
+      if (slot.source === "game") {
+        if (!slot.gameId) return false;
+        markInGameHomeBox(slot.entry.speciesId, slot.gameId, slot.entry.formName);
+        return true;
+      }
+
+      if (slot.isShiny) {
+        if (!slot.shinyAvailable) return false;
+        markShinyOwned(slot.entry.speciesId, slot.entry.formName);
+        return true;
+      }
+
+      markOwned(slot.entry.speciesId, slot.entry.formName);
+      return true;
+    },
+    [markInGameHomeBox, markOwned, markShinyOwned],
+  );
+
+  const markSelectedAssistTarget = useCallback(
+    (fallbackDetection?: OrderingAssistDetection | null) => {
+      const fallbackName = fallbackDetection?.name ?? assistTargetName;
+      const fallbackIsShiny =
+        fallbackDetection?.isShiny !== undefined
+          ? (fallbackDetection.isShiny ?? null)
+          : assistTargetIsShiny;
+      const fallbackGender =
+        fallbackDetection?.gender !== undefined
+          ? (fallbackDetection.gender ?? null)
+          : assistTargetGender;
+      const matches =
+        assistMatches.length > 0
+          ? assistMatches
+          : fallbackName
+            ? resolveAssistMatches(fallbackName, fallbackIsShiny, fallbackGender)
+            : [];
+      const selected =
+        matches.find((match) => match.key === assistSelectedKey) ??
+        chooseAssistMatch(matches);
+
+      if (!selected) {
+        setAssistMessage("No confirmed assist target to mark.");
+        return;
+      }
+
+      const marked = markAssistSlot(selected);
+      setAssistSelectedKey(selected.key);
+      setBoxIndex(selected.boxIndex);
+      setAssistMessage(
+        marked
+          ? `Marked ${compactSlotName(selected.slot.entry)} in Box ${selected.boxIndex + 1}, Slot ${selected.slotIndex + 1}.`
+          : `${compactSlotName(selected.slot.entry)} cannot be marked from this slot.`,
+      );
+      if (marked) {
+        if (assistClearTimerRef.current !== null) {
+          window.clearTimeout(assistClearTimerRef.current);
+        }
+        assistClearTimerRef.current = window.setTimeout(() => {
+          setAssistTargetName("");
+          setAssistTargetIsShiny(null);
+          setAssistTargetGender(null);
+          setAssistSelectedKey("");
+          setAssistResolving(false);
+          assistClearTimerRef.current = null;
+        }, 1100);
+      }
+    },
+    [
+      assistMatches,
+      assistSelectedKey,
+      assistTargetGender,
+      assistTargetIsShiny,
+      assistTargetName,
+      chooseAssistMatch,
+      markAssistSlot,
+      resolveAssistMatches,
+    ],
+  );
+
+  const processAssistEvent = useCallback(
+    (event: OrderingAssistStoredEvent) => {
+      setAssistLastSeenAt(event.createdAt);
+
+      if (event.type === "detected" && event.detection) {
+        setAssistDetection(event.detection);
+        setAssistResolving(true);
+        setAssistMessage("Resolving detected Pokemon.");
+        return;
+      }
+
+      if (event.type === "confirm-current") {
+        const name = event.detection?.name ?? assistDetection?.name;
+        const isShiny =
+          event.detection?.isShiny !== undefined
+            ? (event.detection.isShiny ?? null)
+            : (assistDetection?.isShiny ?? null);
+        const gender =
+          event.detection?.gender !== undefined
+            ? (event.detection.gender ?? null)
+            : (assistDetection?.gender ?? null);
+        if (!name) {
+          setAssistMessage("Nothing detected to confirm.");
+          return;
+        }
+        setAssistDetection(event.detection ?? assistDetection);
+        setAssistResolving(false);
+        confirmAssistName(name, isShiny, gender);
+        return;
+      }
+
+      if (event.type === "mark-ordered") {
+        setAssistResolving(false);
+        markSelectedAssistTarget(event.detection);
+        return;
+      }
+
+      if (event.type === "clear") {
+        if (assistClearTimerRef.current !== null) {
+          window.clearTimeout(assistClearTimerRef.current);
+          assistClearTimerRef.current = null;
+        }
+        setAssistTargetName("");
+        setAssistTargetIsShiny(null);
+        setAssistTargetGender(null);
+        setAssistSelectedKey("");
+        setAssistResolving(false);
+        setAssistMessage("Assist target cleared.");
+        return;
+      }
+
+      if (event.type === "pause-changed") {
+        setAssistPaused(event.paused === true);
+        setAssistMessage(event.paused ? "Detector paused." : "Detector resumed.");
+      }
+    },
+    [
+      assistDetection,
+      confirmAssistName,
+      markSelectedAssistTarget,
+    ],
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function pollAssistEvents() {
+      try {
+        const response = await fetch(
+          `/api/ordering-assist?after=${assistLastEventIdRef.current}`,
+          { cache: "no-store" },
+        );
+        if (!response.ok) return;
+        const payload = (await response.json()) as OrderingAssistPollResponse;
+        if (cancelled) return;
+        for (const event of payload.events) {
+          assistLastEventIdRef.current = Math.max(
+            assistLastEventIdRef.current,
+            event.id,
+          );
+          processAssistEvent(event);
+        }
+      } catch {
+        if (!cancelled) setAssistMessage("Assist receiver unavailable.");
+      }
+    }
+
+    void pollAssistEvents();
+    const id = window.setInterval(() => {
+      void pollAssistEvents();
+    }, 350);
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+    };
+  }, [processAssistEvent]);
+
+  useEffect(() => {
+    return () => {
+      if (assistClearTimerRef.current !== null) {
+        window.clearTimeout(assistClearTimerRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     activeItemRef.current?.scrollIntoView({
@@ -946,42 +1389,35 @@ export default function HomeOrganizerStream() {
             </div>
           </section>
 
-          <aside className="grid min-h-0 grid-rows-[auto_auto_minmax(0,1fr)_88px] gap-1.5">
-            <section className="rounded-lg border border-[#2f2750] bg-[#090c18]/94 p-3 shadow-[0_18px_45px_rgba(0,0,0,0.35)]">
-              <div className="flex items-start justify-between gap-4">
-                <div className="min-w-0">
-                  <p className="font-mono text-[12px] font-black uppercase tracking-[0.18em] text-[#8fe388]">
-                    Current Box
-                  </p>
-                  <div className="mt-1.5 flex items-center gap-3">
-                    <span className="grid h-9 w-9 place-items-center rounded border border-[#1d7aa2] bg-[#071627] text-[#67d9ff]">
-                      <Sprout className="h-5 w-5" />
-                    </span>
-                    <div className="min-w-0">
-                      <h1 className="font-mono text-4xl font-black leading-none text-[#d7c8ff]">
-                        BOX {safeIndex + 1}
-                      </h1>
-                      <p className="mt-1 truncate text-sm text-[#9ca8c4]">
-                        {sourceName}
-                      </p>
-                      <p className="mt-0.5 truncate font-mono text-[10px] uppercase tracking-[0.12em] text-[#687696]">
-                        {sourceMeta}
-                      </p>
-                    </div>
+          <aside className="grid min-h-0 grid-rows-[auto_auto_auto_minmax(0,1fr)_88px] gap-1.5">
+            <section className="rounded-lg border border-[#2f2750] bg-[#090c18]/94 px-3 py-2 shadow-[0_18px_45px_rgba(0,0,0,0.35)]">
+              <div className="grid grid-cols-[minmax(0,1fr)_118px] items-center gap-3">
+                <div className="flex min-w-0 items-center gap-2.5">
+                  <span className="grid h-8 w-8 shrink-0 place-items-center rounded border border-[#1d7aa2] bg-[#071627] text-[#67d9ff]">
+                    <Sprout className="h-4 w-4" />
+                  </span>
+                  <div className="min-w-0">
+                    <h1 className="truncate font-mono text-xl font-black leading-tight text-[#d7c8ff]">
+                      Box {safeIndex + 1} - {boxRangeLabel}
+                    </h1>
+                    <p className="truncate font-mono text-[10px] uppercase tracking-[0.12em] text-[#687696]">
+                      {sourceName} / {sourceMeta}
+                    </p>
                   </div>
                 </div>
-                <div className="w-32 rounded border border-[#27304c] bg-[#060915] p-2.5">
-                  <p className="font-mono text-[10px] font-black uppercase tracking-[0.18em] text-[#8fe388]">
-                    Progress
-                  </p>
-                  <p className="mt-1 font-mono text-2xl font-black">
-                    {ownedInBox}
-                    <span className="text-base font-normal text-[#7d89a8]">
-                      {" "}
-                      / {trackableInBox.length}
-                    </span>
-                  </p>
-                  <div className="mt-2 h-2 overflow-hidden rounded bg-[#27304c]">
+                <div className="min-w-0 rounded border border-[#27304c] bg-[#060915] px-2 py-1.5">
+                  <div className="flex items-baseline justify-between gap-2">
+                    <p className="font-mono text-[9px] font-black uppercase tracking-[0.14em] text-[#8fe388]">
+                      Progress
+                    </p>
+                    <p className="font-mono text-sm font-black">
+                      {ownedInBox}
+                      <span className="text-[11px] font-normal text-[#7d89a8]">
+                        /{trackableInBox.length}
+                      </span>
+                    </p>
+                  </div>
+                  <div className="mt-1 h-1.5 overflow-hidden rounded bg-[#27304c]">
                     <div
                       className="h-full rounded bg-[#8fe388] transition-all duration-500"
                       style={{ width: `${boxPct}%` }}
@@ -995,7 +1431,7 @@ export default function HomeOrganizerStream() {
               <SearchBox
                 query={searchQuery}
                 onQueryChange={updateSearchQuery}
-                matchCount={highlightedKeys.size}
+                matchCount={searchHighlightedKeys.size}
               />
               <div className="mt-2 grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2">
                 <span className="font-mono text-[10px] font-black uppercase tracking-[0.16em] text-[#687696]">
@@ -1120,13 +1556,169 @@ export default function HomeOrganizerStream() {
               )}
             </section>
 
+            <section className="rounded-lg border border-[#2f2750] bg-[#090c18]/94 p-2.5">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex min-w-0 items-center gap-2">
+                  <span
+                    className={`h-2 w-2 shrink-0 rounded-full ${
+                      assistLastSeenAt
+                        ? assistPaused
+                          ? "bg-[#f7c948]"
+                          : "bg-[#8fe388]"
+                        : "bg-[#53607c]"
+                    }`}
+                  />
+                  <p className="font-mono text-[11px] font-black uppercase tracking-[0.18em] text-[#8fe388]">
+                    Ordering Assist
+                  </p>
+                </div>
+                <div className="flex shrink-0 items-center gap-2">
+                  <span className="font-mono text-[9px] uppercase tracking-[0.14em] text-[#687696]">
+                    {assistPaused
+                      ? "Paused"
+                      : assistLastSeenAt
+                        ? "Connected"
+                        : "Waiting"}
+                  </span>
+                  <span className="rounded border border-[#27304c] bg-[#060915] px-1.5 py-0.5 font-mono text-[9px] font-black uppercase tracking-[0.12em] text-[#f7c948]">
+                    {assistStatusLabel}
+                  </span>
+                </div>
+              </div>
+
+              <div className="mt-2 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded border border-[#27304c] bg-[#060915] px-2 py-1.5">
+                <div className="min-w-0">
+                  <p className="font-mono text-[9px] uppercase tracking-[0.16em] text-[#687696]">
+                    {assistTargetName ? "Target" : "Detected"}
+                  </p>
+                  <div className="mt-0.5 flex min-w-0 items-center gap-1.5">
+                    {selectedAssistMatch ? (
+                      <MiniSprite
+                        slot={selectedAssistMatch.slot}
+                        muted={selectedAssistMatch.owned}
+                      />
+                    ) : null}
+                    {assistResolving && !assistTargetName && (
+                      <div className="flex items-center gap-1.5 text-sm font-black text-[#8ca0c9]">
+                        <span>Resolving</span>
+                        <span className="flex gap-0.5">
+                          <span className="h-1 w-1 animate-bounce rounded-full bg-[#8ca0c9] [animation-delay:-0.2s]" />
+                          <span className="h-1 w-1 animate-bounce rounded-full bg-[#8ca0c9] [animation-delay:-0.1s]" />
+                          <span className="h-1 w-1 animate-bounce rounded-full bg-[#8ca0c9]" />
+                        </span>
+                      </div>
+                    )}
+                    <p
+                      className={`truncate text-sm font-black ${
+                        assistResolving && !assistTargetName
+                          ? "hidden"
+                          : assistTargetName
+                            ? "text-[#f7c948]"
+                            : "text-[#f4f1ff]"
+                      }`}
+                    >
+                      {assistTargetName ||
+                        assistDetection?.name ||
+                        "No signal"}
+                      {(selectedAssistMatch?.slot.isShiny ||
+                        (!assistTargetName && assistDetection?.isShiny)) && (
+                        <span className="ml-1 text-[#f7c948]">★</span>
+                      )}
+                      {selectedAssistMatch &&
+                        isFemaleForm(selectedAssistMatch.slot.entry) && (
+                          <span className="ml-1 text-[#ff9ee8]">♀</span>
+                        )}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex shrink-0 items-center gap-1.5">
+                  {selectedAssistMatch && (
+                    <span className="font-mono text-[10px] font-black text-[#f7c948]">
+                      B{selectedAssistMatch.boxIndex + 1} S
+                      {selectedAssistMatch.slotIndex + 1}
+                    </span>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => markSelectedAssistTarget(null)}
+                    disabled={!selectedAssistMatch}
+                    className="grid h-7 w-7 place-items-center rounded border border-[#27304c] bg-[#07140f] text-[#8fe388] transition hover:border-[#8fe388] disabled:opacity-35"
+                    title="Mark ordered"
+                  >
+                    <CheckCircle2 className="h-3.5 w-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      processAssistEvent({
+                        id: -1,
+                        type: "clear",
+                        createdAt: new Date().toISOString(),
+                      })
+                    }
+                    disabled={!assistTargetName}
+                    className="grid h-7 w-7 place-items-center rounded border border-[#27304c] bg-[#120914] text-[#ff8f8f] transition hover:border-[#ff8f8f] disabled:opacity-35"
+                    title="Clear assist target"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              </div>
+
+              <p className="mt-2 truncate font-mono text-[10px] text-[#8ca0c9]">
+                {assistMessage}
+              </p>
+
+              {shouldShowAssistCandidates && (
+                <div className="mt-2 grid gap-1">
+                  {assistMatches.slice(0, 4).map((match) => {
+                    const selected = match.key === assistSelectedKey;
+                    return (
+                      <button
+                        key={`${match.key}-${match.boxIndex}-${match.slotIndex}`}
+                        type="button"
+                        onClick={() => {
+                          setAssistSelectedKey(match.key);
+                          setBoxIndex(match.boxIndex);
+                        }}
+                        className={`grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded border px-2 py-1 text-left transition ${
+                          selected
+                            ? "border-[#f7c948] bg-[#1a1405]"
+                            : "border-[#27304c] bg-[#060915] hover:border-[#9f7aea]"
+                        }`}
+                      >
+                        <MiniSprite slot={match.slot} muted={match.owned} />
+                        <span className="truncate text-[11px] font-black text-[#f4f1ff]">
+                          {compactSlotName(match.slot.entry)}
+                          {match.slot.isShiny && (
+                            <span className="ml-1 text-[#f7c948]">★</span>
+                          )}
+                          {isFemaleForm(match.slot.entry) && (
+                            <span className="ml-1 text-[#ff9ee8]">♀</span>
+                          )}
+                        </span>
+                        <span className="font-mono text-[10px] font-black text-[#f7c948]">
+                          B{match.boxIndex + 1} S{match.slotIndex + 1}
+                        </span>
+                      </button>
+                    );
+                  })}
+                  {assistMatches.length > 4 && (
+                    <p className="font-mono text-[9px] text-[#687696]">
+                      +{assistMatches.length - 4} more candidates
+                    </p>
+                  )}
+                </div>
+              )}
+            </section>
+
             <Panel
               title="Box Template"
               icon={<ListChecks className="h-4 w-4 text-[#8fe388]" />}
               compact
             >
               <div
-                className="grid h-[calc(100%-32px)] gap-0.5 p-2"
+                className="grid h-[calc(100%-32px)] gap-px p-1.5"
                 style={{
                   gridTemplateColumns: `repeat(${COLS}, minmax(0, 1fr))`,
                   gridTemplateRows: `repeat(${ROWS}, minmax(0, 1fr))`,

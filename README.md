@@ -10,6 +10,7 @@ Amanita is a Living Pokedex tracker for Pokemon collectors. It helps you track o
 - Shiny Living Dex tracking and shiny hunt counters
 - Per-game National Dex views for Shiny Charm progress
 - Game-origin HOME box tracking, separate from in-game dex registration
+- Box Guide Mode ordering assist bridge for local OCR/mouse-button workflows
 - Recent catches, pinned games, and available-game preferences
 - Supabase auth and cloud sync with localStorage persistence
 - JSON export/import for backups
@@ -58,6 +59,17 @@ npm run dev
 ```
 
 Open `http://localhost:3000`.
+
+## Ordering Assist Bridge
+
+Box Guide Mode exposes a local-only HTTP bridge at
+`/api/ordering-assist`. A companion desktop tool can post detected Pokemon
+names and deliberate confirm/mark/clear events to that route; Amanita remains
+the source of truth for box layouts, target slots, and ordered progress.
+
+The intended flow is to run Amanita locally, open Box Guide Mode, then run the
+desktop assistant separately. The bridge stores only short-lived in-memory
+events, so restarting the Next.js dev server clears pending assist events.
 
 ## Scripts
 

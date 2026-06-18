@@ -539,6 +539,12 @@ const RAW_HOME_BATTLE_FORMS: CosmeticFormConfig[] = [
     label: "G-Max",
   },
   {
+    speciesId: 877,
+    apiName: "morpeko-hangry",
+    displayName: "Morpeko Hangry Mode",
+    label: "Hangry Mode",
+  },
+  {
     speciesId: 678,
     apiName: "meowstic-mega",
     displayName: "Meowstic Mega",
