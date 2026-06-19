@@ -1,6 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import Image from "next/image";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -582,7 +589,10 @@ export default function HomeOrganizerStream() {
   const [assistSelectedKey, setAssistSelectedKey] = useState("");
   const [assistMessage, setAssistMessage] = useState("Waiting for assist.");
   const [assistResolving, setAssistResolving] = useState(false);
-  const [assistEvoSpeciesId, setAssistEvoSpeciesId] = useState<number | null>(null);
+  const [assistJustMarked, setAssistJustMarked] = useState(false);
+  const [assistEvoSpeciesId, setAssistEvoSpeciesId] = useState<number | null>(
+    null,
+  );
   const [assistCalibrating, setAssistCalibrating] = useState(false);
   const [assistCalibKey, setAssistCalibKey] = useState(0);
   const [, forceUpdate] = useState(0);
@@ -612,7 +622,10 @@ export default function HomeOrganizerStream() {
 
   const { data: allEntries, isLoading } = useLivingDexEntries();
   const gameBoxQuery = useGameHomeBoxDex(selectedGameId);
-  const evolutionQuery = usePokemonEvolution(assistEvoSpeciesId ?? 0, assistEvoSpeciesId !== null);
+  const evolutionQuery = usePokemonEvolution(
+    assistEvoSpeciesId ?? 0,
+    assistEvoSpeciesId !== null,
+  );
   const homeRulesQuery = useQuery({
     queryKey: ["game-home-box-form-rules", HOME_DEX_GAME_ID],
     queryFn: () =>
@@ -944,24 +957,45 @@ export default function HomeOrganizerStream() {
     null;
   const shouldShowAssistCandidates = assistMatches.length > 2;
 
-  type AssistAdvice = { type: "release" } | { type: "evolve"; into: SlotData[] };
+  type AssistAdvice =
+    | { type: "release" }
+    | { type: "evolve"; into: SlotData[] };
   const assistAdvice = useMemo((): AssistAdvice | null => {
     if (!selectedAssistMatch?.owned) return null;
     if (!evolutionQuery.data) return { type: "release" };
     const speciesId = selectedAssistMatch.slot.entry.speciesId;
     const allStages = evolutionQuery.data.flat();
-    const successorIds = new Set(
-      allStages.filter((s) => s.evolvesFromId === speciesId).map((s) => s.id),
-    );
-    if (!successorIds.size) return { type: "release" };
-    const missingEvoSlots = allSlots.filter(
-      (s) => successorIds.has(s.entry.speciesId) && !getSlotOwned(s),
-    );
+    // BFS to collect all descendants (not just direct children)
+    const descendantIds = new Set<number>();
+    const queue = [speciesId];
+    while (queue.length) {
+      const current = queue.shift()!;
+      for (const stage of allStages) {
+        if (stage.evolvesFromId === current && !descendantIds.has(stage.id)) {
+          descendantIds.add(stage.id);
+          queue.push(stage.id);
+        }
+      }
+    }
+    if (!descendantIds.size) return { type: "release" };
+    // Deduplicate by species+form so paired-mode layouts don't double up.
+    // Only match evolution slots with the same shiny status — a non-shiny
+    // cannot evolve into a shiny and vice-versa.
+    const isShinySource = selectedAssistMatch.slot.isShiny;
+    const seen = new Set<string>();
+    const missingEvoSlots = allSlots.filter((s) => {
+      if (!descendantIds.has(s.entry.speciesId)) return false;
+      if (s.isShiny !== isShinySource) return false;
+      if (getSlotOwned(s)) return false;
+      const key = ownedKey(s.entry.speciesId, s.entry.formName);
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
     return missingEvoSlots.length > 0
       ? { type: "evolve", into: missingEvoSlots }
       : { type: "release" };
   }, [allSlots, evolutionQuery.data, getSlotOwned, selectedAssistMatch]);
-
 
   const searchHighlightedKeys = useMemo(() => {
     if (!searchNorm) return new Set<string>();
@@ -1090,7 +1124,9 @@ export default function HomeOrganizerStream() {
       setAssistTargetName(canonicalName);
       setAssistSelectedKey(selected.key);
       setBoxIndex(selected.boxIndex);
-      setAssistEvoSpeciesId(selected.owned ? selected.slot.entry.speciesId : null);
+      setAssistEvoSpeciesId(
+        selected.owned ? selected.slot.entry.speciesId : null,
+      );
       setAssistMessage(
         matches.length === 1
           ? `${canonicalName} -> ${boxLabels[selected.boxIndex] ?? `Box ${selected.boxIndex + 1}`}, Slot ${selected.slotIndex + 1}.`
@@ -1172,6 +1208,7 @@ export default function HomeOrganizerStream() {
       const marked = markAssistSlot(selected);
       if (marked) {
         setRecentlyMarked((prev) => [selected.slot, ...prev].slice(0, 8));
+        setAssistJustMarked(true);
       }
       setAssistSelectedKey(selected.key);
       setBoxIndex(selected.boxIndex);
@@ -1190,6 +1227,7 @@ export default function HomeOrganizerStream() {
           setAssistTargetGender(null);
           setAssistSelectedKey("");
           setAssistResolving(false);
+          setAssistJustMarked(false);
           setAssistEvoSpeciesId(null);
           assistClearTimerRef.current = null;
         }, 1100);
@@ -1253,6 +1291,7 @@ export default function HomeOrganizerStream() {
         setAssistTargetGender(null);
         setAssistSelectedKey("");
         setAssistResolving(false);
+        setAssistJustMarked(false);
         setAssistEvoSpeciesId(null);
         setAssistMessage("Assist target cleared.");
         return;
@@ -1342,7 +1381,8 @@ export default function HomeOrganizerStream() {
 
   // Compute during render so safeIndex always stays in the visible strip window
   const stripStart = (() => {
-    if (safeIndex < stripStartBase) return Math.max(0, safeIndex - STRIP_PAGE_SIZE + 1);
+    if (safeIndex < stripStartBase)
+      return Math.max(0, safeIndex - STRIP_PAGE_SIZE + 1);
     if (safeIndex >= stripStartBase + STRIP_PAGE_SIZE)
       return Math.min(Math.max(0, totalBoxes - STRIP_PAGE_SIZE), safeIndex);
     return stripStartBase;
@@ -1630,7 +1670,8 @@ export default function HomeOrganizerStream() {
                             </p>
                           </div>
                           <p className="text-right font-mono text-[10px] font-black text-[#f7c948]">
-                            {boxLabels[boxIndex] ?? `B${boxIndex + 1}`} S{slotIndex + 1}
+                            {boxLabels[boxIndex] ?? `B${boxIndex + 1}`} S
+                            {slotIndex + 1}
                           </p>
                         </button>
                       ))
@@ -1699,167 +1740,176 @@ export default function HomeOrganizerStream() {
                 </div>
               </div>
 
-              {captureStatus !== "idle" && (<>
-              {/* Assist status message from hook (stream/OCR state) */}
-              {captureStatus !== "ready" && (
-                <p className="mt-1.5 truncate font-mono text-[9px] text-[#8ca0c9]">
-                  {captureMessage}
-                </p>
-              )}
-
-              <div className="mt-2 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded border border-[#27304c] bg-[#060915] px-2 py-1.5">
-                <div className="min-w-0">
-                  <p className="font-mono text-[9px] uppercase tracking-[0.16em] text-[#687696]">
-                    {assistTargetName ? "Target" : "Detected"}
-                  </p>
-                  <div className="mt-0.5 flex min-w-0 items-center gap-1.5">
-                    {selectedAssistMatch ? (
-                      <MiniSprite
-                        slot={selectedAssistMatch.slot}
-                        muted={selectedAssistMatch.owned}
-                      />
-                    ) : null}
-                    {assistResolving && !assistTargetName && (
-                      <div className="flex items-center gap-1.5 text-sm font-black text-[#8ca0c9]">
-                        <span>Resolving</span>
-                        <span className="flex gap-0.5">
-                          <span className="h-1 w-1 animate-bounce rounded-full bg-[#8ca0c9] [animation-delay:-0.2s]" />
-                          <span className="h-1 w-1 animate-bounce rounded-full bg-[#8ca0c9] [animation-delay:-0.1s]" />
-                          <span className="h-1 w-1 animate-bounce rounded-full bg-[#8ca0c9]" />
-                        </span>
-                      </div>
-                    )}
-                    <p
-                      className={`truncate text-sm font-black ${
-                        assistResolving && !assistTargetName
-                          ? "hidden"
-                          : assistTargetName
-                            ? "text-[#f7c948]"
-                            : "text-[#f4f1ff]"
-                      }`}
-                    >
-                      {assistTargetName || assistDetection?.name || "No signal"}
-                      {(selectedAssistMatch?.slot.isShiny ||
-                        (!assistTargetName && assistDetection?.isShiny)) && (
-                        <span className="ml-1 text-[#f7c948]">★</span>
-                      )}
-                      {selectedAssistMatch &&
-                        isFemaleForm(selectedAssistMatch.slot.entry) && (
-                          <span className="ml-1 text-[#ff9ee8]">♀</span>
-                        )}
+              {captureStatus !== "idle" && (
+                <>
+                  {/* Assist status message from hook (stream/OCR state) */}
+                  {captureStatus !== "ready" && (
+                    <p className="mt-1.5 truncate font-mono text-[9px] text-[#8ca0c9]">
+                      {captureMessage}
                     </p>
-                  </div>
-                </div>
-                <div className="flex shrink-0 items-center gap-1.5">
-                  {selectedAssistMatch && (
-                    <span className="font-mono text-[10px] font-black text-[#f7c948]">
-                      {boxLabels[selectedAssistMatch.boxIndex] ?? `B${selectedAssistMatch.boxIndex + 1}`} S{selectedAssistMatch.slotIndex + 1}
-                    </span>
                   )}
-                  <button
-                    type="button"
-                    onClick={() => markSelectedAssistTarget(null)}
-                    disabled={!selectedAssistMatch}
-                    className="grid h-7 w-7 place-items-center rounded border border-[#27304c] bg-[#07140f] text-[#8fe388] transition hover:border-[#8fe388] disabled:opacity-35"
-                    title="Mark ordered"
-                  >
-                    <CheckCircle2 className="h-3.5 w-3.5" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      processAssistEvent({
-                        id: -1,
-                        type: "clear",
-                        createdAt: new Date().toISOString(),
-                      })
-                    }
-                    disabled={!assistTargetName}
-                    className="grid h-7 w-7 place-items-center rounded border border-[#27304c] bg-[#120914] text-[#ff8f8f] transition hover:border-[#ff8f8f] disabled:opacity-35"
-                    title="Clear assist target"
-                  >
-                    <X className="h-3.5 w-3.5" />
-                  </button>
-                </div>
-              </div>
 
-              <p className="mt-2 truncate font-mono text-[10px] text-[#8ca0c9]">
-                {assistMessage}
-              </p>
-
-              {assistAdvice && (
-                <p
-                  className={`mt-1 font-mono text-[10px] font-black ${
-                    assistAdvice.type === "evolve"
-                      ? "text-[#67d9ff]"
-                      : "text-[#ff8f8f]"
-                  }`}
-                >
-                  {assistAdvice.type === "release"
-                    ? "✕ Already marked — release it"
-                    : `→ Evolve into ${assistAdvice.into.map((s) => compactSlotName(s.entry)).join(" / ")} before releasing`}
-                </p>
-              )}
-
-              {/* Hotkey hint — only shown when ready */}
-              {captureStatus === "ready" && (
-                <p className="mt-1 font-mono text-[8px] text-[#53607c]">
-                  {assist.config.detectKey} detect · {assist.config.markKey}{" "}
-                  mark · {assist.config.clearKey} clear
-                </p>
-              )}
-
-              {/* Calibrate button */}
-              <button
-                type="button"
-                onClick={() => setAssistCalibrating(true)}
-                className="mt-2 font-mono text-[9px] uppercase tracking-[0.12em] text-[#53607c] transition hover:text-[#8ca0c9]"
-              >
-                ▼ Calibrate regions
-              </button>
-
-              {shouldShowAssistCandidates && (
-                <div className="mt-2 grid gap-1">
-                  {assistMatches.slice(0, 4).map((match) => {
-                    const selected = match.key === assistSelectedKey;
-                    return (
-                      <button
-                        key={`${match.key}-${match.boxIndex}-${match.slotIndex}`}
-                        type="button"
-                        onClick={() => {
-                          setAssistSelectedKey(match.key);
-                          setBoxIndex(match.boxIndex);
-                        }}
-                        className={`grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded border px-2 py-1 text-left transition ${
-                          selected
-                            ? "border-[#f7c948] bg-[#1a1405]"
-                            : "border-[#27304c] bg-[#060915] hover:border-[#9f7aea]"
-                        }`}
-                      >
-                        <MiniSprite slot={match.slot} muted={match.owned} />
-                        <span className="truncate text-[11px] font-black text-[#f4f1ff]">
-                          {compactSlotName(match.slot.entry)}
-                          {match.slot.isShiny && (
+                  <div className="mt-2 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded border border-[#27304c] bg-[#060915] px-2 py-1.5">
+                    <div className="min-w-0">
+                      <p className="font-mono text-[9px] uppercase tracking-[0.16em] text-[#687696]">
+                        {assistTargetName ? "Target" : "Detected"}
+                      </p>
+                      <div className="mt-0.5 flex min-w-0 items-center gap-1.5">
+                        {selectedAssistMatch ? (
+                          <MiniSprite
+                            slot={selectedAssistMatch.slot}
+                            muted={selectedAssistMatch.owned}
+                          />
+                        ) : null}
+                        {assistResolving && !assistTargetName && (
+                          <div className="flex items-center gap-1.5 text-sm font-black text-[#8ca0c9]">
+                            <span>Resolving</span>
+                            <span className="flex gap-0.5">
+                              <span className="h-1 w-1 animate-bounce rounded-full bg-[#8ca0c9] [animation-delay:-0.2s]" />
+                              <span className="h-1 w-1 animate-bounce rounded-full bg-[#8ca0c9] [animation-delay:-0.1s]" />
+                              <span className="h-1 w-1 animate-bounce rounded-full bg-[#8ca0c9]" />
+                            </span>
+                          </div>
+                        )}
+                        <p
+                          className={`truncate text-sm font-black ${
+                            assistResolving && !assistTargetName
+                              ? "hidden"
+                              : assistTargetName
+                                ? "text-[#f7c948]"
+                                : "text-[#f4f1ff]"
+                          }`}
+                        >
+                          {assistTargetName ||
+                            assistDetection?.name ||
+                            "No signal"}
+                          {(selectedAssistMatch?.slot.isShiny ||
+                            (!assistTargetName &&
+                              assistDetection?.isShiny)) && (
                             <span className="ml-1 text-[#f7c948]">★</span>
                           )}
-                          {isFemaleForm(match.slot.entry) && (
-                            <span className="ml-1 text-[#ff9ee8]">♀</span>
-                          )}
-                        </span>
+                          {selectedAssistMatch &&
+                            isFemaleForm(selectedAssistMatch.slot.entry) && (
+                              <span className="ml-1 text-[#ff9ee8]">♀</span>
+                            )}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-1.5">
+                      {selectedAssistMatch && (
                         <span className="font-mono text-[10px] font-black text-[#f7c948]">
-                          {boxLabels[match.boxIndex] ?? `B${match.boxIndex + 1}`} S{match.slotIndex + 1}
+                          {boxLabels[selectedAssistMatch.boxIndex] ??
+                            `B${selectedAssistMatch.boxIndex + 1}`}{" "}
+                          S{selectedAssistMatch.slotIndex + 1}
                         </span>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => markSelectedAssistTarget(null)}
+                        disabled={!selectedAssistMatch}
+                        className="grid h-7 w-7 place-items-center rounded border border-[#27304c] bg-[#07140f] text-[#8fe388] transition hover:border-[#8fe388] disabled:opacity-35"
+                        title="Mark ordered"
+                      >
+                        <CheckCircle2 className="h-3.5 w-3.5" />
                       </button>
-                    );
-                  })}
-                  {assistMatches.length > 4 && (
-                    <p className="font-mono text-[9px] text-[#687696]">
-                      +{assistMatches.length - 4} more candidates
+                      <button
+                        type="button"
+                        onClick={() =>
+                          processAssistEvent({
+                            id: -1,
+                            type: "clear",
+                            createdAt: new Date().toISOString(),
+                          })
+                        }
+                        disabled={!assistTargetName}
+                        className="grid h-7 w-7 place-items-center rounded border border-[#27304c] bg-[#120914] text-[#ff8f8f] transition hover:border-[#ff8f8f] disabled:opacity-35"
+                        title="Clear assist target"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  </div>
+
+                  <p className="mt-2 truncate font-mono text-[10px] text-[#8ca0c9]">
+                    {assistMessage}
+                  </p>
+
+                  {assistAdvice && !assistJustMarked && (
+                    <p
+                      className={`mt-1 font-mono text-[10px] font-black ${
+                        assistAdvice.type === "evolve"
+                          ? "text-[#67d9ff]"
+                          : "text-[#ff8f8f]"
+                      }`}
+                    >
+                      {assistAdvice.type === "release"
+                        ? "✕ Already marked"
+                        : `→ Evolve into ${assistAdvice.into.map((s) => compactSlotName(s.entry)).join(" / ")}`}
                     </p>
                   )}
-                </div>
+
+                  {/* Hotkey hint — only shown when ready */}
+                  {captureStatus === "ready" && (
+                    <p className="mt-1 font-mono text-[8px] text-[#53607c]">
+                      {assist.config.detectKey} detect · {assist.config.markKey}{" "}
+                      mark · {assist.config.clearKey} clear
+                    </p>
+                  )}
+
+                  {/* Calibrate button */}
+                  <button
+                    type="button"
+                    onClick={() => setAssistCalibrating(true)}
+                    className="mt-2 font-mono text-[9px] uppercase tracking-[0.12em] text-[#53607c] transition hover:text-[#8ca0c9]"
+                  >
+                    ▼ Calibrate regions
+                  </button>
+
+                  {shouldShowAssistCandidates && (
+                    <div className="mt-2 grid gap-1">
+                      {assistMatches.slice(0, 4).map((match) => {
+                        const selected = match.key === assistSelectedKey;
+                        return (
+                          <button
+                            key={`${match.key}-${match.boxIndex}-${match.slotIndex}`}
+                            type="button"
+                            onClick={() => {
+                              setAssistSelectedKey(match.key);
+                              setBoxIndex(match.boxIndex);
+                            }}
+                            className={`grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded border px-2 py-1 text-left transition ${
+                              selected
+                                ? "border-[#f7c948] bg-[#1a1405]"
+                                : "border-[#27304c] bg-[#060915] hover:border-[#9f7aea]"
+                            }`}
+                          >
+                            <MiniSprite slot={match.slot} muted={match.owned} />
+                            <span className="truncate text-[11px] font-black text-[#f4f1ff]">
+                              {compactSlotName(match.slot.entry)}
+                              {match.slot.isShiny && (
+                                <span className="ml-1 text-[#f7c948]">★</span>
+                              )}
+                              {isFemaleForm(match.slot.entry) && (
+                                <span className="ml-1 text-[#ff9ee8]">♀</span>
+                              )}
+                            </span>
+                            <span className="font-mono text-[10px] font-black text-[#f7c948]">
+                              {boxLabels[match.boxIndex] ??
+                                `B${match.boxIndex + 1}`}{" "}
+                              S{match.slotIndex + 1}
+                            </span>
+                          </button>
+                        );
+                      })}
+                      {assistMatches.length > 4 && (
+                        <p className="font-mono text-[9px] text-[#687696]">
+                          +{assistMatches.length - 4} more candidates
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </>
               )}
-              </>)}
             </section>
 
             <Panel
