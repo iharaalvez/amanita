@@ -590,6 +590,7 @@ export default function HomeOrganizerStream() {
   const activeItemRef = useRef<HTMLButtonElement>(null);
   const boxScrollerRef = useRef<HTMLDivElement>(null);
   const assistLastEventIdRef = useRef(0);
+  const processAssistEventRef = useRef<((event: OrderingAssistStoredEvent) => void) | null>(null);
   const assistClearTimerRef = useRef<number | null>(null);
 
   const gameDex = usePokedexStore((s) => s.gameDex);
@@ -1235,6 +1236,8 @@ export default function HomeOrganizerStream() {
     ],
   );
 
+  processAssistEventRef.current = processAssistEvent;
+
   useEffect(() => {
     let cancelled = false;
 
@@ -1252,7 +1255,7 @@ export default function HomeOrganizerStream() {
             assistLastEventIdRef.current,
             event.id,
           );
-          processAssistEvent(event);
+          processAssistEventRef.current?.(event);
         }
       } catch {
         if (!cancelled) setAssistMessage("Assist receiver unavailable.");
@@ -1267,7 +1270,7 @@ export default function HomeOrganizerStream() {
       cancelled = true;
       window.clearInterval(id);
     };
-  }, [processAssistEvent]);
+  }, []);
 
   useEffect(() => {
     return () => {
