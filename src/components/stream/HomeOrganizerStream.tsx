@@ -573,6 +573,7 @@ export default function HomeOrganizerStream() {
   const [layoutSyncMessage, setLayoutSyncMessage] = useState<string | null>(
     null,
   );
+  const [assistEnabled, setAssistEnabled] = useState(false);
   const [assistDetection, setAssistDetection] =
     useState<OrderingAssistDetection | null>(null);
   const [assistPaused, setAssistPaused] = useState(false);
@@ -1239,6 +1240,7 @@ export default function HomeOrganizerStream() {
   processAssistEventRef.current = processAssistEvent;
 
   useEffect(() => {
+    if (!assistEnabled) return;
     let cancelled = false;
 
     async function pollAssistEvents() {
@@ -1270,7 +1272,7 @@ export default function HomeOrganizerStream() {
       cancelled = true;
       window.clearInterval(id);
     };
-  }, []);
+  }, [assistEnabled]);
 
   useEffect(() => {
     return () => {
@@ -1600,7 +1602,7 @@ export default function HomeOrganizerStream() {
                 <div className="flex min-w-0 items-center gap-2">
                   <span
                     className={`h-2 w-2 shrink-0 rounded-full ${
-                      assistLastSeenAt
+                      assistEnabled && assistLastSeenAt
                         ? assistPaused
                           ? "bg-[#f7c948]"
                           : "bg-[#8fe388]"
@@ -1612,16 +1614,29 @@ export default function HomeOrganizerStream() {
                   </p>
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
-                  <span className="font-mono text-[9px] uppercase tracking-[0.14em] text-[#687696]">
-                    {assistPaused
-                      ? "Paused"
-                      : assistLastSeenAt
-                        ? "Connected"
-                        : "Waiting"}
-                  </span>
-                  <span className="rounded border border-[#27304c] bg-[#060915] px-1.5 py-0.5 font-mono text-[9px] font-black uppercase tracking-[0.12em] text-[#f7c948]">
-                    {assistStatusLabel}
-                  </span>
+                  {assistEnabled && (
+                    <span className="font-mono text-[9px] uppercase tracking-[0.14em] text-[#687696]">
+                      {assistPaused
+                        ? "Paused"
+                        : assistLastSeenAt
+                          ? "Connected"
+                          : "Waiting"}
+                    </span>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setAssistEnabled((v) => !v)}
+                    className={`relative h-4 w-7 rounded-full transition-colors ${
+                      assistEnabled ? "bg-[#8fe388]" : "bg-[#27304c]"
+                    }`}
+                    title={assistEnabled ? "Disable assist polling" : "Enable assist polling"}
+                  >
+                    <span
+                      className={`absolute top-0.5 h-3 w-3 rounded-full bg-white shadow transition-transform ${
+                        assistEnabled ? "translate-x-3.5" : "translate-x-0.5"
+                      }`}
+                    />
+                  </button>
                 </div>
               </div>
 
