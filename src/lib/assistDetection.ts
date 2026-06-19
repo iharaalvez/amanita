@@ -1,0 +1,118 @@
+export type AssistRegion = {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+};
+
+export type AssistConfig = {
+  nameRegion: AssistRegion;
+  shinyRegion: AssistRegion | null;
+  genderRegion: AssistRegion | null;
+  shinyThreshold: number;
+  genderThreshold: number;
+  detectKey: string;
+  markKey: string;
+  clearKey: string;
+};
+
+export const DEFAULT_ASSIST_CONFIG: AssistConfig = {
+  nameRegion: { left: 0.033, top: 0.463, width: 0.064, height: 0.026 },
+  shinyRegion: null,
+  genderRegion: null,
+  shinyThreshold: 0.03,
+  genderThreshold: 0.03,
+  detectKey: "F8",
+  markKey: "F9",
+  clearKey: "F10",
+};
+
+/** OpenCV-style HSV: H ∈ [0,180], S/V ∈ [0,255] */
+function rgbToHsv(r: number, g: number, b: number): [number, number, number] {
+  const rn = r / 255,
+    gn = g / 255,
+    bn = b / 255;
+  const max = Math.max(rn, gn, bn),
+    min = Math.min(rn, gn, bn),
+    d = max - min;
+  const v = max * 255;
+  const s = max === 0 ? 0 : (d / max) * 255;
+  let h = 0;
+  if (d > 0) {
+    if (max === rn) h = ((gn - bn) / d + (gn < bn ? 6 : 0)) / 6;
+    else if (max === gn) h = ((bn - rn) / d + 2) / 6;
+    else h = ((rn - gn) / d + 4) / 6;
+  }
+  return [h * 180, s, v];
+}
+
+export function cropToCanvas(
+  src: HTMLCanvasElement,
+  region: AssistRegion,
+): HTMLCanvasElement {
+  const x = Math.round(region.left * src.width);
+  const y = Math.round(region.top * src.height);
+  const w = Math.max(1, Math.round(region.width * src.width));
+  const h = Math.max(1, Math.round(region.height * src.height));
+  const out = document.createElement("canvas");
+  out.width = w;
+  out.height = h;
+  out.getContext("2d")!.drawImage(src, x, y, w, h, 0, 0, w, h);
+  return out;
+}
+
+export function detectShiny(
+  src: HTMLCanvasElement,
+  region: AssistRegion,
+  threshold: number,
+): boolean {
+  const crop = cropToCanvas(src, region);
+  const { data, width, height } = crop
+    .getContext("2d")!
+    .getImageData(0, 0, crop.width, crop.height);
+  let count = 0;
+  for (let i = 0; i < data.length; i += 4) {
+    const [h, s, v] = rgbToHsv(data[i], data[i + 1], data[i + 2]);
+    if ((h >= 18 && h <= 45 && s >= 70 && v >= 110) || (s <= 65 && v >= 190))
+      count++;
+  }
+  return count / (width * height) >= threshold;
+}
+
+export function detectGender(
+  src: HTMLCanvasElement,
+  region: AssistRegion,
+  threshold: number,
+): "male" | "female" | null {
+  const crop = cropToCanvas(src, region);
+  const { data, width, height } = crop
+    .getContext("2d")!
+    .getImageData(0, 0, crop.width, crop.height);
+  let red = 0,
+    blue = 0;
+  const total = width * height;
+  for (let i = 0; i < data.length; i += 4) {
+    const [h, s, v] = rgbToHsv(data[i], data[i + 1], data[i + 2]);
+    if (s >= 45 && v >= 35) {
+      if (h <= 12 || h >= 168) red++;
+      else if (h >= 92 && h <= 128) blue++;
+    }
+  }
+  const rr = red / total,
+    br = blue / total;
+  if (rr < threshold && br < threshold) return null;
+  return rr >= br ? "female" : "male";
+}
+
+export function normalizeHomeName(raw: string): string | null {
+  let t = raw.trim();
+  if (!t) return null;
+  const m = t.match(/^(.*?)(?:\bLv\.?\s*\d+|\()/);
+  if (m) t = m[1];
+  t = t
+    .replace(/[^A-Za-z0-9 .:'-]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/^[-\s]+|[-\s]+$/g, "");
+  return t.length < 2 ? null : t;
+}

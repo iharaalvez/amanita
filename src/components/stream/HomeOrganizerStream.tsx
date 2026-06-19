@@ -34,6 +34,8 @@ import type {
   OrderingAssistDetection,
   OrderingAssistStoredEvent,
 } from "@/lib/orderingAssist";
+import { useOrderingAssist } from "@/hooks/useOrderingAssist";
+import { AssistCalibration } from "@/components/stream/AssistCalibration";
 import type {
   GameHomeBoxFormRule,
   GameHomeBoxEntry,
@@ -570,10 +572,8 @@ export default function HomeOrganizerStream() {
   const [layoutSyncMessage, setLayoutSyncMessage] = useState<string | null>(
     null,
   );
-  const [assistEnabled, setAssistEnabled] = useState(false);
   const [assistDetection, setAssistDetection] =
     useState<OrderingAssistDetection | null>(null);
-  const [assistPaused, setAssistPaused] = useState(false);
   const [assistTargetName, setAssistTargetName] = useState("");
   const [assistTargetIsShiny, setAssistTargetIsShiny] = useState<
     boolean | null
@@ -583,12 +583,16 @@ export default function HomeOrganizerStream() {
   const [assistSelectedKey, setAssistSelectedKey] = useState("");
   const [assistMessage, setAssistMessage] = useState("Waiting for assist.");
   const [assistResolving, setAssistResolving] = useState(false);
-  const [assistLastSeenAt, setAssistLastSeenAt] = useState<string | null>(null);
+  const [assistCalibrating, setAssistCalibrating] = useState(false);
+  const [assistCalibKey, setAssistCalibKey] = useState(0);
   const [, forceUpdate] = useState(0);
   const activeItemRef = useRef<HTMLButtonElement>(null);
   const boxScrollerRef = useRef<HTMLDivElement>(null);
   const processAssistEventRef = useRef<((event: OrderingAssistStoredEvent) => void) | null>(null);
+  const detectRef = useRef<(() => Promise<OrderingAssistDetection | null>) | null>(null);
   const assistClearTimerRef = useRef<number | null>(null);
+
+  const assist = useOrderingAssist();
 
   const gameDex = usePokedexStore((s) => s.gameDex);
   const gameHomeBoxes = usePokedexStore((s) => s.gameHomeBoxes);
@@ -1172,8 +1176,6 @@ export default function HomeOrganizerStream() {
 
   const processAssistEvent = useCallback(
     (event: OrderingAssistStoredEvent) => {
-      setAssistLastSeenAt(event.createdAt);
-
       if (event.type === "detected" && event.detection) {
         setAssistDetection(event.detection);
         setAssistResolving(true);
@@ -1221,10 +1223,6 @@ export default function HomeOrganizerStream() {
         return;
       }
 
-      if (event.type === "pause-changed") {
-        setAssistPaused(event.paused === true);
-        setAssistMessage(event.paused ? "Detector paused." : "Detector resumed.");
-      }
     },
     [
       assistDetection,
@@ -1234,29 +1232,55 @@ export default function HomeOrganizerStream() {
   );
 
   processAssistEventRef.current = processAssistEvent;
+  detectRef.current = assist.detect;
 
   useEffect(() => {
-    if (!assistEnabled) return;
+    if (assist.status !== "ready") return;
+    const { detectKey, markKey, clearKey } = assist.config;
 
-    const source = new EventSource("/api/ordering-assist");
+    const handleKeyDown = async (e: KeyboardEvent) => {
+      if (
+        e.target instanceof HTMLInputElement ||
+        e.target instanceof HTMLTextAreaElement
+      )
+        return;
 
-    source.onmessage = (e: MessageEvent<string>) => {
-      try {
-        const event = JSON.parse(e.data) as OrderingAssistStoredEvent;
-        processAssistEventRef.current?.(event);
-      } catch {
-        // ignore malformed frames
+      if (e.key === detectKey) {
+        e.preventDefault();
+        const detection = await detectRef.current?.();
+        processAssistEventRef.current?.({
+          id: Date.now(),
+          type: "confirm-current",
+          detection: detection ?? undefined,
+          createdAt: new Date().toISOString(),
+        });
+        return;
+      }
+
+      if (e.key === markKey) {
+        e.preventDefault();
+        processAssistEventRef.current?.({
+          id: Date.now(),
+          type: "mark-ordered",
+          createdAt: new Date().toISOString(),
+        });
+        return;
+      }
+
+      if (e.key === clearKey) {
+        e.preventDefault();
+        processAssistEventRef.current?.({
+          id: Date.now(),
+          type: "clear",
+          createdAt: new Date().toISOString(),
+        });
+        return;
       }
     };
 
-    source.onerror = () => {
-      setAssistMessage("Assist receiver unavailable.");
-    };
-
-    return () => {
-      source.close();
-    };
-  }, [assistEnabled]);
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [assist.status, assist.config]);
 
   useEffect(() => {
     return () => {
@@ -1581,16 +1605,27 @@ export default function HomeOrganizerStream() {
               )}
             </section>
 
+            {/* Hidden video element for browser screen capture */}
+            <video
+              ref={assist.videoRef}
+              style={{ display: "none" }}
+              playsInline
+              muted
+            />
+
             <section className="rounded-lg border border-[#2f2750] bg-[#090c18]/94 p-2.5">
               <div className="flex items-center justify-between gap-3">
                 <div className="flex min-w-0 items-center gap-2">
                   <span
                     className={`h-2 w-2 shrink-0 rounded-full ${
-                      assistEnabled && assistLastSeenAt
-                        ? assistPaused
-                          ? "bg-[#f7c948]"
-                          : "bg-[#8fe388]"
-                        : "bg-[#53607c]"
+                      assist.status === "ready"
+                        ? "bg-[#8fe388]"
+                        : assist.status === "detecting" ||
+                            assist.status === "initializing-ocr"
+                          ? "bg-[#f7c948] animate-pulse"
+                          : assist.status === "requesting"
+                            ? "bg-[#8ca0c9] animate-pulse"
+                            : "bg-[#53607c]"
                     }`}
                   />
                   <p className="font-mono text-[11px] font-black uppercase tracking-[0.18em] text-[#8fe388]">
@@ -1598,31 +1633,48 @@ export default function HomeOrganizerStream() {
                   </p>
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
-                  {assistEnabled && (
-                    <span className="font-mono text-[9px] uppercase tracking-[0.14em] text-[#687696]">
-                      {assistPaused
-                        ? "Paused"
-                        : assistLastSeenAt
-                          ? "Connected"
-                          : "Waiting"}
-                    </span>
+                  <span className="font-mono text-[9px] uppercase tracking-[0.14em] text-[#687696]">
+                    {assist.status === "ready"
+                      ? "Ready"
+                      : assist.status === "detecting"
+                        ? "Detecting"
+                        : assist.status === "initializing-ocr"
+                          ? "Loading OCR"
+                          : assist.status === "requesting"
+                            ? "Waiting"
+                            : assist.status === "error"
+                              ? "Error"
+                              : ""}
+                  </span>
+                  {assist.status === "ready" ||
+                  assist.status === "detecting" ||
+                  assist.status === "initializing-ocr" ? (
+                    <button
+                      type="button"
+                      onClick={assist.stopCapture}
+                      className="rounded border border-[#ff8f8f] bg-[#120914] px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-[0.1em] text-[#ff8f8f] transition hover:bg-[#2a0820]"
+                    >
+                      Stop
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => void assist.startCapture()}
+                      disabled={assist.status === "requesting"}
+                      className="rounded border border-[#8fe388] bg-[#07140f] px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-[0.1em] text-[#8fe388] transition hover:bg-[#0e2519] disabled:opacity-50"
+                    >
+                      Start
+                    </button>
                   )}
-                  <button
-                    type="button"
-                    onClick={() => setAssistEnabled((v) => !v)}
-                    className={`relative h-4 w-7 rounded-full transition-colors ${
-                      assistEnabled ? "bg-[#8fe388]" : "bg-[#27304c]"
-                    }`}
-                    title={assistEnabled ? "Disable assist polling" : "Enable assist polling"}
-                  >
-                    <span
-                      className={`absolute top-0.5 h-3 w-3 rounded-full bg-white shadow transition-transform ${
-                        assistEnabled ? "translate-x-3.5" : "translate-x-0.5"
-                      }`}
-                    />
-                  </button>
                 </div>
               </div>
+
+              {/* Assist status message from hook (stream/OCR state) */}
+              {assist.status !== "ready" && assist.status !== "idle" && (
+                <p className="mt-1.5 truncate font-mono text-[9px] text-[#8ca0c9]">
+                  {assist.message}
+                </p>
+              )}
 
               <div className="mt-2 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded border border-[#27304c] bg-[#060915] px-2 py-1.5">
                 <div className="min-w-0">
@@ -1706,6 +1758,36 @@ export default function HomeOrganizerStream() {
               <p className="mt-2 truncate font-mono text-[10px] text-[#8ca0c9]">
                 {assistMessage}
               </p>
+
+              {/* Hotkey hint — only shown when ready */}
+              {assist.status === "ready" && (
+                <p className="mt-1 font-mono text-[8px] text-[#53607c]">
+                  {assist.config.detectKey} detect · {assist.config.markKey}{" "}
+                  mark · {assist.config.clearKey} clear
+                </p>
+              )}
+
+              {/* Calibrate toggle */}
+              <button
+                type="button"
+                onClick={() => setAssistCalibrating((v) => !v)}
+                className="mt-2 font-mono text-[9px] uppercase tracking-[0.12em] text-[#53607c] transition hover:text-[#8ca0c9]"
+              >
+                {assistCalibrating ? "▲ Hide calibration" : "▼ Calibrate regions"}
+              </button>
+
+              {assistCalibrating && (
+                <AssistCalibration
+                  key={assistCalibKey}
+                  frameCanvasRef={assist.frameCanvasRef}
+                  captureFrame={assist.captureFrame}
+                  config={assist.config}
+                  onSave={(cfg) => {
+                    assist.setConfig(cfg);
+                    setAssistCalibKey((k) => k + 1);
+                  }}
+                />
+              )}
 
               {shouldShowAssistCandidates && (
                 <div className="mt-2 grid gap-1">
