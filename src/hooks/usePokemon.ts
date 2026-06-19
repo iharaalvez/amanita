@@ -156,11 +156,14 @@ function buildEvolutionLines(chain: ChainLink): EvolutionStage[][] {
     path: EvolutionStage[],
     evolvesFromId: number | null,
   ): EvolutionStage[][] => {
+    const details = link.evolution_details ?? [];
+    const genderDetail = details.find((d) => d.gender !== null);
     const stage: EvolutionStage = {
       id: getIdFromResourceUrl(link.species.url),
       name: link.species.name,
       evolvesFromId,
-      conditions: (link.evolution_details ?? []).map(formatEvolutionDetail),
+      conditions: details.map(formatEvolutionDetail),
+      requiredGender: (genderDetail?.gender ?? null) as 1 | 2 | null,
     };
     const nextPath = [...path, stage];
 

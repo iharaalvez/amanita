@@ -965,16 +965,24 @@ export default function HomeOrganizerStream() {
     if (!evolutionQuery.data) return { type: "release" };
     const speciesId = selectedAssistMatch.slot.entry.speciesId;
     const allStages = evolutionQuery.data.flat();
-    // BFS to collect all descendants (not just direct children)
+    // BFS collecting all reachable descendants, skipping evolutions that
+    // require a gender the detected Pokémon doesn't have.
+    // PokéAPI: requiredGender 1 = female-only, 2 = male-only.
+    const sourceGender = assistTargetGender; // "female" | "male" | null
     const descendantIds = new Set<number>();
     const queue = [speciesId];
     while (queue.length) {
       const current = queue.shift()!;
       for (const stage of allStages) {
-        if (stage.evolvesFromId === current && !descendantIds.has(stage.id)) {
-          descendantIds.add(stage.id);
-          queue.push(stage.id);
+        if (stage.evolvesFromId !== current) continue;
+        if (descendantIds.has(stage.id)) continue;
+        if (sourceGender !== null && stage.requiredGender !== null) {
+          const needsFemale = stage.requiredGender === 1;
+          if (needsFemale && sourceGender !== "female") continue;
+          if (!needsFemale && sourceGender !== "male") continue;
         }
+        descendantIds.add(stage.id);
+        queue.push(stage.id);
       }
     }
     if (!descendantIds.size) return { type: "release" };
@@ -995,7 +1003,7 @@ export default function HomeOrganizerStream() {
     return missingEvoSlots.length > 0
       ? { type: "evolve", into: missingEvoSlots }
       : { type: "release" };
-  }, [allSlots, evolutionQuery.data, getSlotOwned, selectedAssistMatch]);
+  }, [allSlots, assistTargetGender, evolutionQuery.data, getSlotOwned, selectedAssistMatch]);
 
   const searchHighlightedKeys = useMemo(() => {
     if (!searchNorm) return new Set<string>();

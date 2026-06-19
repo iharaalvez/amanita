@@ -205,6 +205,8 @@ export type EvolutionStage = {
   id: number;
   evolvesFromId: number | null;
   conditions: string[];
+  /** PokéAPI gender id: 1 = female-only, 2 = male-only, null = no restriction */
+  requiredGender: 1 | 2 | null;
 };
 
 export type GameDex = {
