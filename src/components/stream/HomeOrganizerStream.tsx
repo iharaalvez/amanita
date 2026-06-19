@@ -1349,6 +1349,19 @@ export default function HomeOrganizerStream() {
 
   return (
     <div className="h-screen overflow-hidden bg-[radial-gradient(circle_at_20%_0%,rgba(159,122,234,0.16),transparent_28%),linear-gradient(135deg,#050710_0%,#0a1020_48%,#070914_100%)] p-3 text-[#f4f1ff]">
+      {assistCalibrating && (
+        <AssistCalibration
+          key={assistCalibKey}
+          getFrameCanvas={assist.getFrameCanvas}
+          captureFrame={assist.captureFrame}
+          config={assist.config}
+          onSave={(cfg) => {
+            assist.setConfig(cfg);
+            setAssistCalibKey((k) => k + 1);
+          }}
+          onClose={() => setAssistCalibrating(false)}
+        />
+      )}
       <div className="grid h-full min-h-0 grid-rows-[52px_minmax(0,1fr)_56px] gap-2">
         <header className="grid min-h-0 grid-cols-[360px_minmax(0,1fr)_360px] items-center rounded-lg border border-[#2f2750] bg-[#090b18]/92 px-4 shadow-[0_12px_38px_rgba(0,0,0,0.35)]">
           <div className="flex min-w-0 items-center gap-3">
@@ -1764,29 +1777,14 @@ export default function HomeOrganizerStream() {
                 </p>
               )}
 
-              {/* Calibrate toggle */}
+              {/* Calibrate button */}
               <button
                 type="button"
-                onClick={() => setAssistCalibrating((v) => !v)}
+                onClick={() => setAssistCalibrating(true)}
                 className="mt-2 font-mono text-[9px] uppercase tracking-[0.12em] text-[#53607c] transition hover:text-[#8ca0c9]"
               >
-                {assistCalibrating
-                  ? "▲ Hide calibration"
-                  : "▼ Calibrate regions"}
+                ▼ Calibrate regions
               </button>
-
-              {assistCalibrating && (
-                <AssistCalibration
-                  key={assistCalibKey}
-                  getFrameCanvas={assist.getFrameCanvas}
-                  captureFrame={assist.captureFrame}
-                  config={assist.config}
-                  onSave={(cfg) => {
-                    assist.setConfig(cfg);
-                    setAssistCalibKey((k) => k + 1);
-                  }}
-                />
-              )}
 
               {shouldShowAssistCandidates && (
                 <div className="mt-2 grid gap-1">
