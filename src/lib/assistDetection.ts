@@ -20,7 +20,7 @@ export const DEFAULT_ASSIST_CONFIG: AssistConfig = {
   nameRegion: { left: 0.033, top: 0.463, width: 0.064, height: 0.026 },
   shinyRegion: null,
   genderRegion: null,
-  shinyThreshold: 0.03,
+  shinyThreshold: 0.15,
   genderThreshold: 0.03,
   detectKey: "F8",
   markKey: "F9",

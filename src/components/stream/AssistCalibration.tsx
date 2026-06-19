@@ -16,7 +16,7 @@ const REGION_META: Record<
 };
 
 type Props = {
-  frameCanvasRef: React.RefObject<HTMLCanvasElement | null>;
+  getFrameCanvas: () => HTMLCanvasElement | null;
   captureFrame: () => boolean;
   config: AssistConfig;
   onSave: (config: AssistConfig) => void;
@@ -41,7 +41,7 @@ function regionLabel(r: AssistRegion, cw: number, ch: number): string {
 }
 
 export function AssistCalibration({
-  frameCanvasRef,
+  getFrameCanvas,
   captureFrame,
   config,
   onSave,
@@ -56,17 +56,16 @@ export function AssistCalibration({
   const [dirty, setDirty] = useState(false);
 
   const takeSnapshot = useCallback(() => {
-    // Grab a fresh frame from the video into frameCanvasRef
     const ok = captureFrame();
     if (!ok) return;
-    const src = frameCanvasRef.current;
+    const src = getFrameCanvas();
     if (!src || src.width === 0) return;
     const out = document.createElement("canvas");
     out.width = src.width;
     out.height = src.height;
     out.getContext("2d")!.drawImage(src, 0, 0);
     setSnapshot(out);
-  }, [captureFrame, frameCanvasRef]);
+  }, [captureFrame, getFrameCanvas]);
 
   // Redraw the display canvas whenever snapshot / draft / drag / activeKey change
   useEffect(() => {

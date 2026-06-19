@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -87,7 +87,6 @@ type AssistMatch = SearchResult & {
 };
 
 type AssistGender = "male" | "female";
-
 
 type BoxStat = {
   total: number;
@@ -254,10 +253,10 @@ function filterAssistMatchesByGender<T extends { slot: SlotData }>(
 }
 
 const REGION_BADGE: Record<string, { letter: string; className: string }> = {
-  Alolan:   { letter: "A", className: "bg-[#2a1f08] text-[#f7a94a]" },
+  Alolan: { letter: "A", className: "bg-[#2a1f08] text-[#f7a94a]" },
   Galarian: { letter: "G", className: "bg-[#1a1330] text-[#c084fc]" },
-  Hisuian:  { letter: "H", className: "bg-[#0d1f2d] text-[#67d9ff]" },
-  Paldean:  { letter: "P", className: "bg-[#1f0d0d] text-[#ff8f8f]" },
+  Hisuian: { letter: "H", className: "bg-[#0d1f2d] text-[#67d9ff]" },
+  Paldean: { letter: "P", className: "bg-[#1f0d0d] text-[#ff8f8f]" },
 };
 
 function TemplateSlot({
@@ -284,9 +283,7 @@ function TemplateSlot({
       ? !!s.gameHomeBoxes[slot.gameId]?.[key]
       : false,
   );
-  const markHomeBoxLayoutSlot = usePokedexStore(
-    (s) => s.markHomeBoxLayoutSlot,
-  );
+  const markHomeBoxLayoutSlot = usePokedexStore((s) => s.markHomeBoxLayoutSlot);
   const clearHomeBoxLayoutSlot = usePokedexStore(
     (s) => s.clearHomeBoxLayoutSlot,
   );
@@ -303,7 +300,9 @@ function TemplateSlot({
   const sprite = spriteForSlot(slot);
   const female = isFemaleForm(slot.entry);
   const compactName = compactSlotName(slot.entry);
-  const regionLabel = slot.entry.formName ? getFormLabel(slot.entry.formName) : "";
+  const regionLabel = slot.entry.formName
+    ? getFormLabel(slot.entry.formName)
+    : "";
   const regionBadge = regionLabel ? REGION_BADGE[regionLabel] : null;
   const shinyUnavailable = slot.isShiny && !slot.shinyAvailable;
 
@@ -588,11 +587,17 @@ export default function HomeOrganizerStream() {
   const [, forceUpdate] = useState(0);
   const activeItemRef = useRef<HTMLButtonElement>(null);
   const boxScrollerRef = useRef<HTMLDivElement>(null);
-  const processAssistEventRef = useRef<((event: OrderingAssistStoredEvent) => void) | null>(null);
-  const detectRef = useRef<(() => Promise<OrderingAssistDetection | null>) | null>(null);
+  const processAssistEventRef = useRef<
+    ((event: OrderingAssistStoredEvent) => void) | null
+  >(null);
+  const detectRef = useRef<
+    (() => Promise<OrderingAssistDetection | null>) | null
+  >(null);
   const assistClearTimerRef = useRef<number | null>(null);
 
   const assist = useOrderingAssist();
+  const captureStatus = assist.status;
+  const captureMessage = assist.message;
 
   const gameDex = usePokedexStore((s) => s.gameDex);
   const gameHomeBoxes = usePokedexStore((s) => s.gameHomeBoxes);
@@ -602,9 +607,7 @@ export default function HomeOrganizerStream() {
   const setActiveHomeBoxLayout = usePokedexStore(
     (s) => s.setActiveHomeBoxLayout,
   );
-  const markHomeBoxLayoutSlot = usePokedexStore(
-    (s) => s.markHomeBoxLayoutSlot,
-  );
+  const markHomeBoxLayoutSlot = usePokedexStore((s) => s.markHomeBoxLayoutSlot);
   const markInGameHomeBox = usePokedexStore((s) => s.markInGameHomeBox);
 
   const { data: allEntries, isLoading } = useLivingDexEntries();
@@ -902,14 +905,15 @@ export default function HomeOrganizerStream() {
             if (best > fuzzyNameLimit(assistTargetName)) return [];
             return scored.filter((match) => match.distance === best);
           })();
-    return filterAssistMatchesByGender(baseMatches, assistTargetGender)
-      .map(({ slot, boxIndex, slotIndex }) => ({
+    return filterAssistMatchesByGender(baseMatches, assistTargetGender).map(
+      ({ slot, boxIndex, slotIndex }) => ({
         slot,
         boxIndex,
         slotIndex,
         key: slotKey(slot),
         owned: getSlotOwned(slot),
-      }));
+      }),
+    );
   }, [
     allPositionedSlots,
     assistTargetGender,
@@ -934,8 +938,8 @@ export default function HomeOrganizerStream() {
     : assistResolving
       ? "Resolving"
       : assistDetection
-      ? "Detected"
-      : "Idle";
+        ? "Detected"
+        : "Idle";
 
   const searchHighlightedKeys = useMemo(() => {
     if (!searchNorm) return new Set<string>();
@@ -1025,14 +1029,15 @@ export default function HomeOrganizerStream() {
               if (best > fuzzyNameLimit(name)) return [];
               return scored.filter((match) => match.distance === best);
             })();
-      return filterAssistMatchesByGender(baseMatches, gender)
-        .map(({ slot, boxIndex, slotIndex }) => ({
+      return filterAssistMatchesByGender(baseMatches, gender).map(
+        ({ slot, boxIndex, slotIndex }) => ({
           slot,
           boxIndex,
           slotIndex,
           key: slotKey(slot),
           owned: getSlotOwned(slot),
-        }));
+        }),
+      );
     },
     [allPositionedSlots, getSlotOwned],
   );
@@ -1042,11 +1047,7 @@ export default function HomeOrganizerStream() {
   }, []);
 
   const confirmAssistName = useCallback(
-    (
-      name: string,
-      isShiny: boolean | null,
-      gender: AssistGender | null,
-    ) => {
+    (name: string, isShiny: boolean | null, gender: AssistGender | null) => {
       if (assistClearTimerRef.current !== null) {
         window.clearTimeout(assistClearTimerRef.current);
         assistClearTimerRef.current = null;
@@ -1083,7 +1084,11 @@ export default function HomeOrganizerStream() {
 
       if (slot.source === "game") {
         if (!slot.gameId) return false;
-        markInGameHomeBox(slot.entry.speciesId, slot.gameId, slot.entry.formName);
+        markInGameHomeBox(
+          slot.entry.speciesId,
+          slot.gameId,
+          slot.entry.formName,
+        );
         return true;
       }
 
@@ -1126,7 +1131,11 @@ export default function HomeOrganizerStream() {
         assistMatches.length > 0
           ? assistMatches
           : fallbackName
-            ? resolveAssistMatches(fallbackName, fallbackIsShiny, fallbackGender)
+            ? resolveAssistMatches(
+                fallbackName,
+                fallbackIsShiny,
+                fallbackGender,
+              )
             : [];
       const selected =
         matches.find((match) => match.key === assistSelectedKey) ??
@@ -1222,20 +1231,17 @@ export default function HomeOrganizerStream() {
         setAssistMessage("Assist target cleared.");
         return;
       }
-
     },
-    [
-      assistDetection,
-      confirmAssistName,
-      markSelectedAssistTarget,
-    ],
+    [assistDetection, confirmAssistName, markSelectedAssistTarget],
   );
 
-  processAssistEventRef.current = processAssistEvent;
-  detectRef.current = assist.detect;
+  useLayoutEffect(() => {
+    processAssistEventRef.current = processAssistEvent;
+    detectRef.current = assist.detect;
+  });
 
   useEffect(() => {
-    if (assist.status !== "ready") return;
+    if (captureStatus !== "ready") return;
     const { detectKey, markKey, clearKey } = assist.config;
 
     const handleKeyDown = async (e: KeyboardEvent) => {
@@ -1280,7 +1286,7 @@ export default function HomeOrganizerStream() {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [assist.status, assist.config]);
+  }, [captureStatus, assist.config]);
 
   useEffect(() => {
     return () => {
@@ -1605,25 +1611,17 @@ export default function HomeOrganizerStream() {
               )}
             </section>
 
-            {/* Hidden video element for browser screen capture */}
-            <video
-              ref={assist.videoRef}
-              style={{ display: "none" }}
-              playsInline
-              muted
-            />
-
             <section className="rounded-lg border border-[#2f2750] bg-[#090c18]/94 p-2.5">
               <div className="flex items-center justify-between gap-3">
                 <div className="flex min-w-0 items-center gap-2">
                   <span
                     className={`h-2 w-2 shrink-0 rounded-full ${
-                      assist.status === "ready"
+                      captureStatus === "ready"
                         ? "bg-[#8fe388]"
-                        : assist.status === "detecting" ||
-                            assist.status === "initializing-ocr"
+                        : captureStatus === "detecting" ||
+                            captureStatus === "initializing-ocr"
                           ? "bg-[#f7c948] animate-pulse"
-                          : assist.status === "requesting"
+                          : captureStatus === "requesting"
                             ? "bg-[#8ca0c9] animate-pulse"
                             : "bg-[#53607c]"
                     }`}
@@ -1634,21 +1632,21 @@ export default function HomeOrganizerStream() {
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
                   <span className="font-mono text-[9px] uppercase tracking-[0.14em] text-[#687696]">
-                    {assist.status === "ready"
+                    {captureStatus === "ready"
                       ? "Ready"
-                      : assist.status === "detecting"
+                      : captureStatus === "detecting"
                         ? "Detecting"
-                        : assist.status === "initializing-ocr"
+                        : captureStatus === "initializing-ocr"
                           ? "Loading OCR"
-                          : assist.status === "requesting"
+                          : captureStatus === "requesting"
                             ? "Waiting"
-                            : assist.status === "error"
+                            : captureStatus === "error"
                               ? "Error"
                               : ""}
                   </span>
-                  {assist.status === "ready" ||
-                  assist.status === "detecting" ||
-                  assist.status === "initializing-ocr" ? (
+                  {captureStatus === "ready" ||
+                  captureStatus === "detecting" ||
+                  captureStatus === "initializing-ocr" ? (
                     <button
                       type="button"
                       onClick={assist.stopCapture}
@@ -1660,7 +1658,7 @@ export default function HomeOrganizerStream() {
                     <button
                       type="button"
                       onClick={() => void assist.startCapture()}
-                      disabled={assist.status === "requesting"}
+                      disabled={captureStatus === "requesting"}
                       className="rounded border border-[#8fe388] bg-[#07140f] px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-[0.1em] text-[#8fe388] transition hover:bg-[#0e2519] disabled:opacity-50"
                     >
                       Start
@@ -1669,10 +1667,11 @@ export default function HomeOrganizerStream() {
                 </div>
               </div>
 
+              {captureStatus !== "idle" && (<>
               {/* Assist status message from hook (stream/OCR state) */}
-              {assist.status !== "ready" && assist.status !== "idle" && (
+              {captureStatus !== "ready" && (
                 <p className="mt-1.5 truncate font-mono text-[9px] text-[#8ca0c9]">
-                  {assist.message}
+                  {captureMessage}
                 </p>
               )}
 
@@ -1707,9 +1706,7 @@ export default function HomeOrganizerStream() {
                             : "text-[#f4f1ff]"
                       }`}
                     >
-                      {assistTargetName ||
-                        assistDetection?.name ||
-                        "No signal"}
+                      {assistTargetName || assistDetection?.name || "No signal"}
                       {(selectedAssistMatch?.slot.isShiny ||
                         (!assistTargetName && assistDetection?.isShiny)) && (
                         <span className="ml-1 text-[#f7c948]">★</span>
@@ -1760,7 +1757,7 @@ export default function HomeOrganizerStream() {
               </p>
 
               {/* Hotkey hint — only shown when ready */}
-              {assist.status === "ready" && (
+              {captureStatus === "ready" && (
                 <p className="mt-1 font-mono text-[8px] text-[#53607c]">
                   {assist.config.detectKey} detect · {assist.config.markKey}{" "}
                   mark · {assist.config.clearKey} clear
@@ -1773,13 +1770,15 @@ export default function HomeOrganizerStream() {
                 onClick={() => setAssistCalibrating((v) => !v)}
                 className="mt-2 font-mono text-[9px] uppercase tracking-[0.12em] text-[#53607c] transition hover:text-[#8ca0c9]"
               >
-                {assistCalibrating ? "▲ Hide calibration" : "▼ Calibrate regions"}
+                {assistCalibrating
+                  ? "▲ Hide calibration"
+                  : "▼ Calibrate regions"}
               </button>
 
               {assistCalibrating && (
                 <AssistCalibration
                   key={assistCalibKey}
-                  frameCanvasRef={assist.frameCanvasRef}
+                  getFrameCanvas={assist.getFrameCanvas}
                   captureFrame={assist.captureFrame}
                   config={assist.config}
                   onSave={(cfg) => {
@@ -1830,6 +1829,7 @@ export default function HomeOrganizerStream() {
                   )}
                 </div>
               )}
+              </>)}
             </section>
 
             <Panel
@@ -1863,7 +1863,11 @@ export default function HomeOrganizerStream() {
             <div className="grid min-w-0 grid-cols-[32px_minmax(0,1fr)_32px] items-center gap-1 rounded-lg border border-[#2f2750] bg-[#090b18]/92 px-1">
               <button
                 type="button"
-                onClick={() => setStripStart((s) => Math.max(0, s - Math.ceil(STRIP_PAGE_SIZE / 2)))}
+                onClick={() =>
+                  setStripStart((s) =>
+                    Math.max(0, s - Math.ceil(STRIP_PAGE_SIZE / 2)),
+                  )
+                }
                 disabled={stripStart === 0}
                 className="grid h-10 w-8 place-items-center rounded border border-[#1d253c] bg-[#060915] text-[#8ca0c9] transition hover:border-[#8fe388] hover:text-[#8fe388] disabled:opacity-30"
                 title="Previous page"
@@ -1922,7 +1926,14 @@ export default function HomeOrganizerStream() {
               </div>
               <button
                 type="button"
-                onClick={() => setStripStart((s) => Math.min(totalBoxes - STRIP_PAGE_SIZE, s + Math.ceil(STRIP_PAGE_SIZE / 2)))}
+                onClick={() =>
+                  setStripStart((s) =>
+                    Math.min(
+                      totalBoxes - STRIP_PAGE_SIZE,
+                      s + Math.ceil(STRIP_PAGE_SIZE / 2),
+                    ),
+                  )
+                }
                 disabled={stripEnd === totalBoxes}
                 className="grid h-10 w-8 place-items-center rounded border border-[#1d253c] bg-[#060915] text-[#8ca0c9] transition hover:border-[#8fe388] hover:text-[#8fe388] disabled:opacity-30"
                 title="Next page"
@@ -1945,7 +1956,7 @@ export default function HomeOrganizerStream() {
             <div className="flex min-w-0 items-center gap-2 overflow-hidden">
               {recentlyMarked.length === 0 ? (
                 <p className="font-mono text-xs text-[#53607c]">
-                  No placements yet.
+                  No placements in this session yet.
                 </p>
               ) : (
                 recentlyMarked.slice(0, 5).map((slot, i) => (

@@ -40,13 +40,12 @@ export type UseOrderingAssistReturn = {
   status: AssistStatus;
   message: string;
   config: AssistConfig;
-  videoRef: React.RefObject<HTMLVideoElement | null>;
-  frameCanvasRef: React.RefObject<HTMLCanvasElement | null>;
   setConfig: (config: AssistConfig) => void;
   startCapture: () => Promise<void>;
   stopCapture: () => void;
   captureFrame: () => boolean;
   detect: () => Promise<OrderingAssistDetection | null>;
+  getFrameCanvas: () => HTMLCanvasElement | null;
 };
 
 export function useOrderingAssist(): UseOrderingAssistReturn {
@@ -60,6 +59,20 @@ export function useOrderingAssist(): UseOrderingAssistReturn {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const frameCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
+
+  // Create the hidden video element in the DOM (not exposed as a React ref)
+  useEffect(() => {
+    const video = document.createElement("video");
+    video.style.display = "none";
+    video.muted = true;
+    video.playsInline = true;
+    document.body.appendChild(video);
+    videoRef.current = video;
+    return () => {
+      video.remove();
+      videoRef.current = null;
+    };
+  }, []);
   const workerRef = useRef<import("tesseract.js").Worker | null>(null);
   const workerInitRef = useRef<Promise<void> | null>(null);
   const statusRef = useRef<AssistStatus>("idle");
@@ -130,9 +143,19 @@ export function useOrderingAssist(): UseOrderingAssistReturn {
       if (video) {
         video.srcObject = stream;
         video.muted = true;
-        await video.play().catch(() => {
-          // autoplay policy — play() may throw but stream still works
-        });
+        await video.play().catch(() => {});
+        if (video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) {
+          await new Promise<void>((resolve) => {
+            const onReady = () => {
+              video.removeEventListener("playing", onReady);
+              video.removeEventListener("canplay", onReady);
+              resolve();
+            };
+            video.addEventListener("playing", onReady);
+            video.addEventListener("canplay", onReady);
+            setTimeout(resolve, 8000);
+          });
+        }
       }
 
       stream.getVideoTracks()[0]?.addEventListener("ended", () => {
@@ -248,16 +271,19 @@ export function useOrderingAssist(): UseOrderingAssistReturn {
     };
   }, [stopCapture]);
 
+  const getFrameCanvas = useCallback((): HTMLCanvasElement | null => {
+    return frameCanvasRef.current;
+  }, []);
+
   return {
     status,
     message,
     config,
-    videoRef,
-    frameCanvasRef,
     setConfig,
     startCapture,
     stopCapture,
     captureFrame,
     detect,
+    getFrameCanvas,
   };
 }
