@@ -586,7 +586,6 @@ export default function HomeOrganizerStream() {
   const [assistCalibKey, setAssistCalibKey] = useState(0);
   const [, forceUpdate] = useState(0);
   const activeItemRef = useRef<HTMLButtonElement>(null);
-  const boxScrollerRef = useRef<HTMLDivElement>(null);
   const processAssistEventRef = useRef<
     ((event: OrderingAssistStoredEvent) => void) | null
   >(null);
@@ -931,15 +930,7 @@ export default function HomeOrganizerStream() {
     assistMatches[0] ??
     null;
   const shouldShowAssistCandidates = assistMatches.length > 2;
-  const assistStatusLabel = assistTargetName
-    ? selectedAssistMatch?.owned
-      ? "Marked"
-      : "Confirmed"
-    : assistResolving
-      ? "Resolving"
-      : assistDetection
-        ? "Detected"
-        : "Idle";
+
 
   const searchHighlightedKeys = useMemo(() => {
     if (!searchNorm) return new Set<string>();
@@ -1304,10 +1295,6 @@ export default function HomeOrganizerStream() {
     });
   }, [safeIndex]);
 
-  const recentlyPlaced = useMemo(() => {
-    return allSlots.filter(getSlotOwned).slice(0, 8);
-  }, [allSlots, getSlotOwned]);
-
   const timeStr = new Date().toLocaleTimeString("en-US", {
     hour: "2-digit",
     minute: "2-digit",
@@ -1316,18 +1303,15 @@ export default function HomeOrganizerStream() {
   });
 
   const STRIP_PAGE_SIZE = 8;
-  const [stripStart, setStripStart] = useState(0);
-  const stripTotalPages = Math.ceil(totalBoxes / STRIP_PAGE_SIZE);
-  const stripPage = Math.floor(stripStart / STRIP_PAGE_SIZE);
+  const [stripStartBase, setStripStart] = useState(0);
 
-  useEffect(() => {
-    setStripStart((prev) => {
-      if (safeIndex < prev) return Math.max(0, safeIndex - STRIP_PAGE_SIZE + 1);
-      if (safeIndex >= prev + STRIP_PAGE_SIZE)
-        return Math.min(totalBoxes - STRIP_PAGE_SIZE, safeIndex);
-      return prev;
-    });
-  }, [safeIndex, totalBoxes]);
+  // Compute during render so safeIndex always stays in the visible strip window
+  const stripStart = (() => {
+    if (safeIndex < stripStartBase) return Math.max(0, safeIndex - STRIP_PAGE_SIZE + 1);
+    if (safeIndex >= stripStartBase + STRIP_PAGE_SIZE)
+      return Math.min(Math.max(0, totalBoxes - STRIP_PAGE_SIZE), safeIndex);
+    return stripStartBase;
+  })();
 
   const stripEnd = Math.min(stripStart + STRIP_PAGE_SIZE, totalBoxes);
   const visibleBoxStats = boxStats.slice(stripStart, stripEnd);

@@ -71,12 +71,6 @@ export function AssistCalibration({
     setSnapshot(out);
   }, [captureFrame, getFrameCanvas]);
 
-  // Auto-capture on open if a frame is already available
-  useEffect(() => {
-    takeSnapshot();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
   // Close on Escape
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
