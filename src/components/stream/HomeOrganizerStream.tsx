@@ -986,20 +986,45 @@ export default function HomeOrganizerStream() {
       }
     }
     if (!descendantIds.size) return { type: "release" };
-    // Deduplicate by species+form so paired-mode layouts don't double up.
-    // Only match evolution slots with the same shiny status — a non-shiny
-    // cannot evolve into a shiny and vice-versa.
     const isShinySource = selectedAssistMatch.slot.isShiny;
+    const sourceFormName = selectedAssistMatch.slot.entry.formName;
+
+    // Group unowned candidate slots by species so we can apply form priority.
+    const candidatesBySpecies = new Map<number, SlotData[]>();
+    for (const s of allSlots) {
+      if (!descendantIds.has(s.entry.speciesId)) continue;
+      if (s.isShiny !== isShinySource) continue;
+      if (getSlotOwned(s)) continue;
+      const bucket = candidatesBySpecies.get(s.entry.speciesId) ?? [];
+      bucket.push(s);
+      candidatesBySpecies.set(s.entry.speciesId, bucket);
+    }
+
+    // For each target species, pick the right form:
+    //   base-form source  → prefer base form (null); fallback to all forms
+    //                       (covers Rockruff → all three Lycanroc forms)
+    //   regional source   → prefer matching form; fallback to base form
+    // This prevents suggesting cap Pikachus when evolving a Pichu.
     const seen = new Set<string>();
-    const missingEvoSlots = allSlots.filter((s) => {
-      if (!descendantIds.has(s.entry.speciesId)) return false;
-      if (s.isShiny !== isShinySource) return false;
-      if (getSlotOwned(s)) return false;
-      const key = ownedKey(s.entry.speciesId, s.entry.formName);
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    });
+    const missingEvoSlots: SlotData[] = [];
+    for (const slots of candidatesBySpecies.values()) {
+      let chosen: SlotData[];
+      if (sourceFormName === null) {
+        const base = slots.filter((s) => s.entry.formName === null);
+        chosen = base.length > 0 ? base : slots;
+      } else {
+        const sameForm = slots.filter((s) => s.entry.formName === sourceFormName);
+        const base = slots.filter((s) => s.entry.formName === null);
+        chosen = sameForm.length > 0 ? sameForm : base.length > 0 ? base : slots;
+      }
+      for (const s of chosen) {
+        const key = ownedKey(s.entry.speciesId, s.entry.formName);
+        if (seen.has(key)) continue;
+        seen.add(key);
+        missingEvoSlots.push(s);
+      }
+    }
+
     return missingEvoSlots.length > 0
       ? { type: "evolve", into: missingEvoSlots }
       : { type: "release" };
