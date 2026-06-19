@@ -267,12 +267,14 @@ function TemplateSlot({
   highlighted,
   isSearchFocus,
   progressScopeId,
+  onMark,
 }: {
   slot: SlotData | null;
   slotNumber: number;
   highlighted: boolean;
   isSearchFocus: boolean;
   progressScopeId?: string;
+  onMark?: (slot: SlotData) => void;
 }) {
   const key = slot ? ownedKey(slot.entry.speciesId, slot.entry.formName) : "";
   const record = usePokedexStore((s) =>
@@ -315,12 +317,14 @@ function TemplateSlot({
           slot.gameId,
           slot.entry.formName,
         );
-      else
+      else {
         markInGameHomeBox(
           slot.entry.speciesId,
           slot.gameId,
           slot.entry.formName,
         );
+        onMark?.(slot);
+      }
       return;
     }
 
@@ -334,13 +338,15 @@ function TemplateSlot({
           slot.entry.formName,
           true,
         );
-      else
+      else {
         markHomeBoxLayoutSlot(
           progressScopeId,
           slot.entry.speciesId,
           slot.entry.formName,
           true,
         );
+        onMark?.(slot);
+      }
       return;
     }
 
@@ -351,13 +357,15 @@ function TemplateSlot({
         slot.entry.formName,
         false,
       );
-    else
+    else {
       markHomeBoxLayoutSlot(
         progressScopeId,
         slot.entry.speciesId,
         slot.entry.formName,
         false,
       );
+      onMark?.(slot);
+    }
   };
 
   return (
@@ -1760,6 +1768,9 @@ export default function HomeOrganizerStream() {
                     highlighted={!!slot && highlightedKeys.has(slotKey(slot))}
                     isSearchFocus={!!slot && highlightedKeys.has(slotKey(slot))}
                     progressScopeId={layoutProgressId || undefined}
+                    onMark={(s) =>
+                      setRecentlyMarked((prev) => [s, ...prev].slice(0, 8))
+                    }
                   />
                 ))}
               </div>
