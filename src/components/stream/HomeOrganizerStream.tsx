@@ -20,6 +20,7 @@ import { useLivingDexEntries } from "@/hooks/usePokemon";
 import { useGameHomeBoxDex } from "@/hooks/useGamePokedex";
 import { GAME_LIST, getGameById } from "@/config/games";
 import { GENDER_DIFFERENCE_FORM_KEYS } from "@/config/cosmetic-forms";
+import { getFormLabel } from "@/lib/forms";
 import { api } from "@/lib/api";
 import { loadFromSupabase } from "@/lib/sync";
 import { supabase } from "@/lib/supabase";
@@ -253,6 +254,13 @@ function filterAssistMatchesByGender<T extends { slot: SlotData }>(
   );
 }
 
+const REGION_BADGE: Record<string, { letter: string; className: string }> = {
+  Alolan:   { letter: "A", className: "bg-[#2a1f08] text-[#f7a94a]" },
+  Galarian: { letter: "G", className: "bg-[#1a1330] text-[#c084fc]" },
+  Hisuian:  { letter: "H", className: "bg-[#0d1f2d] text-[#67d9ff]" },
+  Paldean:  { letter: "P", className: "bg-[#1f0d0d] text-[#ff8f8f]" },
+};
+
 function TemplateSlot({
   slot,
   slotNumber,
@@ -294,6 +302,8 @@ function TemplateSlot({
   const sprite = spriteForSlot(slot);
   const female = isFemaleForm(slot.entry);
   const compactName = compactSlotName(slot.entry);
+  const regionLabel = slot.entry.formName ? getFormLabel(slot.entry.formName) : "";
+  const regionBadge = regionLabel ? REGION_BADGE[regionLabel] : null;
   const shinyUnavailable = slot.isShiny && !slot.shinyAvailable;
 
   const toggle = () => {
@@ -425,6 +435,14 @@ function TemplateSlot({
               ♀
             </span>
           )}
+          {regionBadge && (
+            <span
+              className={`grid h-3.5 w-3.5 place-items-center rounded font-mono text-[8px] font-black leading-none ${regionBadge.className}`}
+              title={regionLabel}
+            >
+              {regionBadge.letter}
+            </span>
+          )}
         </div>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
@@ -538,6 +556,7 @@ function SearchBox({
 
 export default function HomeOrganizerStream() {
   const [boxIndex, setBoxIndex] = useState(0);
+  const [recentlyMarked, setRecentlyMarked] = useState<SlotData[]>([]);
   const [boxSource, setBoxSource] = useState<BoxSource>("home");
   const [selectedGameId, setSelectedGameId] = useState(DEFAULT_GAME_BOX_ID);
   const [searchQuery, setSearchQuery] = useState("");
@@ -1109,6 +1128,9 @@ export default function HomeOrganizerStream() {
       }
 
       const marked = markAssistSlot(selected);
+      if (marked) {
+        setRecentlyMarked((prev) => [selected.slot, ...prev].slice(0, 8));
+      }
       setAssistSelectedKey(selected.key);
       setBoxIndex(selected.boxIndex);
       setAssistMessage(
@@ -1266,15 +1288,26 @@ export default function HomeOrganizerStream() {
     hour12: false,
   });
 
+  const STRIP_PAGE_SIZE = 8;
+  const [stripStart, setStripStart] = useState(0);
+  const stripTotalPages = Math.ceil(totalBoxes / STRIP_PAGE_SIZE);
+  const stripPage = Math.floor(stripStart / STRIP_PAGE_SIZE);
+
+  useEffect(() => {
+    setStripStart((prev) => {
+      if (safeIndex < prev) return Math.max(0, safeIndex - STRIP_PAGE_SIZE + 1);
+      if (safeIndex >= prev + STRIP_PAGE_SIZE)
+        return Math.min(totalBoxes - STRIP_PAGE_SIZE, safeIndex);
+      return prev;
+    });
+  }, [safeIndex, totalBoxes]);
+
+  const stripEnd = Math.min(stripStart + STRIP_PAGE_SIZE, totalBoxes);
+  const visibleBoxStats = boxStats.slice(stripStart, stripEnd);
+
   const prev = () => setBoxIndex((index) => Math.max(0, index - 1));
   const next = () =>
     setBoxIndex((index) => Math.min(totalBoxes - 1, index + 1));
-  const scrollBoxNav = (direction: -1 | 1) => {
-    boxScrollerRef.current?.scrollBy({
-      left: direction * 360,
-      behavior: "smooth",
-    });
-  };
 
   if (isLoading || (boxSource === "game" && gameBoxQuery.isLoading)) {
     return (
@@ -1324,7 +1357,11 @@ export default function HomeOrganizerStream() {
             <div className="flex items-center gap-2 rounded border border-[#27304c] bg-[#060915] px-4 py-2">
               <LayoutGrid className="h-4 w-4 text-[#8fe388]" />
               <span className="font-mono text-sm font-black uppercase tracking-[0.16em] text-[#8fe388]">
-                Box Guide Mode
+                BOX {safeIndex + 1}
+              </span>
+              <span className="font-mono text-sm text-[#53607c]">of</span>
+              <span className="font-mono text-sm font-black uppercase tracking-[0.16em] text-[#8ca0c9]">
+                {totalBoxes}
               </span>
             </div>
             <button
@@ -1362,10 +1399,9 @@ export default function HomeOrganizerStream() {
                   {captureLabel}
                 </span>
               </div>
-              <div className="flex items-center gap-3 font-mono text-sm font-black text-[#10131d]">
-                <span>BOX {safeIndex + 1}</span>
-                <span className="text-[#8b95a5]">/</span>
-                <span>{totalBoxes}</span>
+              <div className="flex items-center gap-1.5 font-mono text-[10px] font-black uppercase tracking-[0.18em] text-[#8b95a5]">
+                <LayoutGrid className="h-3 w-3" />
+                <span>Box Guide Mode</span>
               </div>
             </div>
             <div className="relative h-[calc(100%-44px)] bg-[#03050d]/35">
@@ -1381,7 +1417,7 @@ export default function HomeOrganizerStream() {
             </div>
           </section>
 
-          <aside className="grid min-h-0 grid-rows-[auto_auto_auto_minmax(0,1fr)_88px] gap-1.5">
+          <aside className="grid min-h-0 grid-rows-[auto_auto_auto_minmax(0,1fr)_56px] gap-1.5">
             <section className="rounded-lg border border-[#2f2750] bg-[#090c18]/94 px-3 py-2 shadow-[0_18px_45px_rgba(0,0,0,0.35)]">
               <div className="grid grid-cols-[minmax(0,1fr)_118px] items-center gap-3">
                 <div className="flex min-w-0 items-center gap-2.5">
@@ -1729,119 +1765,113 @@ export default function HomeOrganizerStream() {
               </div>
             </Panel>
 
-            <Panel
-              title="Recent"
-              icon={<CheckCircle2 className="h-4 w-4 text-[#8fe388]" />}
-              className="min-h-0"
-            >
-              <div className="flex h-[calc(100%-40px)] items-center gap-2 overflow-hidden px-3">
-                {recentlyPlaced.length === 0 ? (
-                  <p className="font-mono text-xs text-[#53607c]">
-                    No placements yet.
-                  </p>
-                ) : (
-                  recentlyPlaced.slice(0, 5).map(({ entry, isShiny }) => {
-                    const slot = {
-                      entry,
-                      isShiny,
-                      shinyAvailable: !isShiny || isShinyTrackedEntry(entry),
-                      source: "home" as const,
-                    };
-                    return (
-                      <div
-                        key={slotKey(slot)}
-                        className="flex min-w-0 shrink-0 items-center gap-1.5 rounded border border-[#27304c] bg-[#060915] px-2 py-1"
+            <div className="grid min-w-0 grid-cols-[32px_minmax(0,1fr)_32px] items-center gap-1 rounded-lg border border-[#2f2750] bg-[#090b18]/92 px-1">
+              <button
+                type="button"
+                onClick={() => setStripStart((s) => Math.max(0, s - Math.ceil(STRIP_PAGE_SIZE / 2)))}
+                disabled={stripStart === 0}
+                className="grid h-10 w-8 place-items-center rounded border border-[#1d253c] bg-[#060915] text-[#8ca0c9] transition hover:border-[#8fe388] hover:text-[#8fe388] disabled:opacity-30"
+                title="Previous page"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+              <div className="flex min-w-0 items-center justify-between gap-1 px-1">
+                {visibleBoxStats.map((stat, pageIndex) => {
+                  const index = stripStart + pageIndex;
+                  const pct = stat.total > 0 ? stat.owned / stat.total : 0;
+                  const isComplete = pct === 1 && stat.total > 0;
+                  const isCurrent = index === safeIndex;
+                  const hasMatch = searchNorm ? boxHasMatch[index] : false;
+                  return (
+                    <button
+                      key={index}
+                      type="button"
+                      onClick={() => setBoxIndex(index)}
+                      title={`Box ${index + 1}: ${stat.owned}/${stat.total}`}
+                      className={`grid h-10 flex-1 grid-rows-[1fr_auto] rounded border px-1 py-1 transition ${
+                        isCurrent
+                          ? "border-[#8fe388] bg-[#102819]"
+                          : hasMatch
+                            ? "border-[#f7c948] bg-[#1a1405]"
+                            : "border-[#1d253c] bg-[#060915] hover:border-[#9f7aea]"
+                      }`}
+                    >
+                      <span
+                        className={`font-mono text-[12px] font-black leading-none ${
+                          isCurrent
+                            ? "text-[#8fe388]"
+                            : hasMatch
+                              ? "text-[#f7c948]"
+                              : isComplete
+                                ? "text-[#8fe388]"
+                                : "text-[#687696]"
+                        }`}
                       >
-                        <MiniSprite slot={slot} />
-                        <span className="max-w-[74px] truncate text-xs font-bold text-[#f4f1ff]">
-                          {compactSlotName(entry)}
-                          {isShiny && (
-                            <span className="ml-1 text-[#f7c948]">★</span>
-                          )}
-                          {isFemaleForm(entry) && (
-                            <span className="ml-1 text-[#ff9ee8]">♀</span>
-                          )}
-                        </span>
-                      </div>
-                    );
-                  })
-                )}
+                        {index + 1}
+                      </span>
+                      <span className="h-1 overflow-hidden rounded bg-[#202840]">
+                        <span
+                          className={`block h-full rounded ${
+                            hasMatch
+                              ? "bg-[#f7c948]"
+                              : isComplete
+                                ? "bg-[#8fe388]"
+                                : "bg-[#67d9ff]"
+                          }`}
+                          style={{ width: `${pct * 100}%` }}
+                        />
+                      </span>
+                    </button>
+                  );
+                })}
               </div>
-            </Panel>
+              <button
+                type="button"
+                onClick={() => setStripStart((s) => Math.min(totalBoxes - STRIP_PAGE_SIZE, s + Math.ceil(STRIP_PAGE_SIZE / 2)))}
+                disabled={stripEnd === totalBoxes}
+                className="grid h-10 w-8 place-items-center rounded border border-[#1d253c] bg-[#060915] text-[#8ca0c9] transition hover:border-[#8fe388] hover:text-[#8fe388] disabled:opacity-30"
+                title="Next page"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            </div>
           </aside>
         </main>
 
         <footer className="grid min-h-0 grid-cols-[minmax(0,1fr)_170px] gap-2">
-          <div className="grid min-w-0 grid-cols-[32px_minmax(0,1fr)_32px] items-center gap-1 rounded-lg border border-[#2f2750] bg-[#090b18]/92 px-1">
-            <button
-              type="button"
-              onClick={() => scrollBoxNav(-1)}
-              className="grid h-10 w-8 place-items-center rounded border border-[#1d253c] bg-[#060915] text-[#8ca0c9] transition hover:border-[#8fe388] hover:text-[#8fe388]"
-              title="Scroll boxes left"
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </button>
-            <div
-              ref={boxScrollerRef}
-              className="flex min-w-0 items-center gap-1 overflow-x-auto overflow-y-hidden px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-            >
-              {boxStats.map((stat, index) => {
-                const pct = stat.total > 0 ? stat.owned / stat.total : 0;
-                const isComplete = pct === 1 && stat.total > 0;
-                const isCurrent = index === safeIndex;
-                const hasMatch = searchNorm ? boxHasMatch[index] : false;
-                return (
-                  <button
-                    key={index}
-                    ref={isCurrent ? activeItemRef : undefined}
-                    type="button"
-                    onClick={() => setBoxIndex(index)}
-                    title={`Box ${index + 1}: ${stat.owned}/${stat.total}`}
-                    className={`grid h-10 w-10 shrink-0 grid-rows-[1fr_auto] rounded border px-1 py-1 transition ${
-                      isCurrent
-                        ? "border-[#8fe388] bg-[#102819]"
-                        : hasMatch
-                          ? "border-[#f7c948] bg-[#1a1405]"
-                          : "border-[#1d253c] bg-[#060915] hover:border-[#9f7aea]"
-                    }`}
-                  >
-                    <span
-                      className={`font-mono text-[12px] font-black leading-none ${
-                        isCurrent
-                          ? "text-[#8fe388]"
-                          : hasMatch
-                            ? "text-[#f7c948]"
-                            : isComplete
-                              ? "text-[#8fe388]"
-                              : "text-[#687696]"
-                      }`}
-                    >
-                      {index + 1}
-                    </span>
-                    <span className="h-1 overflow-hidden rounded bg-[#202840]">
-                      <span
-                        className={`block h-full rounded ${
-                          hasMatch
-                            ? "bg-[#f7c948]"
-                            : isComplete
-                              ? "bg-[#8fe388]"
-                              : "bg-[#67d9ff]"
-                        }`}
-                        style={{ width: `${pct * 100}%` }}
-                      />
-                    </span>
-                  </button>
-                );
-              })}
+          <div className="flex min-w-0 items-center gap-3 rounded-lg border border-[#2f2750] bg-[#090b18]/92 px-4">
+            <div className="flex items-center gap-1.5 shrink-0">
+              <CheckCircle2 className="h-3.5 w-3.5 text-[#8fe388]" />
+              <span className="font-mono text-[10px] font-black uppercase tracking-[0.18em] text-[#687696]">
+                Recent
+              </span>
             </div>
-            <button
-              type="button"
-              onClick={() => scrollBoxNav(1)}
-              className="grid h-10 w-8 place-items-center rounded border border-[#1d253c] bg-[#060915] text-[#8ca0c9] transition hover:border-[#8fe388] hover:text-[#8fe388]"
-              title="Scroll boxes right"
-            >
-              <ChevronRight className="h-4 w-4" />
-            </button>
+            <div className="h-5 w-px bg-[#1d253c]" />
+            <div className="flex min-w-0 items-center gap-2 overflow-hidden">
+              {recentlyMarked.length === 0 ? (
+                <p className="font-mono text-xs text-[#53607c]">
+                  No placements yet.
+                </p>
+              ) : (
+                recentlyMarked.slice(0, 5).map((slot, i) => (
+                  <div
+                    key={`${slotKey(slot)}-${i}`}
+                    className="flex min-w-0 shrink-0 items-center gap-1.5 rounded border border-[#27304c] bg-[#060915] px-2 py-1"
+                  >
+                    <MiniSprite slot={slot} />
+                    <span className="max-w-[74px] truncate text-xs font-bold text-[#f4f1ff]">
+                      {compactSlotName(slot.entry)}
+                      {slot.isShiny && (
+                        <span className="ml-1 text-[#f7c948]">★</span>
+                      )}
+                      {isFemaleForm(slot.entry) && (
+                        <span className="ml-1 text-[#ff9ee8]">♀</span>
+                      )}
+                    </span>
+                  </div>
+                ))
+              )}
+            </div>
           </div>
 
           <div className="rounded-lg border border-[#2f2750] bg-[#090b18]/92 px-4 py-2">

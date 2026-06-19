@@ -667,6 +667,7 @@ export const usePokedexStore = create<PokedexState>()(
           );
           const gameDex = { ...state.gameDex };
           delete gameDex[id];
+          void deleteGameDexScope(id);
           if (state.activeHomeBoxLayoutId !== id) {
             void syncHomeBoxLayouts(layouts, state.activeHomeBoxLayoutId);
             void syncGameDex(gameDex);
