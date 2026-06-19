@@ -36,6 +36,7 @@ import type {
 import type {
   GameHomeBoxFormRule,
   GameHomeBoxEntry,
+  GameDexFlags,
   HomeBoxLayoutProfile,
   LivingDexEntry,
 } from "@/types/pokemon";
@@ -46,6 +47,7 @@ const ROWS = BOX_SIZE / COLS;
 const HOME_DEX_GAME_ID = "home";
 const EMPTY_BOX: (SlotData | null)[] = [];
 const DEFAULT_GAME_BOX_ID = "legends-za";
+const EMPTY_GAME_FLAGS: Record<string, GameDexFlags> = {};
 const UNSYNCED_PREVIEW_LAYOUT: HomeBoxLayoutProfile = {
   id: "stream-unsynced-preview",
   name: "Unsynced Preview",
@@ -141,12 +143,12 @@ function buildSlotBoxes(slots: SlotData[]): (SlotData | null)[][] {
 
 function isSlotOwned(
   slot: SlotData,
-  record: { owned?: boolean; shiny_owned?: boolean } | undefined,
+  record: { owned?: boolean; shiny?: boolean } | undefined,
   gameBoxed = false,
 ): boolean {
   if (slot.source === "game") return gameBoxed;
   if (slot.isShiny && !slot.shinyAvailable) return false;
-  return slot.isShiny ? !!record?.shiny_owned : !!record?.owned;
+  return slot.isShiny ? !!record?.shiny : !!record?.owned;
 }
 
 function isSlotTrackable(slot: SlotData): boolean {
@@ -256,23 +258,29 @@ function TemplateSlot({
   slotNumber,
   highlighted,
   isSearchFocus,
+  progressScopeId,
 }: {
   slot: SlotData | null;
   slotNumber: number;
   highlighted: boolean;
   isSearchFocus: boolean;
+  progressScopeId?: string;
 }) {
   const key = slot ? ownedKey(slot.entry.speciesId, slot.entry.formName) : "";
-  const record = usePokedexStore((s) => (slot ? s.owned[key] : undefined));
+  const record = usePokedexStore((s) =>
+    slot && progressScopeId ? s.gameDex[progressScopeId]?.[key] : undefined,
+  );
   const gameBoxed = usePokedexStore((s) =>
     slot?.source === "game" && slot.gameId
       ? !!s.gameHomeBoxes[slot.gameId]?.[key]
       : false,
   );
-  const markOwned = usePokedexStore((s) => s.markOwned);
-  const clearOwnership = usePokedexStore((s) => s.clearOwnership);
-  const markShinyOwned = usePokedexStore((s) => s.markShinyOwned);
-  const clearShinyOwned = usePokedexStore((s) => s.clearShinyOwned);
+  const markHomeBoxLayoutSlot = usePokedexStore(
+    (s) => s.markHomeBoxLayoutSlot,
+  );
+  const clearHomeBoxLayoutSlot = usePokedexStore(
+    (s) => s.clearHomeBoxLayoutSlot,
+  );
   const markInGameHomeBox = usePokedexStore((s) => s.markInGameHomeBox);
   const clearFromGameHomeBox = usePokedexStore((s) => s.clearFromGameHomeBox);
 
@@ -307,14 +315,39 @@ function TemplateSlot({
     }
 
     if (shinyUnavailable) return;
+    if (!progressScopeId) return;
     if (slot.isShiny) {
-      if (owned) clearShinyOwned(slot.entry.speciesId, slot.entry.formName);
-      else markShinyOwned(slot.entry.speciesId, slot.entry.formName);
+      if (owned)
+        clearHomeBoxLayoutSlot(
+          progressScopeId,
+          slot.entry.speciesId,
+          slot.entry.formName,
+          true,
+        );
+      else
+        markHomeBoxLayoutSlot(
+          progressScopeId,
+          slot.entry.speciesId,
+          slot.entry.formName,
+          true,
+        );
       return;
     }
 
-    if (owned) clearOwnership(slot.entry.speciesId, slot.entry.formName);
-    else markOwned(slot.entry.speciesId, slot.entry.formName);
+    if (owned)
+      clearHomeBoxLayoutSlot(
+        progressScopeId,
+        slot.entry.speciesId,
+        slot.entry.formName,
+        false,
+      );
+    else
+      markHomeBoxLayoutSlot(
+        progressScopeId,
+        slot.entry.speciesId,
+        slot.entry.formName,
+        false,
+      );
   };
 
   return (
@@ -532,7 +565,7 @@ export default function HomeOrganizerStream() {
   const assistLastEventIdRef = useRef(0);
   const assistClearTimerRef = useRef<number | null>(null);
 
-  const storeOwned = usePokedexStore((s) => s.owned);
+  const gameDex = usePokedexStore((s) => s.gameDex);
   const gameHomeBoxes = usePokedexStore((s) => s.gameHomeBoxes);
   const homeBoxLayouts = usePokedexStore((s) => s.homeBoxLayouts);
   const activeHomeBoxLayoutId = usePokedexStore((s) => s.activeHomeBoxLayoutId);
@@ -540,8 +573,9 @@ export default function HomeOrganizerStream() {
   const setActiveHomeBoxLayout = usePokedexStore(
     (s) => s.setActiveHomeBoxLayout,
   );
-  const markOwned = usePokedexStore((s) => s.markOwned);
-  const markShinyOwned = usePokedexStore((s) => s.markShinyOwned);
+  const markHomeBoxLayoutSlot = usePokedexStore(
+    (s) => s.markHomeBoxLayoutSlot,
+  );
   const markInGameHomeBox = usePokedexStore((s) => s.markInGameHomeBox);
 
   const { data: allEntries, isLoading } = useLivingDexEntries();
@@ -568,6 +602,14 @@ export default function HomeOrganizerStream() {
     selectableLayouts.find((layout) => layout.id === selectedLayoutId) ??
     selectableLayouts.find((layout) => layout.id === activeHomeBoxLayoutId) ??
     selectableLayouts[0];
+  const layoutProgressId = homeBoxLayouts.some(
+    (layout) => layout.id === activeHomeBoxLayout.id,
+  )
+    ? activeHomeBoxLayout.id
+    : "";
+  const homeLayoutFlags = layoutProgressId
+    ? (gameDex[layoutProgressId] ?? EMPTY_GAME_FLAGS)
+    : EMPTY_GAME_FLAGS;
   const layoutMode = activeHomeBoxLayout.mode;
   const layoutShowCosmeticForms = activeHomeBoxLayout.showCosmeticForms;
   const layoutShowGenderForms = activeHomeBoxLayout.showGenderForms;
@@ -588,14 +630,14 @@ export default function HomeOrganizerStream() {
     (slot: SlotData) =>
       isSlotOwned(
         slot,
-        storeOwned[ownedKey(slot.entry.speciesId, slot.entry.formName)],
+        homeLayoutFlags[ownedKey(slot.entry.speciesId, slot.entry.formName)],
         slot.source === "game" && slot.gameId
           ? !!gameHomeBoxes[slot.gameId]?.[
               ownedKey(slot.entry.speciesId, slot.entry.formName)
             ]
           : false,
       ),
-    [gameHomeBoxes, storeOwned],
+    [gameHomeBoxes, homeLayoutFlags],
   );
 
   const handleSourceChange = (source: BoxSource) => {
@@ -1018,14 +1060,26 @@ export default function HomeOrganizerStream() {
 
       if (slot.isShiny) {
         if (!slot.shinyAvailable) return false;
-        markShinyOwned(slot.entry.speciesId, slot.entry.formName);
+        if (!layoutProgressId) return false;
+        markHomeBoxLayoutSlot(
+          layoutProgressId,
+          slot.entry.speciesId,
+          slot.entry.formName,
+          true,
+        );
         return true;
       }
 
-      markOwned(slot.entry.speciesId, slot.entry.formName);
+      if (!layoutProgressId) return false;
+      markHomeBoxLayoutSlot(
+        layoutProgressId,
+        slot.entry.speciesId,
+        slot.entry.formName,
+        false,
+      );
       return true;
     },
-    [markInGameHomeBox, markOwned, markShinyOwned],
+    [layoutProgressId, markHomeBoxLayoutSlot, markInGameHomeBox],
   );
 
   const markSelectedAssistTarget = useCallback(
@@ -1201,71 +1255,9 @@ export default function HomeOrganizerStream() {
     });
   }, [safeIndex]);
 
-  const entryByKey = useMemo(() => {
-    const map = new Map<string, LivingDexEntry>();
-    for (const entry of allEntries ?? []) {
-      map.set(ownedKey(entry.speciesId, entry.formName), entry);
-    }
-    return map;
-  }, [allEntries]);
-
   const recentlyPlaced = useMemo(() => {
-    if (boxSource === "game") {
-      return allSlots.filter(getSlotOwned).slice(0, 8);
-    }
-
-    return Object.entries(storeOwned)
-      .filter(([, record]) =>
-        isShinyMode
-          ? record.shiny_owned
-          : isPairedMode
-            ? record.owned || record.shiny_owned
-            : record.owned,
-      )
-      .sort(([, a], [, b]) => {
-        if (!a.updated_at && !b.updated_at) return 0;
-        if (!a.updated_at) return 1;
-        if (!b.updated_at) return -1;
-        return b.updated_at.localeCompare(a.updated_at);
-      })
-      .slice(0, 8)
-      .flatMap(([key, record]) => {
-        const entry = entryByKey.get(key);
-        if (!entry) return [];
-
-        const slots: SlotData[] = [];
-        if (!isShinyMode && record.owned) {
-          slots.push({
-            entry,
-            isShiny: false,
-            shinyAvailable: true,
-            source: "home",
-          });
-        }
-        if (
-          (isShinyMode || isPairedMode) &&
-          record.shiny_owned &&
-          isShinyTrackedEntry(entry)
-        ) {
-          slots.push({
-            entry,
-            isShiny: true,
-            shinyAvailable: true,
-            source: "home",
-          });
-        }
-        return slots;
-      });
-  }, [
-    allSlots,
-    boxSource,
-    entryByKey,
-    getSlotOwned,
-    isPairedMode,
-    isShinyMode,
-    isShinyTrackedEntry,
-    storeOwned,
-  ]);
+    return allSlots.filter(getSlotOwned).slice(0, 8);
+  }, [allSlots, getSlotOwned]);
 
   const timeStr = new Date().toLocaleTimeString("en-US", {
     hour: "2-digit",
@@ -1731,6 +1723,7 @@ export default function HomeOrganizerStream() {
                     slotNumber={index + 1}
                     highlighted={!!slot && highlightedKeys.has(slotKey(slot))}
                     isSearchFocus={!!slot && highlightedKeys.has(slotKey(slot))}
+                    progressScopeId={layoutProgressId || undefined}
                   />
                 ))}
               </div>

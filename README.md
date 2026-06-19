@@ -1,10 +1,10 @@
 # Amanita
 
-Amanita is a Living Pokedex tracker for Pokemon collectors. It helps you track one personally caught or bred Pokemon per species, organize HOME-style boxes, follow per-game National Dex progress for Shiny Charm goals, and keep shiny hunts and recent catches synced across devices.
+Amanita is a Living Pokedex tracker for Pokemon collectors. It helps you organize HOME-style boxes, track progress per saved HOME layout, follow per-game National Dex progress for Shiny Charm goals, and keep shiny hunts and recent catches synced across devices.
 
 ## Features
 
-- Living Dex tracking for base species and supported forms
+- HOME layout progress for base species and supported forms
 - HOME box view with 30-slot grids inspired by Pokemon HOME
 - Missing Pokemon silhouettes instead of empty slots
 - Shiny Living Dex tracking and shiny hunt counters
@@ -28,7 +28,7 @@ Amanita is a Living Pokedex tracker for Pokemon collectors. It helps you track o
 
 ## Domain Notes
 
-- `owned` means the Pokemon was personally caught or bred by the user, not traded for.
+- HOME progress is scoped to the selected saved layout, so each HOME account or box strategy has independent marks.
 - A Living Dex means one of each species.
 - HOME boxes are 30-slot grids matching Pokemon HOME's layout.
 - National Dex progress is tracked per game for Shiny Charm eligibility.
@@ -102,11 +102,10 @@ docs/                 Data and seeding notes
 
 ## Sync Model
 
-Reference data and Pokemon metadata are fetched/cached as server state. User-owned progress is local-first in Zustand and persisted in localStorage. When a user is signed in, changes sync to Supabase:
+Reference data and Pokemon metadata are fetched/cached as server state. User progress is local-first in Zustand and persisted in localStorage. When a user is signed in, changes sync to Supabase:
 
-- `pokedex` stores Living Dex ownership rows
 - `user_games` stores available game selections
-- `user_game_dex` stores per-game National Dex, shiny, alpha, and shiny-alpha flags
+- `user_game_dex` stores per-game National Dex flags and saved HOME layout progress
 - `user_game_home_boxes` stores per-game HOME transfer box progress
 - `user_shiny_hunts` stores shiny hunt counters and completion state
 - `user_recent_catches` stores the recent catch log

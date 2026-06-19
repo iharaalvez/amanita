@@ -1,8 +1,8 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import {
-  syncRecord,
   syncAvailableGame,
+  syncGameDex,
   syncGameDexEntry,
   syncGameHomeBoxEntry,
   syncPinnedGameId,
@@ -10,17 +10,15 @@ import {
   syncSingleHomeBoxLayout,
   syncActiveHomeBoxLayoutId,
   syncShinyHunt,
+  deleteGameDexScope,
   deleteShinyHunt,
   syncRecentCatch,
   deleteRecentCatch,
   deleteAvailableGame,
 } from "@/lib/sync";
-import { mergeOwnedRecords } from "@/lib/progressMerge";
 import type {
-  OwnedRecord,
   HomeBoxLayoutProfile,
   HomeBoxMode,
-  OwnershipMethod,
   ShinyHuntMethod,
   HuntCounterMode,
   ShinyHunt,
@@ -57,7 +55,6 @@ const LEGACY_DEFAULT_HOME_BOX_LAYOUT: HomeBoxLayoutProfile = {
 };
 
 type PokedexState = {
-  owned: Record<string, OwnedRecord>;
   recentCatches: CatchEvent[];
   shinyHunts: ShinyHunt[];
   // gameDex[gameId][speciesKey] = { owned, shiny, alpha?, shiny_alpha? }
@@ -93,28 +90,23 @@ type PokedexState = {
     patch: Partial<Omit<HomeBoxLayoutProfile, "id">>,
   ) => void;
   removeHomeBoxLayout: (id: string) => void;
+  clearHomeBoxLayoutProgress: (id: string) => void;
+  markHomeBoxLayoutSlot: (
+    layoutId: string,
+    speciesId: number,
+    formName: string | null,
+    shiny: boolean,
+  ) => void;
+  clearHomeBoxLayoutSlot: (
+    layoutId: string,
+    speciesId: number,
+    formName: string | null,
+    shiny: boolean,
+  ) => void;
   setProgressSnapshot: (snapshot: ProgressSnapshot) => void;
   mergeProgressSnapshot: (snapshot: ProgressSnapshot) => ProgressSnapshot;
   getProgressSnapshot: () => ProgressSnapshot;
   clearAll: () => void;
-
-  // Living Dex (HOME) ownership
-  markOwned: (
-    speciesId: number,
-    formName?: string | null,
-    method?: OwnershipMethod,
-  ) => void;
-  markShinyOwned: (
-    speciesId: number,
-    formName?: string | null,
-    huntMethod?: ShinyHuntMethod,
-    game?: string,
-  ) => void;
-  clearShinyOwned: (speciesId: number, formName?: string | null) => void;
-  clearOwnership: (speciesId: number, formName?: string | null) => void;
-  isOwned: (speciesId: number, formName?: string | null) => boolean;
-  getOwnedCount: () => number;
-  getTotalOwned: () => number;
 
   // Per-game dex registration
   markOwnedInGame: (
@@ -298,6 +290,25 @@ function normalizeHomeBoxLayouts(value: unknown): HomeBoxLayoutProfile[] {
   return layouts;
 }
 
+function isHomeLayoutProgressScope(gameId: string): boolean {
+  return (
+    gameId.startsWith("home-layout-") || gameId === DEFAULT_HOME_BOX_LAYOUT_ID
+  );
+}
+
+function pruneGameDexToHomeLayouts(
+  gameDex: Record<string, Record<string, GameDexFlags>>,
+  homeBoxLayouts: HomeBoxLayoutProfile[],
+): Record<string, Record<string, GameDexFlags>> {
+  const homeLayoutIds = new Set(homeBoxLayouts.map((layout) => layout.id));
+  return Object.fromEntries(
+    Object.entries(gameDex).filter(
+      ([gameId]) =>
+        !isHomeLayoutProgressScope(gameId) || homeLayoutIds.has(gameId),
+    ),
+  );
+}
+
 function updateActiveHomeBoxLayout(
   state: PokedexState,
   patch: Partial<Omit<HomeBoxLayoutProfile, "id" | "name">>,
@@ -328,15 +339,10 @@ function remapLegacyLegendsZaProgress(
   };
 }
 
-// Convert old flat number[] game dex + shiny arrays into the new GameDexFlags map.
-// Also pulls alpha_owned / shiny_alpha_owned from OwnedRecords into PLA entries.
+// Convert old flat number[] game dex + shiny arrays into the GameDexFlags map.
 function migrateToGameDex(
   gameDexProgress: Record<string, number[]>,
   shinyGameDexProgress: Record<string, number[]>,
-  ownedRecords: Record<
-    string,
-    OwnedRecord & { alpha_owned?: boolean; shiny_alpha_owned?: boolean }
-  >,
 ): Record<string, Record<string, GameDexFlags>> {
   const allGameIds = new Set([
     ...Object.keys(gameDexProgress),
@@ -356,20 +362,6 @@ function migrateToGameDex(
         shiny: shinyIds.has(speciesId),
       };
     }
-  }
-
-  // Pull PLA alpha data from owned records
-  for (const [key, record] of Object.entries(ownedRecords)) {
-    const alphaOwned = record.alpha_owned;
-    const shinyAlphaOwned = record.shiny_alpha_owned;
-    if (!alphaOwned && !shinyAlphaOwned) continue;
-    if (!gameDex["pla"]) gameDex["pla"] = {};
-    const existing = gameDex["pla"][key] ?? { owned: false, shiny: false };
-    gameDex["pla"][key] = {
-      ...existing,
-      alpha: alphaOwned ?? existing.alpha,
-      shiny_alpha: shinyAlphaOwned ?? existing.shiny_alpha,
-    };
   }
 
   return gameDex;
@@ -502,7 +494,6 @@ function patchGameEntry(
 export const usePokedexStore = create<PokedexState>()(
   persist(
     (set, get) => ({
-      owned: {},
       recentCatches: [],
       shinyHunts: [],
       gameDex: {},
@@ -599,10 +590,15 @@ export const usePokedexStore = create<PokedexState>()(
             showGenderForms: state.showGenderForms,
           };
           const homeBoxLayouts = [...state.homeBoxLayouts, layout];
+          const gameDex = pruneGameDexToHomeLayouts(
+            { ...state.gameDex, [id]: {} },
+            homeBoxLayouts,
+          );
           void syncHomeBoxLayouts(homeBoxLayouts, id);
           return {
             homeBoxLayouts,
             activeHomeBoxLayoutId: id,
+            gameDex,
           };
         }),
       createHomeBoxLayout: (name, mode, showCosmeticForms, showGenderForms) => {
@@ -614,14 +610,22 @@ export const usePokedexStore = create<PokedexState>()(
           showCosmeticForms,
           showGenderForms,
         };
-        set((state) => ({
-          homeBoxLayouts: [...state.homeBoxLayouts, layout],
-          activeHomeBoxLayoutId: id,
-          homeBoxMode: mode,
-          showShinyDex: mode === "paired",
-          showCosmeticForms,
-          showGenderForms,
-        }));
+        set((state) => {
+          const homeBoxLayouts = [...state.homeBoxLayouts, layout];
+          const gameDex = pruneGameDexToHomeLayouts(
+            { ...state.gameDex, [id]: {} },
+            homeBoxLayouts,
+          );
+          return {
+            homeBoxLayouts,
+            activeHomeBoxLayoutId: id,
+            gameDex,
+            homeBoxMode: mode,
+            showShinyDex: mode === "paired",
+            showCosmeticForms,
+            showGenderForms,
+          };
+        });
         pendingWriteCount++;
         void Promise.all([
           syncSingleHomeBoxLayout(layout),
@@ -661,28 +665,81 @@ export const usePokedexStore = create<PokedexState>()(
           const layouts = state.homeBoxLayouts.filter(
             (layout) => layout.id !== id,
           );
+          const gameDex = { ...state.gameDex };
+          delete gameDex[id];
           if (state.activeHomeBoxLayoutId !== id) {
             void syncHomeBoxLayouts(layouts, state.activeHomeBoxLayoutId);
-            return { homeBoxLayouts: layouts };
+            void syncGameDex(gameDex);
+            return { homeBoxLayouts: layouts, gameDex };
           }
           const nextLayout = layouts[0];
           if (!nextLayout) {
             void syncHomeBoxLayouts([], null);
+            void syncGameDex(gameDex);
             return {
               homeBoxLayouts: [],
               activeHomeBoxLayoutId: "",
+              gameDex,
             };
           }
           void syncHomeBoxLayouts(layouts, nextLayout.id);
+          void syncGameDex(gameDex);
           return {
             homeBoxLayouts: layouts,
             activeHomeBoxLayoutId: nextLayout.id,
+            gameDex,
             homeBoxMode: nextLayout.mode,
             showShinyDex: nextLayout.mode === "paired",
             showCosmeticForms: nextLayout.showCosmeticForms,
             showGenderForms: nextLayout.showGenderForms,
           };
         }),
+      clearHomeBoxLayoutProgress: (id) =>
+        set((state) => {
+          const gameDex = { ...state.gameDex };
+          delete gameDex[id];
+          void deleteGameDexScope(id);
+          return { gameDex };
+        }),
+      markHomeBoxLayoutSlot: (layoutId, speciesId, formName, shiny) => {
+        const key = ownedKey(speciesId, formName);
+        set((state) => {
+          const newGameDex = patchGameEntry(state, layoutId, key, shiny
+            ? { shiny: true }
+            : { owned: true });
+          void syncGameDexEntry(
+            layoutId,
+            speciesId,
+            formName ?? null,
+            newGameDex[layoutId][key],
+          );
+          return { gameDex: newGameDex };
+        });
+      },
+      clearHomeBoxLayoutSlot: (layoutId, speciesId, formName, shiny) => {
+        const key = ownedKey(speciesId, formName);
+        set((state) => {
+          const existing = state.gameDex[layoutId]?.[key];
+          if (!existing) return {};
+          const updated: GameDexFlags = shiny
+            ? { ...existing, shiny: false }
+            : { ...existing, owned: false };
+          const hasData =
+            updated.owned ||
+            updated.shiny ||
+            updated.alpha ||
+            updated.shiny_alpha;
+          const newGame = { ...state.gameDex[layoutId] };
+          if (hasData) {
+            newGame[key] = updated;
+          } else {
+            delete newGame[key];
+          }
+          const newGameDex = { ...state.gameDex, [layoutId]: newGame };
+          void syncGameDexEntry(layoutId, speciesId, formName ?? null, updated);
+          return { gameDex: newGameDex };
+        });
+      },
 
       setProgressSnapshot: (snapshot) => {
         const homeBoxLayouts = normalizeHomeBoxLayouts(snapshot.homeBoxLayouts);
@@ -697,9 +754,12 @@ export const usePokedexStore = create<PokedexState>()(
           homeBoxLayouts.find(
             (layout) => layout.id === activeHomeBoxLayoutId,
           ) ?? null;
+        const gameDex = pruneGameDexToHomeLayouts(
+          snapshot.gameDex,
+          homeBoxLayouts,
+        );
         set({
-          owned: snapshot.owned,
-          gameDex: snapshot.gameDex,
+          gameDex,
           gameHomeBoxes: snapshot.gameHomeBoxes ?? {},
           availableGames: snapshot.availableGames,
           pinnedGameId: snapshot.pinnedGameId ?? null,
@@ -716,9 +776,15 @@ export const usePokedexStore = create<PokedexState>()(
 
       mergeProgressSnapshot: (snapshot) => {
         const current = get();
+        const homeBoxLayouts = mergeHomeBoxLayouts(
+          current.homeBoxLayouts,
+          normalizeHomeBoxLayouts(snapshot.homeBoxLayouts),
+        );
         const merged: ProgressSnapshot = {
-          owned: mergeOwnedRecords(current.owned, snapshot.owned),
-          gameDex: mergeGameDexRecords(current.gameDex, snapshot.gameDex),
+          gameDex: pruneGameDexToHomeLayouts(
+            mergeGameDexRecords(current.gameDex, snapshot.gameDex),
+            homeBoxLayouts,
+          ),
           gameHomeBoxes: mergeGameHomeBoxRecords(
             current.gameHomeBoxes,
             snapshot.gameHomeBoxes,
@@ -735,10 +801,7 @@ export const usePokedexStore = create<PokedexState>()(
             ),
           },
           pinnedGameId: current.pinnedGameId ?? snapshot.pinnedGameId ?? null,
-          homeBoxLayouts: mergeHomeBoxLayouts(
-            current.homeBoxLayouts,
-            normalizeHomeBoxLayouts(snapshot.homeBoxLayouts),
-          ),
+          homeBoxLayouts,
           activeHomeBoxLayoutId:
             current.activeHomeBoxLayoutId ||
             snapshot.activeHomeBoxLayoutId ||
@@ -758,7 +821,6 @@ export const usePokedexStore = create<PokedexState>()(
             (layout) => layout.id === activeHomeBoxLayoutId,
           ) ?? null;
         set({
-          owned: merged.owned,
           gameDex: merged.gameDex,
           gameHomeBoxes: merged.gameHomeBoxes ?? {},
           availableGames: merged.availableGames,
@@ -779,8 +841,10 @@ export const usePokedexStore = create<PokedexState>()(
       },
 
       getProgressSnapshot: () => ({
-        owned: get().owned,
-        gameDex: get().gameDex,
+        gameDex: pruneGameDexToHomeLayouts(
+          get().gameDex,
+          get().homeBoxLayouts,
+        ),
         gameHomeBoxes: get().gameHomeBoxes,
         availableGames: get().availableGames,
         pinnedGameId: get().pinnedGameId,
@@ -792,7 +856,6 @@ export const usePokedexStore = create<PokedexState>()(
 
       clearAll: () =>
         set({
-          owned: {},
           recentCatches: [],
           shinyHunts: [],
           gameDex: {},
@@ -802,110 +865,6 @@ export const usePokedexStore = create<PokedexState>()(
           homeBoxLayouts: [],
           activeHomeBoxLayoutId: "",
         }),
-
-      // --- Living Dex (HOME) ---
-
-      markOwned: (speciesId, formName, method) => {
-        const key = ownedKey(speciesId, formName);
-        const updatedAt = new Date().toISOString();
-        set((state) => {
-          const existing = state.owned[key];
-          return {
-            owned: {
-              ...state.owned,
-              [key]: {
-                pokedex_number: speciesId,
-                form_name: formName ?? null,
-                owned: true,
-                shiny_owned: existing?.shiny_owned ?? false,
-                updated_at: updatedAt,
-                notes: existing?.notes,
-                method,
-                date_obtained:
-                  existing?.date_obtained ?? new Date().toISOString(),
-                game: existing?.game,
-              },
-            },
-          };
-        });
-        void syncRecord(get().owned[key]!);
-      },
-
-      markShinyOwned: (speciesId, formName, huntMethod, game) => {
-        const key = ownedKey(speciesId, formName);
-        const updatedAt = new Date().toISOString();
-        set((state) => ({
-          owned: {
-            ...state.owned,
-            [key]: {
-              pokedex_number: speciesId,
-              form_name: formName ?? null,
-              owned: state.owned[key]?.owned ?? false,
-              shiny_owned: true,
-              updated_at: updatedAt,
-              notes: state.owned[key]?.notes,
-              method: state.owned[key]?.method,
-              shiny_method: huntMethod,
-              shiny_game: game,
-            },
-          },
-        }));
-        void syncRecord(get().owned[key]!);
-      },
-
-      clearShinyOwned: (speciesId, formName) => {
-        const key = ownedKey(speciesId, formName);
-        const updatedAt = new Date().toISOString();
-        set((state) => {
-          const existing = state.owned[key];
-          if (!existing) return {};
-          return {
-            owned: {
-              ...state.owned,
-              [key]: {
-                ...existing,
-                shiny_owned: false,
-                updated_at: updatedAt,
-                shiny_method: undefined,
-                shiny_game: undefined,
-              },
-            },
-          };
-        });
-        // Always sync the updated record rather than deleting it, so the clear
-        // has its own timestamp and can win against older remote data.
-        const record = get().owned[key];
-        if (record) void syncRecord(record);
-      },
-
-      clearOwnership: (speciesId, formName) => {
-        const key = ownedKey(speciesId, formName);
-        const updatedAt = new Date().toISOString();
-        set((state) => {
-          const existing = state.owned[key];
-          if (!existing) return {};
-          return {
-            owned: {
-              ...state.owned,
-              [key]: {
-                ...existing,
-                owned: false,
-                updated_at: updatedAt,
-                method: undefined,
-              },
-            },
-          };
-        });
-        const record = get().owned[key];
-        if (record) void syncRecord(record);
-      },
-
-      isOwned: (speciesId, formName) =>
-        !!get().owned[ownedKey(speciesId, formName)]?.owned,
-      getOwnedCount: () =>
-        Object.values(get().owned).filter((r) => r.owned).length,
-      getTotalOwned: () =>
-        Object.values(get().owned).filter((r) => r.owned).length,
 
       // --- Per-game dex ---
 
@@ -1319,57 +1278,9 @@ export const usePokedexStore = create<PokedexState>()(
     }),
     {
       name: "living-pokedex-v1",
-      version: 13,
+      version: 15,
       migrate: (persistedState, version) => {
         if (!isRecord(persistedState)) return persistedState;
-
-        // v3: normalize owned record keys
-        if (version < 3) {
-          const oldOwned = persistedState.owned as
-            | Record<string, unknown>
-            | undefined;
-          if (isRecord(oldOwned)) {
-            const newOwned: Record<string, OwnedRecord> = {};
-            for (const [key, record] of Object.entries(oldOwned)) {
-              if (!isRecord(record)) continue;
-              const newKey = /^\d+$/.test(key) ? `${key}-base` : key;
-              newOwned[newKey] = {
-                ...(record as OwnedRecord),
-                form_name: (record as OwnedRecord).form_name ?? null,
-              };
-            }
-            persistedState.owned = newOwned;
-          }
-        }
-
-        // v4: remove legacy game_dex / game_caught columns
-        if (version < 4) {
-          const owned = persistedState.owned as
-            | Record<string, unknown>
-            | undefined;
-          if (isRecord(owned)) {
-            for (const record of Object.values(owned)) {
-              if (isRecord(record)) {
-                delete (record as Record<string, unknown>).game_dex;
-                delete (record as Record<string, unknown>).game_caught;
-              }
-            }
-          }
-        }
-
-        // v6: remove in_home flag
-        if (version < 6) {
-          const owned = persistedState.owned as
-            | Record<string, unknown>
-            | undefined;
-          if (isRecord(owned)) {
-            for (const record of Object.values(owned)) {
-              if (isRecord(record)) {
-                delete (record as Record<string, unknown>).in_home;
-              }
-            }
-          }
-        }
 
         // v7: merge gameDexProgress + shinyGameDexProgress + alpha into gameDex
         if (version < 7) {
@@ -1387,31 +1298,12 @@ export const usePokedexStore = create<PokedexState>()(
           const remappedShiny = remapLegacyLegendsZaProgress(
             isRecord(rawShiny) ? (rawShiny as Record<string, number[]>) : {},
           );
-          const owned = persistedState.owned as
-            | Record<
-                string,
-                OwnedRecord & {
-                  alpha_owned?: boolean;
-                  shiny_alpha_owned?: boolean;
-                }
-              >
-            | undefined;
           persistedState.gameDex = migrateToGameDex(
             remappedProgress,
             remappedShiny,
-            isRecord(owned) ? owned : {},
           );
           delete persistedState.gameDexProgress;
           delete persistedState.shinyGameDexProgress;
-          // Strip alpha fields from owned records
-          if (isRecord(persistedState.owned)) {
-            for (const record of Object.values(persistedState.owned)) {
-              if (isRecord(record)) {
-                delete (record as Record<string, unknown>).alpha_owned;
-                delete (record as Record<string, unknown>).shiny_alpha_owned;
-              }
-            }
-          }
         }
 
         if (version < 8) {
@@ -1467,6 +1359,25 @@ export const usePokedexStore = create<PokedexState>()(
           }
         }
 
+        if (version < 14) {
+          delete persistedState.owned;
+        }
+
+        if (version < 15) {
+          const layouts = normalizeHomeBoxLayouts(
+            persistedState.homeBoxLayouts,
+          );
+          if (isRecord(persistedState.gameDex)) {
+            persistedState.gameDex = pruneGameDexToHomeLayouts(
+              persistedState.gameDex as Record<
+                string,
+                Record<string, GameDexFlags>
+              >,
+              layouts,
+            );
+          }
+        }
+
         return persistedState;
       },
       merge: (persistedState, currentState) => {
@@ -1506,23 +1417,15 @@ export const usePokedexStore = create<PokedexState>()(
           const rawShiny = persistedState.shinyGameDexProgress as
             | Record<string, number[]>
             | undefined;
-          const ownedRecords = persistedState.owned as
-            | Record<
-                string,
-                OwnedRecord & {
-                  alpha_owned?: boolean;
-                  shiny_alpha_owned?: boolean;
-                }
-              >
-            | undefined;
           gameDex = migrateToGameDex(
             remapLegacyLegendsZaProgress(
               isRecord(rawProgress) ? rawProgress : {},
             ),
             remapLegacyLegendsZaProgress(isRecord(rawShiny) ? rawShiny : {}),
-            isRecord(ownedRecords) ? ownedRecords : {},
           );
         }
+        gameDex = pruneGameDexToHomeLayouts(gameDex, homeBoxLayouts);
+        delete persistedState.owned;
         return {
           ...currentState,
           ...persistedState,
@@ -1562,6 +1465,7 @@ export const usePokedexStore = create<PokedexState>()(
           setActiveHomeBoxLayout: currentState.setActiveHomeBoxLayout,
           saveCurrentHomeBoxLayout: currentState.saveCurrentHomeBoxLayout,
           removeHomeBoxLayout: currentState.removeHomeBoxLayout,
+          clearHomeBoxLayoutProgress: currentState.clearHomeBoxLayoutProgress,
           setPinnedGameId: currentState.setPinnedGameId,
           removeRecentCatch: currentState.removeRecentCatch,
           removeGameAvailable: currentState.removeGameAvailable,

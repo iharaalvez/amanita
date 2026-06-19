@@ -22,7 +22,14 @@ import { BoxSlot } from "./BoxSlot";
 import { HomeIcon, SparkleIcon, XIcon } from "@/components/ui";
 import { api } from "@/lib/api";
 import type { GameHomeBoxFormRule, LivingDexEntry } from "@/types/pokemon";
-import { MonitorPlay, Pencil, Plus, RefreshCw, Trash2 } from "lucide-react";
+import {
+  ChevronDown,
+  MonitorPlay,
+  Pencil,
+  Plus,
+  RefreshCw,
+  Trash2,
+} from "lucide-react";
 import { loadFromSupabase } from "@/lib/sync";
 import { supabase } from "@/lib/supabase";
 
@@ -342,7 +349,7 @@ export function HomeBoxView({ onSelect }: Props) {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
-  const ownedRecords = usePokedexStore((s) => s.owned);
+  const gameDex = usePokedexStore((s) => s.gameDex);
   const showCosmeticForms = usePokedexStore((s) => s.showCosmeticForms);
   const showGenderForms = usePokedexStore((s) => s.showGenderForms);
   const homeBoxMode = usePokedexStore((s) => s.homeBoxMode);
@@ -354,6 +361,9 @@ export function HomeBoxView({ onSelect }: Props) {
   const createHomeBoxLayout = usePokedexStore((s) => s.createHomeBoxLayout);
   const updateHomeBoxLayout = usePokedexStore((s) => s.updateHomeBoxLayout);
   const removeHomeBoxLayout = usePokedexStore((s) => s.removeHomeBoxLayout);
+  const clearHomeBoxLayoutProgress = usePokedexStore(
+    (s) => s.clearHomeBoxLayoutProgress,
+  );
   const setProgressSnapshot = usePokedexStore((s) => s.setProgressSnapshot);
 
   const handleRefresh = async () => {
@@ -374,6 +384,29 @@ export function HomeBoxView({ onSelect }: Props) {
   const isPairedMode = homeBoxMode === "paired";
   const activeStatusFilter =
     isShinyOnlyMode && statusFilter === "shiny" ? "owned" : statusFilter;
+
+  const resetViewFilters = useCallback(() => {
+    setStatusFilter("all");
+    setSearch("");
+  }, []);
+
+  const activeHomeBoxLayout =
+    homeBoxLayouts.find((l) => l.id === activeHomeBoxLayoutId) ??
+    homeBoxLayouts[0] ??
+    null;
+  const layoutProgressId = activeHomeBoxLayout?.id ?? "";
+  const layoutFlags = useMemo(
+    () => gameDex[layoutProgressId] ?? {},
+    [gameDex, layoutProgressId],
+  );
+  const layoutProgressCount = useMemo(
+    () =>
+      Object.values(layoutFlags).filter(
+        (flags) =>
+          flags.owned || flags.shiny || flags.alpha || flags.shiny_alpha,
+      ).length,
+    [layoutFlags],
+  );
 
   const homeRulesBySpecies = useMemo(
     () => buildRulesBySpecies(homeRulesQuery.data ?? []),
@@ -416,9 +449,9 @@ export function HomeBoxView({ onSelect }: Props) {
     const entries = (data ?? []).filter(isTrackedHomeEntry);
     const shinyTargetEntries = entries.filter(isShinyTrackedEntry);
     const baseEntries = (data ?? []).filter(isLivingDexSpecies);
-    const owned = getOwnedEntryCount(entries, ownedRecords);
-    const shiny = getShinyEntryCount(shinyTargetEntries, ownedRecords);
-    const baseOwned = getSpeciesOwnedCount(baseEntries, ownedRecords);
+    const owned = getOwnedEntryCount(entries, layoutFlags);
+    const shiny = getShinyEntryCount(shinyTargetEntries, layoutFlags);
+    const baseOwned = getSpeciesOwnedCount(baseEntries, layoutFlags);
     return {
       owned,
       shiny,
@@ -430,14 +463,10 @@ export function HomeBoxView({ onSelect }: Props) {
       baseTotal: baseEntries.length,
       includesForms: entries.length !== baseEntries.length,
     };
-  }, [data, ownedRecords, isTrackedHomeEntry, isShinyTrackedEntry]);
-
-  const activeHomeBoxLayout =
-    homeBoxLayouts.find((l) => l.id === activeHomeBoxLayoutId) ??
-    homeBoxLayouts[0] ??
-    null;
+  }, [data, layoutFlags, isTrackedHomeEntry, isShinyTrackedEntry]);
 
   const handleCreate = (values: LayoutFormState) => {
+    resetViewFilters();
     createHomeBoxLayout(
       values.name,
       values.mode,
@@ -449,6 +478,7 @@ export function HomeBoxView({ onSelect }: Props) {
 
   const handleEdit = (values: LayoutFormState) => {
     if (!activeHomeBoxLayoutId) return;
+    resetViewFilters();
     updateHomeBoxLayout(activeHomeBoxLayoutId, {
       name: values.name,
       mode: values.mode,
@@ -456,6 +486,16 @@ export function HomeBoxView({ onSelect }: Props) {
       showGenderForms: values.showGenderForms,
     });
     setShowEditModal(false);
+  };
+
+  const handleClearProgress = () => {
+    if (!activeHomeBoxLayout) return;
+    const confirmed = window.confirm(
+      `Clear all marks from "${activeHomeBoxLayout.name}"? This keeps the layout but resets its progress.`,
+    );
+    if (!confirmed) return;
+    resetViewFilters();
+    clearHomeBoxLayoutProgress(activeHomeBoxLayout.id);
   };
 
   if (error) {
@@ -494,10 +534,10 @@ export function HomeBoxView({ onSelect }: Props) {
   const matchingKeys = new Set(
     orderedEntries
       .filter((entry) => {
-        const record = ownedRecords[ownedKey(entry.speciesId, entry.formName)];
+        const flags = layoutFlags[ownedKey(entry.speciesId, entry.formName)];
         const shinyTarget = isShinyTrackedEntry(entry);
-        const shinyOwned = !!record?.shiny_owned;
-        const modeOwned = isShinyOnlyMode ? shinyOwned : record?.owned;
+        const shinyOwned = !!flags?.shiny;
+        const modeOwned = isShinyOnlyMode ? shinyOwned : flags?.owned;
         if (isShinyOnlyMode && !shinyTarget && activeStatusFilter !== "all")
           return false;
         if (activeStatusFilter === "shiny" && (!shinyTarget || !shinyOwned))
@@ -516,19 +556,19 @@ export function HomeBoxView({ onSelect }: Props) {
   const matchingSlotKeys = new Set(
     pairedSlots
       .filter((slot) => {
-        const record =
-          ownedRecords[ownedKey(slot.entry.speciesId, slot.entry.formName)];
+        const flags =
+          layoutFlags[ownedKey(slot.entry.speciesId, slot.entry.formName)];
         const shinyTarget = isShinyTrackedEntry(slot.entry);
-        const shinyOwned = !!record?.shiny_owned;
+        const shinyOwned = !!flags?.shiny;
         const entryMatchesQuery =
           !q || matchingKeys.has(getEntryKey(slot.entry));
         if (!entryMatchesQuery) return false;
         if (activeStatusFilter === "shiny")
           return slot.isShiny && shinyTarget && shinyOwned;
         if (activeStatusFilter === "owned")
-          return slot.isShiny ? shinyOwned : !!record?.owned;
+          return slot.isShiny ? shinyOwned : !!flags?.owned;
         if (activeStatusFilter === "missing")
-          return slot.isShiny ? shinyTarget && !shinyOwned : !record?.owned;
+          return slot.isShiny ? shinyTarget && !shinyOwned : !flags?.owned;
         return true;
       })
       .map(getSlotKey),
@@ -581,8 +621,7 @@ export function HomeBoxView({ onSelect }: Props) {
         : isPairedMode
           ? summary.total + summary.shinySlotTotal
           : summary.total,
-      activeClass:
-        "bg-[#62b6ff] text-[#061016]",
+      activeClass: "bg-[#62b6ff] text-[#061016]",
     },
     {
       value: "owned",
@@ -604,8 +643,7 @@ export function HomeBoxView({ onSelect }: Props) {
         : isPairedMode
           ? summary.total + summary.shinyTotal - summary.owned - summary.shiny
           : summary.total - summary.owned,
-      activeClass:
-        "bg-[#3f3860] text-[#f8f0df]",
+      activeClass: "bg-[#3f3860] text-[#f8f0df]",
     },
     {
       value: "shiny",
@@ -641,9 +679,6 @@ export function HomeBoxView({ onSelect }: Props) {
               <h1 className="mt-1 text-2xl font-black tracking-tight text-[#f8f0df] sm:text-3xl">
                 HOME Boxes
               </h1>
-              <p className="mt-1 text-sm leading-6 text-[#aaa2ba]">
-                Your Living Dex arranged in 30-slot boxes.
-              </p>
             </div>
           </div>
 
@@ -713,18 +748,27 @@ export function HomeBoxView({ onSelect }: Props) {
               <label htmlFor="home-layout" className="sr-only">
                 HOME layout
               </label>
-              <select
-                id="home-layout"
-                value={activeHomeBoxLayoutId}
-                onChange={(e) => setActiveHomeBoxLayout(e.target.value)}
-                className="h-9 min-w-0 rounded-full border border-[#302a43] bg-[#0d1220] pl-3 pr-9 text-xs font-bold text-[#f8f0df] focus:outline-none focus:ring-2 focus:ring-[#62b6ff]"
-              >
-                {homeBoxLayouts.map((layout) => (
-                  <option key={layout.id} value={layout.id}>
-                    {layout.name}
-                  </option>
-                ))}
-              </select>
+              <div className="relative min-w-0">
+                <select
+                  id="home-layout"
+                  value={activeHomeBoxLayoutId}
+                  onChange={(e) => {
+                    resetViewFilters();
+                    setActiveHomeBoxLayout(e.target.value);
+                  }}
+                  className="h-9 w-full min-w-0 appearance-none rounded-full border border-[#302a43] bg-[#0d1220] pl-3 pr-11 text-xs font-bold text-[#f8f0df] focus:outline-none focus:ring-2 focus:ring-[#62b6ff]"
+                >
+                  {homeBoxLayouts.map((layout) => (
+                    <option key={layout.id} value={layout.id}>
+                      {layout.name}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown
+                  aria-hidden
+                  className="pointer-events-none absolute right-3.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#9189a4]"
+                />
+              </div>
 
               <div className="relative order-3 col-span-2 min-[560px]:order-none min-[560px]:col-span-1">
                 <label htmlFor="home-search" className="sr-only">
@@ -788,6 +832,16 @@ export function HomeBoxView({ onSelect }: Props) {
                   className="grid h-9 w-9 place-items-center rounded-full border border-[#302a43] bg-[#0d1220] text-[#9189a4] transition-colors hover:bg-[#1d2637] hover:text-[#f8f0df] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#62b6ff]"
                 >
                   <Pencil className="h-4 w-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={handleClearProgress}
+                  disabled={!activeHomeBoxLayout || layoutProgressCount === 0}
+                  aria-label="Clear current layout progress"
+                  title="Clear progress"
+                  className="grid h-9 w-9 place-items-center rounded-full border border-[#302a43] bg-[#0d1220] text-[#9189a4] transition-colors hover:bg-[#2a1720] hover:text-[#fca5a5] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#fca5a5] disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  <XIcon className="h-4 w-4" />
                 </button>
                 <button
                   type="button"
@@ -882,6 +936,7 @@ export function HomeBoxView({ onSelect }: Props) {
                               entry={slot?.entry ?? null}
                               onSelect={onSelect}
                               isShinySlot={slot?.isShiny ?? false}
+                              progressScopeId={layoutProgressId || undefined}
                               shinyLocked={
                                 slot?.isShiny && slot.entry
                                   ? !isShinyTrackedEntry(slot.entry)
@@ -920,6 +975,7 @@ export function HomeBoxView({ onSelect }: Props) {
                           entry={entry}
                           onSelect={onSelect}
                           isShinySlot={isShiny}
+                          progressScopeId={layoutProgressId || undefined}
                           shinyLocked={
                             isShiny && entry
                               ? !isShinyTrackedEntry(entry)
@@ -978,6 +1034,7 @@ export function HomeBoxView({ onSelect }: Props) {
         <ConfirmDeleteModal
           layoutName={activeHomeBoxLayout.name}
           onConfirm={() => {
+            resetViewFilters();
             removeHomeBoxLayout(activeHomeBoxLayoutId);
             setShowDeleteModal(false);
           }}

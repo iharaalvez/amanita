@@ -381,11 +381,12 @@ export function PokemonDetailModal({
     speciesForms?.find((entry) => entry.formName === null);
 
   const storeKey = ownedKey(speciesId, formName);
-  const owned = usePokedexStore((s) => !!s.owned[storeKey]?.owned);
-  const shinyOwned = usePokedexStore((s) => !!s.owned[storeKey]?.shiny_owned);
-  const ownedRecord = usePokedexStore((s) => s.owned[storeKey]);
+  const activeHomeBoxLayoutId = usePokedexStore((s) => s.activeHomeBoxLayoutId);
   const availableGames = usePokedexStore((s) => s.availableGames);
   const gameDex = usePokedexStore((s) => s.gameDex);
+  const homeLayoutFlags = gameDex[activeHomeBoxLayoutId]?.[storeKey];
+  const markedInHomeLayout = !!homeLayoutFlags?.owned;
+  const shinyMarkedInHomeLayout = !!homeLayoutFlags?.shiny;
 
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
@@ -642,32 +643,27 @@ export function PokemonDetailModal({
               </div>
 
               <div className="flex flex-wrap gap-2">
-                {owned ? (
+                {markedInHomeLayout ? (
                   <span className="inline-flex items-center gap-1.5 rounded-full bg-green-100 px-3 py-1 text-xs font-bold text-green-700 dark:bg-green-950/40 dark:text-green-300">
                     <CheckIcon className="h-3.5 w-3.5" />
-                    Owned
+                    In HOME layout
                   </span>
                 ) : (
                   <span className="inline-flex items-center gap-1.5 rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-400 dark:bg-gray-800 dark:text-gray-500">
                     <XIcon className="h-3.5 w-3.5" />
-                    Not owned
+                    Missing from HOME layout
                   </span>
                 )}
-                {shinyOwned && (
+                {shinyMarkedInHomeLayout && (
                   <span className="inline-flex items-center gap-1.5 rounded-full bg-yellow-100 px-3 py-1 text-xs font-bold text-yellow-700 dark:bg-yellow-950/40 dark:text-yellow-300">
                     <SparkleIcon className="h-3.5 w-3.5" />
-                    Shiny owned
+                    Shiny in HOME layout
                   </span>
                 )}
                 {shinyLocked && (
                   <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-400 dark:bg-slate-800 dark:text-slate-500">
                     <XIcon className="h-3.5 w-3.5" />
                     Shiny locked
-                  </span>
-                )}
-                {ownedRecord?.method && (
-                  <span className="inline-flex items-center rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold capitalize text-blue-600 dark:bg-blue-950/30 dark:text-blue-300">
-                    {ownedRecord.method}
                   </span>
                 )}
               </div>
@@ -824,24 +820,6 @@ export function PokemonDetailModal({
                 </div>
               )}
             </section>
-
-            {shinyOwned && ownedRecord?.shiny_method && (
-              <section className="flex flex-col gap-2 px-6 pb-4">
-                <p className="text-xs font-semibold uppercase tracking-wide text-yellow-600 dark:text-yellow-400">
-                  Shiny details
-                </p>
-                <div className="flex flex-wrap gap-1.5">
-                  <span className="rounded-full bg-yellow-50 px-3 py-1 text-xs font-semibold capitalize text-yellow-700 dark:bg-yellow-950/30 dark:text-yellow-300">
-                    {ownedRecord.shiny_method}
-                  </span>
-                  {ownedRecord.shiny_game && (
-                    <span className="rounded-full bg-yellow-50 px-3 py-1 text-xs font-semibold text-yellow-700 dark:bg-yellow-950/30 dark:text-yellow-300">
-                      {ownedRecord.shiny_game}
-                    </span>
-                  )}
-                </div>
-              </section>
-            )}
 
             {availableGameOptions.length > 0 && (
               <section className="flex flex-col gap-2 px-6 pb-4">

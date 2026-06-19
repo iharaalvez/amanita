@@ -1,10 +1,3 @@
-export type OwnershipMethod =
-  | "caught"
-  | "bred"
-  | "hatched"
-  | "transferred"
-  | "event";
-
 export type ShinyHuntMethod =
   | "random"
   | "overworld"
@@ -49,20 +42,6 @@ export type ShinyHunt = {
   count: number | null;
   startedAt: string; // ISO timestamp
   completedAt?: string; // ISO timestamp
-};
-
-export type OwnedRecord = {
-  pokedex_number: number; // species ID (1-1025)
-  form_name: string | null; // null = base form, e.g. 'vulpix-alola' for regional
-  owned: boolean; // has this species in the Living Dex (HOME)
-  shiny_owned: boolean; // has this species in the Shiny Living Dex (HOME)
-  updated_at?: string; // last ownership edit, used to resolve cross-device sync
-  method?: OwnershipMethod;
-  notes?: string;
-  date_obtained?: string;
-  game?: string; // game where this was caught for the Living Dex
-  shiny_method?: ShinyHuntMethod;
-  shiny_game?: string;
 };
 
 // Per-game, per-species registration flags. Alpha fields only apply to games
@@ -187,9 +166,8 @@ export type ApiHealth = {
 };
 
 export type ProgressSnapshot = {
-  owned: Record<string, OwnedRecord>;
-  // gameDex[gameId][speciesKey] = flags. Replaces the old separate
-  // gameDexProgress/shinyGameDexProgress number[] arrays.
+  // gameDex[scopeId][speciesKey] = flags. Game ids store per-game dex
+  // progress; HOME layout ids store per-layout HOME box progress.
   gameDex: Record<string, Record<string, GameDexFlags>>;
   // gameHomeBoxes[gameId][speciesKey] = true when that game-origin Pokemon is
   // placed in the game's HOME transfer boxes. Independent from gameDex.

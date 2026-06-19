@@ -8,7 +8,7 @@ import {
   isLivingDexSpecies,
   isShinyTargetEntry,
 } from "./livingDex";
-import type { LivingDexEntry, OwnedRecord } from "@/types/pokemon";
+import type { GameDexFlags, LivingDexEntry } from "@/types/pokemon";
 
 function entry(
   speciesId: number,
@@ -30,15 +30,11 @@ function entry(
 }
 
 function owned(
-  speciesId: number,
-  formName: string | null,
-  overrides: Partial<OwnedRecord> = {},
-): OwnedRecord {
+  overrides: Partial<GameDexFlags> = {},
+): GameDexFlags {
   return {
-    pokedex_number: speciesId,
-    form_name: formName,
     owned: true,
-    shiny_owned: false,
+    shiny: false,
     ...overrides,
   };
 }
@@ -127,8 +123,8 @@ describe("Living Dex entry rules", () => {
       entry(37, "Alolan Vulpix", "vulpix-alola"),
     ];
     const ownedRecords = {
-      "1-base": owned(1, null),
-      "37-vulpix-alola": owned(37, "vulpix-alola"),
+      "1-base": owned(),
+      "37-vulpix-alola": owned(),
     };
 
     assert.equal(getOwnedEntryCount(entries, ownedRecords), 2);
@@ -137,7 +133,7 @@ describe("Living Dex entry rules", () => {
   it("counts owned gender variants toward the base Living Dex species", () => {
     const entries = [entry(25, "Pikachu")];
     const ownedRecords = {
-      "25-pikachu-female": owned(25, "pikachu-female"),
+      "25-pikachu-female": owned(),
     };
 
     assert.equal(getOwnedEntryCount(entries, ownedRecords), 1);
@@ -146,9 +142,9 @@ describe("Living Dex entry rules", () => {
   it("keeps shiny-only gender variants out of normal Living Dex ownership", () => {
     const entries = [entry(3, "Venusaur")];
     const ownedRecords = {
-      "3-venusaur-female": owned(3, "venusaur-female", {
+      "3-venusaur-female": owned({
         owned: false,
-        shiny_owned: true,
+        shiny: true,
       }),
     };
 
@@ -162,8 +158,8 @@ describe("Living Dex entry rules", () => {
       entry(1025, "Pecharunt", null, { generation: 9 }),
     ];
     const ownedRecords = {
-      "25-base": owned(25, null, { shiny_owned: true }),
-      "1025-base": owned(1025, null, { shiny_owned: true }),
+      "25-base": owned({ shiny: true }),
+      "1025-base": owned({ shiny: true }),
     };
 
     assert.equal(isShinyTargetEntry(entries[0]), true);

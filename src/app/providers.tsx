@@ -103,16 +103,6 @@ function AuthSync({
           {
             event: "*",
             schema: "public",
-            table: "pokedex",
-            filter: `user_id=eq.${userId}`,
-          },
-          handleChange,
-        )
-        .on(
-          "postgres_changes",
-          {
-            event: "*",
-            schema: "public",
             table: "user_settings",
             filter: `user_id=eq.${userId}`,
           },

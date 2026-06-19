@@ -1,7 +1,5 @@
 import { supabase } from "./supabase";
 import type {
-  OwnedRecord,
-  OwnershipMethod,
   ProgressSnapshot,
   ShinyHunt,
   CatchEvent,
@@ -44,20 +42,6 @@ function fromDbFormName(formName: string | null): string | null {
 function hasGameDexData(flags: GameDexFlags): boolean {
   return !!(flags.owned || flags.shiny || flags.alpha || flags.shiny_alpha);
 }
-
-type SupabaseRow = {
-  species_id: number;
-  form_name: string | null;
-  owned: boolean;
-  shiny_owned: boolean;
-  updated_at: string | null;
-  method: string | null;
-  shiny_method: string | null;
-  shiny_game: string | null;
-  date_obtained: string | null;
-  game: string | null;
-  in_home?: boolean;
-};
 
 type SettingsRow = {
   pinned_game_id?: string | null;
@@ -273,7 +257,6 @@ export async function loadFromSupabase(
   if (!resolvedUserId) return null;
 
   const [
-    pokemonResult,
     settingsResult,
     userGamesResult,
     gameDexResult,
@@ -282,7 +265,6 @@ export async function loadFromSupabase(
     shinyHuntsResult,
     recentCatchesResult,
   ] = await Promise.all([
-    supabase.from("pokedex").select("*").eq("user_id", resolvedUserId),
     supabase
       .from("user_settings")
       .select("pinned_game_id, active_home_box_layout_id")
@@ -322,7 +304,6 @@ export async function loadFromSupabase(
       .limit(MAX_RECENT_CATCHES),
   ]);
 
-  if (pokemonResult.error) throw pokemonResult.error;
   if (settingsResult.error) throw settingsResult.error;
   if (userGamesResult.error) throw userGamesResult.error;
   if (gameDexResult.error) throw gameDexResult.error;
@@ -331,34 +312,7 @@ export async function loadFromSupabase(
   if (shinyHuntsResult.error) throw shinyHuntsResult.error;
   if (recentCatchesResult.error) throw recentCatchesResult.error;
 
-  const rows = (pokemonResult.data ?? []) as SupabaseRow[];
   const settings = (settingsResult.data ?? null) as SettingsRow | null;
-  const owned: Record<string, OwnedRecord> = {};
-
-  for (const row of rows) {
-    const key = ownedKey(row.species_id, row.form_name);
-    owned[key] = {
-      pokedex_number: row.species_id,
-      form_name: row.form_name,
-      owned: row.owned,
-      shiny_owned: row.shiny_owned,
-      updated_at: row.updated_at ?? undefined,
-      method: (row.method as OwnershipMethod) ?? undefined,
-      shiny_method: (row.shiny_method as ShinyHuntMethod) ?? undefined,
-      shiny_game: row.shiny_game ?? undefined,
-      date_obtained: row.date_obtained ?? undefined,
-      game: row.game ?? undefined,
-    };
-  }
-
-  const dirtyInHome = rows.filter((r) => r.in_home).map((r) => r.species_id);
-  if (dirtyInHome.length > 0) {
-    void supabase
-      .from("pokedex")
-      .update({ in_home: false })
-      .eq("user_id", resolvedUserId)
-      .eq("in_home", true);
-  }
 
   const gameDex = gameDexFromRows(
     (gameDexResult.data ?? []) as UserGameDexRow[],
@@ -387,7 +341,6 @@ export async function loadFromSupabase(
       : null;
 
   return {
-    owned,
     gameDex,
     gameHomeBoxes,
     availableGames,
@@ -400,54 +353,6 @@ export async function loadFromSupabase(
     homeBoxLayouts,
     activeHomeBoxLayoutId,
   };
-}
-
-export async function syncRecord(record: OwnedRecord): Promise<void> {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return;
-
-  const updatedAt = record.updated_at ?? new Date().toISOString();
-
-  const result = await supabase.from("pokedex").upsert(
-    {
-      user_id: user.id,
-      species_id: record.pokedex_number,
-      form_name: record.form_name,
-      owned: record.owned,
-      shiny_owned: record.shiny_owned,
-      method: record.method ?? null,
-      shiny_method: record.shiny_method ?? null,
-      shiny_game: record.shiny_game ?? null,
-      date_obtained: record.date_obtained ?? null,
-      game: record.game ?? null,
-      updated_at: updatedAt,
-    },
-    { onConflict: "user_id,species_id,form_name" },
-  );
-  reportMutationError(result);
-}
-
-export async function deleteRecord(
-  speciesId: number,
-  formName: string | null,
-): Promise<void> {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return;
-
-  const query = supabase
-    .from("pokedex")
-    .delete()
-    .eq("user_id", user.id)
-    .eq("species_id", speciesId);
-  const result =
-    formName === null
-      ? await query.is("form_name", null)
-      : await query.eq("form_name", formName);
-  reportMutationError(result);
 }
 
 export async function syncGameDex(
@@ -510,6 +415,20 @@ export async function syncGameDexEntry(
     },
     { onConflict: "user_id,game_id,species_id,form_name" },
   );
+  reportMutationError(result);
+}
+
+export async function deleteGameDexScope(gameId: string): Promise<void> {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return;
+
+  const result = await supabase
+    .from("user_game_dex")
+    .delete()
+    .eq("user_id", user.id)
+    .eq("game_id", gameId);
   reportMutationError(result);
 }
 
@@ -868,27 +787,6 @@ export async function syncAllRecords(
   } = await supabase.auth.getUser();
   if (!user) return;
 
-  const syncStartedAt = new Date().toISOString();
-  const rows = Object.values(snapshot.owned).map((record) => ({
-    user_id: user.id,
-    species_id: record.pokedex_number,
-    form_name: record.form_name,
-    owned: record.owned,
-    shiny_owned: record.shiny_owned,
-    method: record.method ?? null,
-    shiny_method: record.shiny_method ?? null,
-    shiny_game: record.shiny_game ?? null,
-    date_obtained: record.date_obtained ?? null,
-    game: record.game ?? null,
-    updated_at: record.updated_at ?? syncStartedAt,
-  }));
-
-  if (rows.length > 0) {
-    const result = await supabase
-      .from("pokedex")
-      .upsert(rows, { onConflict: "user_id,species_id,form_name" });
-    reportMutationError(result);
-  }
   await Promise.all([
     syncAvailableGames(snapshot.availableGames),
     syncGameDex(snapshot.gameDex),

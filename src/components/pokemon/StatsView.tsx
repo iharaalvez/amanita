@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useMemo, useRef, useState } from "react";
 import { usePokedexStore, ownedKey } from "@/store/pokedexStore";
 import { useLivingDexEntries } from "@/hooks/usePokemon";
@@ -14,11 +13,9 @@ import { isProgressSnapshot } from "@/lib/progressSnapshot";
 import { syncAllRecords } from "@/lib/sync";
 import { SparkleIcon } from "@/components/ui";
 import type {
+  GameDexFlags,
   LivingDexEntry,
-  OwnedRecord,
-  OwnershipMethod,
   ProgressSnapshot,
-  ShinyHuntMethod,
 } from "@/types/pokemon";
 
 function downloadJSON(snapshot: ProgressSnapshot) {
@@ -34,7 +31,7 @@ function downloadJSON(snapshot: ProgressSnapshot) {
 }
 
 function downloadCSV(
-  owned: Record<string, OwnedRecord>,
+  progressFlags: Record<string, GameDexFlags>,
   entries: LivingDexEntry[],
 ) {
   const nameMap = new Map(
@@ -43,20 +40,20 @@ function downloadCSV(
       entry.displayName,
     ]),
   );
-  const header =
-    "speciesId,formName,name,owned,shiny_owned,method,shiny_method,shiny_game";
-  const rows = Object.entries(owned).map(([key, record]) => {
+  const header = "speciesId,formName,name,owned,shiny";
+  const rows = Object.entries(progressFlags).flatMap(([key, flags]) => {
+    const parsed = parseProgressKey(key);
+    if (!parsed) return [];
     const name = (nameMap.get(key) ?? "").replace(/"/g, '""');
     return [
-      record.pokedex_number,
-      record.form_name ?? "base",
-      `"${name}"`,
-      record.owned ? "TRUE" : "FALSE",
-      record.shiny_owned ? "TRUE" : "FALSE",
-      record.method ?? "",
-      record.shiny_method ?? "",
-      record.shiny_game ?? "",
-    ].join(",");
+      [
+        parsed.speciesId,
+        parsed.formName ?? "base",
+        `"${name}"`,
+        flags.owned ? "TRUE" : "FALSE",
+        flags.shiny ? "TRUE" : "FALSE",
+      ].join(","),
+    ];
   });
   const blob = new Blob([[header, ...rows].join("\n")], { type: "text/csv" });
   const url = URL.createObjectURL(blob);
@@ -65,6 +62,17 @@ function downloadCSV(
   a.download = `living-pokedex-${new Date().toISOString().slice(0, 10)}.csv`;
   a.click();
   URL.revokeObjectURL(url);
+}
+
+function parseProgressKey(
+  key: string,
+): { speciesId: number; formName: string | null } | null {
+  const separatorIndex = key.indexOf("-");
+  if (separatorIndex < 1) return null;
+  const speciesId = Number(key.slice(0, separatorIndex));
+  if (!Number.isInteger(speciesId)) return null;
+  const formKey = key.slice(separatorIndex + 1);
+  return { speciesId, formName: formKey === "base" ? null : formKey };
 }
 
 const GENERATIONS = [1, 2, 3, 4, 5, 6, 7, 8, 9] as const;
@@ -79,45 +87,6 @@ const GEN_LABELS: Record<number, string> = {
   8: "VIII",
   9: "IX",
 };
-
-const OWNERSHIP_METHODS: { value: OwnershipMethod; label: string }[] = [
-  { value: "caught", label: "Caught" },
-  { value: "bred", label: "Bred" },
-  { value: "hatched", label: "Hatched" },
-  { value: "transferred", label: "Transferred" },
-  { value: "event", label: "Event" },
-];
-
-const SHINY_METHODS: { value: ShinyHuntMethod; label: string; odds: string }[] =
-  [
-    { value: "random", label: "Random", odds: "1/4096" },
-    { value: "overworld", label: "Overworld", odds: "1/4096" },
-    { value: "masuda", label: "Masuda", odds: "1/683" },
-    { value: "breeding", label: "Breeding", odds: "varies" },
-    { value: "soft-reset", label: "Soft Reset", odds: "1/4096" },
-    { value: "poke-radar", label: "Poke Radar", odds: "~1/99" },
-    { value: "chain-fishing", label: "Chain Fishing", odds: "varies" },
-    { value: "friend-safari", label: "Friend Safari", odds: "1/512" },
-    { value: "horde", label: "Horde", odds: "varies" },
-    { value: "dex-nav", label: "DexNav", odds: "varies" },
-    { value: "sos-chain", label: "SOS Chain", odds: "~1/315" },
-    { value: "ultra-wormhole", label: "Ultra Wormhole", odds: "varies" },
-    { value: "lets-go-catch-combo", label: "Catch Combo", odds: "varies" },
-    { value: "outbreak", label: "Outbreak", odds: "varies" },
-    {
-      value: "massive-mass-outbreak",
-      label: "Massive Mass Outbreak",
-      odds: "varies",
-    },
-    { value: "sandwich", label: "Sandwich", odds: "varies" },
-    { value: "isolated-encounter", label: "Isolated", odds: "varies" },
-    { value: "dynamax-adventures", label: "Dynamax Adv.", odds: "varies" },
-    { value: "max-raid", label: "Max Raid", odds: "varies" },
-    { value: "tera-raid", label: "Tera Raid", odds: "varies" },
-    { value: "alpha-reset", label: "Alpha Reset", odds: "varies" },
-    { value: "wild-zone-reset", label: "Wild Zone Reset", odds: "varies" },
-    { value: "charm-boosted", label: "Charm Boosted", odds: "varies" },
-  ];
 
 function HBar({ pct, colorClass }: { pct: number; colorClass: string }) {
   return (
@@ -165,7 +134,14 @@ function MetricCard({
 }
 
 export function StatsView() {
-  const ownedRecords = usePokedexStore((state) => state.owned);
+  const activeHomeBoxLayoutId = usePokedexStore(
+    (state) => state.activeHomeBoxLayoutId,
+  );
+  const gameDex = usePokedexStore((state) => state.gameDex);
+  const homeLayoutFlags = useMemo(
+    () => gameDex[activeHomeBoxLayoutId] ?? {},
+    [activeHomeBoxLayoutId, gameDex],
+  );
   const getProgressSnapshot = usePokedexStore(
     (state) => state.getProgressSnapshot,
   );
@@ -179,24 +155,11 @@ export function StatsView() {
   const stats = useMemo(() => {
     const livingDexEntries = (entries ?? []).filter(isLivingDexSpecies);
     const shinyTargetEntries = livingDexEntries.filter(isShinyTargetEntry);
-    const livingDexKeys = new Set(
-      livingDexEntries.map((entry) =>
-        ownedKey(entry.speciesId, entry.formName),
-      ),
-    );
-    const shinyTargetKeys = new Set(
-      shinyTargetEntries.map((entry) =>
-        ownedKey(entry.speciesId, entry.formName),
-      ),
-    );
-    const records = Object.entries(ownedRecords)
-      .filter(([key]) => livingDexKeys.has(key))
-      .map(([key, record]) => ({ key, record }));
     const total = livingDexEntries.length;
     const shinyTotal = shinyTargetEntries.length;
 
-    const ownedCount = getOwnedEntryCount(livingDexEntries, ownedRecords);
-    const shinyCount = getShinyEntryCount(shinyTargetEntries, ownedRecords);
+    const ownedCount = getOwnedEntryCount(livingDexEntries, homeLayoutFlags);
+    const shinyCount = getShinyEntryCount(shinyTargetEntries, homeLayoutFlags);
 
     const genData = GENERATIONS.map((gen) => {
       const genEntries = livingDexEntries.filter(
@@ -204,9 +167,9 @@ export function StatsView() {
       );
       const genShinyTargetEntries = genEntries.filter(isShinyTargetEntry);
       const genTotal = genEntries.length;
-      const genOwned = getOwnedEntryCount(genEntries, ownedRecords);
+      const genOwned = getOwnedEntryCount(genEntries, homeLayoutFlags);
       const genShinyTotal = genShinyTargetEntries.length;
-      const genShiny = getShinyEntryCount(genShinyTargetEntries, ownedRecords);
+      const genShiny = getShinyEntryCount(genShinyTargetEntries, homeLayoutFlags);
       return {
         gen,
         label: GEN_LABELS[gen],
@@ -217,50 +180,14 @@ export function StatsView() {
       };
     });
 
-    const methodCounts: Record<OwnershipMethod, number> = {
-      caught: 0,
-      bred: 0,
-      hatched: 0,
-      transferred: 0,
-      event: 0,
-    };
-    for (const { record } of records) {
-      if (record.owned && record.method) methodCounts[record.method]++;
-    }
-    const taggedOwned = Object.values(methodCounts).reduce(
-      (sum, count) => sum + count,
-      0,
-    );
-    const untaggedOwned = ownedCount - taggedOwned;
-    const maxMethodCount = Math.max(1, ownedCount);
-
-    const shinyMethodCounts: Partial<Record<ShinyHuntMethod, number>> = {};
-    for (const { key, record } of records) {
-      if (!shinyTargetKeys.has(key)) continue;
-      if (record.shiny_owned && record.shiny_method) {
-        shinyMethodCounts[record.shiny_method] =
-          (shinyMethodCounts[record.shiny_method] ?? 0) + 1;
-      }
-    }
-    const taggedShiny = Object.values(shinyMethodCounts).reduce(
-      (sum, count) => sum + count,
-      0,
-    );
-    const untaggedShiny = shinyCount - taggedShiny;
-
     return {
       total,
       shinyTotal,
       ownedCount,
       shinyCount,
       genData,
-      methodCounts,
-      untaggedOwned,
-      shinyMethodCounts,
-      untaggedShiny,
-      maxMethodCount,
     };
-  }, [ownedRecords, entries]);
+  }, [homeLayoutFlags, entries]);
 
   const ownedPct = stats.total > 0 ? (stats.ownedCount / stats.total) * 100 : 0;
   const shinyPct =
@@ -277,9 +204,10 @@ export function StatsView() {
         );
         return;
       }
-      const importedOwnedCount = Object.values(parsed.owned).filter(
-        (record) => record.owned,
-      ).length;
+      const importedActiveLayoutId = parsed.activeHomeBoxLayoutId ?? "";
+      const importedOwnedCount = Object.values(
+        parsed.gameDex[importedActiveLayoutId] ?? {},
+      ).filter((record) => record.owned).length;
       const confirmed = window.confirm(
         `Restore this backup and replace current local data?\n\nOwned records: ${importedOwnedCount}`,
       );
@@ -287,7 +215,7 @@ export function StatsView() {
       setProgressSnapshot(parsed);
       await syncAllRecords(parsed);
       setImportMessage(
-        `Backup restored. ${importedOwnedCount} owned records loaded.`,
+        `Backup restored. ${importedOwnedCount} active layout marks loaded.`,
       );
     } catch {
       setImportMessage("Could not read that JSON backup.");
@@ -371,64 +299,6 @@ export function StatsView() {
                 );
               })}
             </div>
-
-            <h3 className="mb-3 text-xs font-black uppercase tracking-wide text-slate-500 dark:text-slate-400">
-              How you caught them
-            </h3>
-            {stats.ownedCount === 0 ? (
-              <div className="rounded-lg border border-dashed border-slate-300 p-5 text-center dark:border-slate-700">
-                <p className="text-sm font-semibold text-slate-600 dark:text-slate-300">
-                  No catch methods yet.
-                </p>
-                <p className="mx-auto mt-1 max-w-sm text-sm text-slate-500 dark:text-slate-400">
-                  Open a Pokemon detail page, mark it owned, and choose how you
-                  caught or bred it.
-                </p>
-                <Link
-                  href="/pokedex"
-                  className="mt-4 inline-flex rounded-lg bg-green-500 px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-green-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-400"
-                >
-                  Go to Pokedex
-                </Link>
-              </div>
-            ) : (
-              <div className="divide-y divide-slate-100 overflow-hidden rounded-lg border border-slate-200 dark:divide-slate-700 dark:border-slate-700">
-                {OWNERSHIP_METHODS.filter(
-                  ({ value }) => stats.methodCounts[value] > 0,
-                ).map(({ value, label }) => {
-                  const count = stats.methodCounts[value];
-                  const pct = (count / stats.maxMethodCount) * 100;
-                  return (
-                    <div
-                      key={value}
-                      className="grid grid-cols-[88px_1fr_36px] items-center gap-3 px-3 py-2.5"
-                    >
-                      <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
-                        {label}
-                      </span>
-                      <HBar pct={pct} colorClass="bg-green-400" />
-                      <span className="text-right text-xs tabular-nums text-slate-500 dark:text-slate-400">
-                        {count}
-                      </span>
-                    </div>
-                  );
-                })}
-                {stats.untaggedOwned > 0 && (
-                  <div className="grid grid-cols-[88px_1fr_36px] items-center gap-3 px-3 py-2.5">
-                    <span className="text-xs font-medium italic text-slate-400">
-                      Untagged
-                    </span>
-                    <HBar
-                      pct={(stats.untaggedOwned / stats.maxMethodCount) * 100}
-                      colorClass="bg-slate-400"
-                    />
-                    <span className="text-right text-xs tabular-nums text-slate-500 dark:text-slate-400">
-                      {stats.untaggedOwned}
-                    </span>
-                  </div>
-                )}
-              </div>
-            )}
           </section>
 
           <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-800/70">
@@ -511,68 +381,6 @@ export function StatsView() {
                   })}
               </div>
             )}
-
-            <h3 className="mb-3 text-xs font-black uppercase tracking-wide text-slate-500 dark:text-slate-400">
-              Hunt methods
-            </h3>
-            {stats.shinyCount === 0 ? (
-              <div className="rounded-lg border border-dashed border-slate-300 p-5 text-center dark:border-slate-700">
-                <p className="text-sm font-semibold text-slate-600 dark:text-slate-300">
-                  No shiny hunts logged yet.
-                </p>
-                <p className="mx-auto mt-1 max-w-sm text-sm text-slate-500 dark:text-slate-400">
-                  Open a Pokemon detail page and mark a shiny as owned to start
-                  tracking hunt methods.
-                </p>
-                <Link
-                  href="/home"
-                  className="mt-4 inline-flex rounded-lg bg-yellow-400 px-4 py-2 text-sm font-bold text-slate-950 transition-colors hover:bg-yellow-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-400"
-                >
-                  Open HOME
-                </Link>
-              </div>
-            ) : (
-              <div className="divide-y divide-slate-100 overflow-hidden rounded-lg border border-slate-200 dark:divide-slate-700 dark:border-slate-700">
-                {SHINY_METHODS.map(({ value, label, odds }) => {
-                  const count = stats.shinyMethodCounts[value] ?? 0;
-                  if (count === 0) return null;
-                  const pct = (count / stats.shinyCount) * 100;
-                  return (
-                    <div
-                      key={value}
-                      className="grid grid-cols-[86px_1fr_36px] items-center gap-3 px-3 py-2.5"
-                    >
-                      <div>
-                        <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
-                          {label}
-                        </p>
-                        <p className="text-[10px] text-slate-400 dark:text-slate-500">
-                          {odds}
-                        </p>
-                      </div>
-                      <HBar pct={pct} colorClass="bg-yellow-400" />
-                      <span className="text-right text-xs font-medium tabular-nums text-yellow-500">
-                        {count}
-                      </span>
-                    </div>
-                  );
-                })}
-                {stats.untaggedShiny > 0 && (
-                  <div className="grid grid-cols-[86px_1fr_36px] items-center gap-3 px-3 py-2.5">
-                    <span className="text-xs font-medium italic text-slate-400">
-                      Untagged
-                    </span>
-                    <HBar
-                      pct={(stats.untaggedShiny / stats.shinyCount) * 100}
-                      colorClass="bg-slate-400"
-                    />
-                    <span className="text-right text-xs tabular-nums text-yellow-500">
-                      {stats.untaggedShiny}
-                    </span>
-                  </div>
-                )}
-              </div>
-            )}
           </section>
         </div>
 
@@ -601,7 +409,7 @@ export function StatsView() {
               </span>
             </button>
             <button
-              onClick={() => downloadCSV(ownedRecords, entries ?? [])}
+              onClick={() => downloadCSV(homeLayoutFlags, entries ?? [])}
               className="rounded-lg border border-slate-200 px-4 py-3 text-left text-sm font-bold text-slate-700 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-700/70"
             >
               <span className="block">CSV</span>

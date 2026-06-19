@@ -4,15 +4,6 @@ import { isProgressSnapshot } from "./progressSnapshot";
 import type { ProgressSnapshot } from "@/types/pokemon";
 
 const validSnapshot: ProgressSnapshot = {
-  owned: {
-    "1-base": {
-      pokedex_number: 1,
-      form_name: null,
-      owned: true,
-      shiny_owned: false,
-      method: "caught",
-    },
-  },
   gameDex: {
     "scarlet-violet": {
       "1-base": { owned: true, shiny: false },
@@ -77,17 +68,12 @@ describe("progress snapshot validation", () => {
     assert.equal(isProgressSnapshot(bad), false);
   });
 
-  it("rejects malformed owned records", () => {
+  it("rejects legacy global owned records", () => {
     assert.equal(
       isProgressSnapshot({
         ...validSnapshot,
         owned: {
-          "1-base": {
-            pokedex_number: "1",
-            form_name: null,
-            owned: true,
-            shiny_owned: false,
-          },
+          "1-base": true,
         },
       }),
       false,

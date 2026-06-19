@@ -18,6 +18,7 @@ type Props = {
   isShinySlot?: boolean;
   compact?: boolean;
   shinyLocked?: boolean;
+  progressScopeId?: string;
 };
 
 export function BoxSlot({
@@ -26,16 +27,25 @@ export function BoxSlot({
   isShinySlot = false,
   compact = false,
   shinyLocked: shinyLockedProp,
+  progressScopeId,
 }: Props) {
   const key = entry ? ownedKey(entry.speciesId, entry.formName) : "";
-  const owned = usePokedexStore((s) => (entry ? !!s.owned[key]?.owned : false));
-  const shinyOwned = usePokedexStore((s) =>
-    entry ? !!s.owned[key]?.shiny_owned : false,
+  const owned = usePokedexStore((s) =>
+    entry && progressScopeId
+      ? !!s.gameDex[progressScopeId]?.[key]?.owned
+      : false,
   );
-  const markOwned = usePokedexStore((s) => s.markOwned);
-  const clearOwnership = usePokedexStore((s) => s.clearOwnership);
-  const markShinyOwned = usePokedexStore((s) => s.markShinyOwned);
-  const clearShinyOwned = usePokedexStore((s) => s.clearShinyOwned);
+  const shinyOwned = usePokedexStore((s) =>
+    entry && progressScopeId
+      ? !!s.gameDex[progressScopeId]?.[key]?.shiny
+      : false,
+  );
+  const markHomeBoxLayoutSlot = usePokedexStore(
+    (s) => s.markHomeBoxLayoutSlot,
+  );
+  const clearHomeBoxLayoutSlot = usePokedexStore(
+    (s) => s.clearHomeBoxLayoutSlot,
+  );
 
   if (!entry) return <EmptySlot />;
 
@@ -64,20 +74,41 @@ export function BoxSlot({
   const toggleSlot = (event?: MouseEvent<HTMLButtonElement>) => {
     event?.stopPropagation();
     if (isShinySlot && shinyLocked) return;
+    if (!progressScopeId) return;
 
     if (isShinySlot) {
       if (shinyOwned) {
-        clearShinyOwned(entry.speciesId, entry.formName);
+        clearHomeBoxLayoutSlot(
+          progressScopeId,
+          entry.speciesId,
+          entry.formName,
+          true,
+        );
       } else {
-        markShinyOwned(entry.speciesId, entry.formName);
+        markHomeBoxLayoutSlot(
+          progressScopeId,
+          entry.speciesId,
+          entry.formName,
+          true,
+        );
       }
       return;
     }
 
     if (owned) {
-      clearOwnership(entry.speciesId, entry.formName);
+      clearHomeBoxLayoutSlot(
+        progressScopeId,
+        entry.speciesId,
+        entry.formName,
+        false,
+      );
     } else {
-      markOwned(entry.speciesId, entry.formName);
+      markHomeBoxLayoutSlot(
+        progressScopeId,
+        entry.speciesId,
+        entry.formName,
+        false,
+      );
     }
   };
 

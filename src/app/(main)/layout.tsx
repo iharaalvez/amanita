@@ -73,7 +73,12 @@ function MainLayoutContent({ children }: { children: React.ReactNode }) {
   const closePokemon = useUIStore((s) => s.closePokemon);
   const openPokemon = useUIStore((s) => s.openPokemon);
 
-  const ownedRecords = usePokedexStore((s) => s.owned);
+  const activeHomeBoxLayoutId = usePokedexStore((s) => s.activeHomeBoxLayoutId);
+  const gameDex = usePokedexStore((s) => s.gameDex);
+  const homeLayoutFlags = useMemo(
+    () => gameDex[activeHomeBoxLayoutId] ?? {},
+    [activeHomeBoxLayoutId, gameDex],
+  );
   const { data: livingDexEntries, isSuccess: livingDexLoaded } =
     useLivingDexEntries();
 
@@ -87,8 +92,8 @@ function MainLayoutContent({ children }: { children: React.ReactNode }) {
   );
 
   const ownedCount = useMemo(
-    () => getOwnedEntryCount(filteredEntries, ownedRecords),
-    [filteredEntries, ownedRecords],
+    () => getOwnedEntryCount(filteredEntries, homeLayoutFlags),
+    [filteredEntries, homeLayoutFlags],
   );
 
   useEffect(() => {

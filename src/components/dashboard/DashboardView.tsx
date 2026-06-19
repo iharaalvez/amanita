@@ -132,7 +132,16 @@ export function DashboardView() {
   // Catch pagination
   const [catchPage, setCatchPage] = useState(0);
 
-  const ownedRecords = usePokedexStore((s) => s.owned);
+  const activeHomeBoxLayoutId = usePokedexStore((s) => s.activeHomeBoxLayoutId);
+  const homeBoxLayouts = usePokedexStore((s) => s.homeBoxLayouts);
+  const gameDex = usePokedexStore((s) => s.gameDex);
+  const activeHomeBoxLayout = useMemo(
+    () =>
+      homeBoxLayouts.find((layout) => layout.id === activeHomeBoxLayoutId) ??
+      null,
+    [activeHomeBoxLayoutId, homeBoxLayouts],
+  );
+  const homeLayoutFlags = gameDex[activeHomeBoxLayoutId] ?? {};
   const catchLog = usePokedexStore((s) => s.recentCatches);
   const shinyHunts = usePokedexStore((s) => s.shinyHunts);
   const addShinyHunt = usePokedexStore((s) => s.addShinyHunt);
@@ -156,7 +165,6 @@ export function DashboardView() {
       .sort((a, b) => (gameOrder.get(a) ?? 999) - (gameOrder.get(b) ?? 999));
   }, [availableGames]);
   const pinnedGameId = usePokedexStore((s) => s.pinnedGameId);
-  const gameDex = usePokedexStore((s) => s.gameDex);
   const openPokemon = useOpenPokemon();
   const { data: entries } = useLivingDexEntries();
 
@@ -245,8 +253,8 @@ export function DashboardView() {
     [livingEntries],
   );
   const shinyTotal = shinyEntries.length || livingTotal;
-  const ownedCount = getOwnedEntryCount(livingEntries, ownedRecords);
-  const shinyCount = getShinyEntryCount(shinyEntries, ownedRecords);
+  const ownedCount = getOwnedEntryCount(livingEntries, homeLayoutFlags);
+  const shinyCount = getShinyEntryCount(shinyEntries, homeLayoutFlags);
   const progress = livingTotal > 0 ? (ownedCount / livingTotal) * 100 : 0;
   const roundedProgress = Math.round(progress);
   const shinyProgress =
@@ -577,7 +585,16 @@ export function DashboardView() {
           <div className="contents">
             {/* Progress */}
             <section className="order-2 rounded-lg border border-[#2f2b40] bg-[#1a1a27]/80 p-4 lg:col-start-2 lg:row-start-1">
-              <h2 className="mb-3 text-xs font-black">Living Dex Progress</h2>
+              <div className="mb-3">
+                <h2 className="text-xs font-black">
+                  Active HOME Layout Progress
+                </h2>
+                <p className="mt-1 truncate text-[10px] font-medium text-[#8f8799]">
+                  {activeHomeBoxLayout
+                    ? `${activeHomeBoxLayout.name} layout marks`
+                    : "Create a HOME layout to start tracking marks"}
+                </p>
+              </div>
               <div className="flex items-center gap-5">
                 <DualProgressDonut
                   livingPct={progress}

@@ -2,7 +2,7 @@ import { BATTLE_ONLY_FORM_NAMES } from "@/config/battle-forms";
 import { GENDER_DIFFERENCE_FORM_KEYS } from "@/config/cosmetic-forms";
 import { isShinyLocked } from "@/config/pokemon-flags";
 import { ownedKey } from "@/store/pokedexStore";
-import type { LivingDexEntry, OwnedRecord } from "@/types/pokemon";
+import type { GameDexFlags, LivingDexEntry } from "@/types/pokemon";
 
 export function isLivingDexSpecies(entry: LivingDexEntry): boolean {
   return entry.formName === null;
@@ -65,83 +65,103 @@ export function isShinyTargetEntry(entry: LivingDexEntry): boolean {
 
 export function getOwnedEntryCount(
   entries: LivingDexEntry[],
-  ownedRecords: Record<string, OwnedRecord>,
+  progressFlags: Record<string, GameDexFlags>,
 ): number {
-  return entries.filter((entry) => isOwnedForEntry(entry, ownedRecords)).length;
+  return entries.filter((entry) => isOwnedForEntry(entry, progressFlags)).length;
 }
 
 export function getOwnedOrShinyEntryCount(
   entries: LivingDexEntry[],
-  ownedRecords: Record<string, OwnedRecord>,
+  progressFlags: Record<string, GameDexFlags>,
 ): number {
-  return entries.filter((entry) => isOwnedOrShinyForEntry(entry, ownedRecords))
+  return entries.filter((entry) => isOwnedOrShinyForEntry(entry, progressFlags))
     .length;
 }
 
 export function getSpeciesOwnedCount(
   baseEntries: LivingDexEntry[],
-  ownedRecords: Record<string, OwnedRecord>,
+  progressFlags: Record<string, GameDexFlags>,
 ): number {
   const ownedSpecies = new Set(
-    Object.values(ownedRecords)
-      .filter((r) => r.owned || r.shiny_owned)
-      .map((r) => r.pokedex_number),
+    Object.entries(progressFlags)
+      .filter(([, flags]) => flags.owned || flags.shiny)
+      .flatMap(([key]) => {
+        const speciesId = speciesIdFromProgressKey(key);
+        return speciesId === null ? [] : [speciesId];
+      }),
   );
   return baseEntries.filter((entry) => ownedSpecies.has(entry.speciesId)).length;
 }
 
 export function getShinyEntryCount(
   entries: LivingDexEntry[],
-  ownedRecords: Record<string, OwnedRecord>,
+  progressFlags: Record<string, GameDexFlags>,
 ): number {
   return entries.filter(
     (entry) =>
-      isShinyTargetEntry(entry) && isShinyOwnedForEntry(entry, ownedRecords),
+      isShinyTargetEntry(entry) && isShinyOwnedForEntry(entry, progressFlags),
   ).length;
 }
 
 function isOwnedForEntry(
   entry: LivingDexEntry,
-  ownedRecords: Record<string, OwnedRecord>,
+  progressFlags: Record<string, GameDexFlags>,
 ): boolean {
-  if (ownedRecords[ownedKey(entry.speciesId, entry.formName)]?.owned) {
+  if (progressFlags[ownedKey(entry.speciesId, entry.formName)]?.owned) {
     return true;
   }
-  return hasOwnedGenderVariant(entry, ownedRecords, "owned");
+  return hasOwnedGenderVariant(entry, progressFlags, "owned");
 }
 
 function isOwnedOrShinyForEntry(
   entry: LivingDexEntry,
-  ownedRecords: Record<string, OwnedRecord>,
+  progressFlags: Record<string, GameDexFlags>,
 ): boolean {
-  const record = ownedRecords[ownedKey(entry.speciesId, entry.formName)];
-  return !!(record?.owned || record?.shiny_owned);
+  const flags = progressFlags[ownedKey(entry.speciesId, entry.formName)];
+  return !!(flags?.owned || flags?.shiny);
 }
 
 function isShinyOwnedForEntry(
   entry: LivingDexEntry,
-  ownedRecords: Record<string, OwnedRecord>,
+  progressFlags: Record<string, GameDexFlags>,
 ): boolean {
-  const record = ownedRecords[ownedKey(entry.speciesId, entry.formName)];
-  if (record?.shiny_owned) {
+  const flags = progressFlags[ownedKey(entry.speciesId, entry.formName)];
+  if (flags?.shiny) {
     return true;
   }
 
-  return hasOwnedGenderVariant(entry, ownedRecords, "shiny_owned");
+  return hasOwnedGenderVariant(entry, progressFlags, "shiny");
 }
 
 function hasOwnedGenderVariant(
   entry: LivingDexEntry,
-  ownedRecords: Record<string, OwnedRecord>,
-  field: "owned" | "shiny_owned",
+  progressFlags: Record<string, GameDexFlags>,
+  field: "owned" | "shiny",
 ): boolean {
   if (entry.formName !== null) return false;
 
-  return Object.values(ownedRecords).some(
-    (record) =>
-      record.pokedex_number === entry.speciesId &&
-      !!record.form_name &&
-      !!record[field] &&
-      GENDER_DIFFERENCE_FORM_KEYS.has(`${entry.speciesId}-${record.form_name}`),
-  );
+  return Object.entries(progressFlags).some(([key, flags]) => {
+    const parsed = parseProgressKey(key);
+    return (
+      parsed?.speciesId === entry.speciesId &&
+      !!parsed.formName &&
+      !!flags[field] &&
+      GENDER_DIFFERENCE_FORM_KEYS.has(`${entry.speciesId}-${parsed.formName}`)
+    );
+  });
+}
+
+function parseProgressKey(
+  key: string,
+): { speciesId: number; formName: string | null } | null {
+  const separatorIndex = key.indexOf("-");
+  if (separatorIndex < 1) return null;
+  const speciesId = Number(key.slice(0, separatorIndex));
+  if (!Number.isInteger(speciesId)) return null;
+  const formKey = key.slice(separatorIndex + 1);
+  return { speciesId, formName: formKey === "base" ? null : formKey };
+}
+
+function speciesIdFromProgressKey(key: string): number | null {
+  return parseProgressKey(key)?.speciesId ?? null;
 }
