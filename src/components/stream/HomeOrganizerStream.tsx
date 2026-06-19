@@ -822,6 +822,17 @@ export default function HomeOrganizerStream() {
 
   const boxes = useMemo(() => buildSlotBoxes(allSlots), [allSlots]);
   const totalBoxes = boxes.length;
+  const boxLabels = useMemo(
+    () =>
+      boxes.map((box) => {
+        const slots = box.filter((s): s is SlotData => s !== null);
+        if (!slots.length) return "";
+        const first = slotRangeNumber(slots[0]);
+        const last = slotRangeNumber(slots[slots.length - 1]);
+        return first === last ? `Dex ${first}` : `Dex ${first}–${last}`;
+      }),
+    [boxes],
+  );
   const safeIndex = Math.min(boxIndex, Math.max(0, totalBoxes - 1));
   const currentBox = useMemo(
     () => boxes[safeIndex] ?? EMPTY_BOX,
@@ -1061,11 +1072,11 @@ export default function HomeOrganizerStream() {
       setBoxIndex(selected.boxIndex);
       setAssistMessage(
         matches.length === 1
-          ? `${canonicalName} -> Box ${selected.boxIndex + 1}, Slot ${selected.slotIndex + 1}.`
+          ? `${canonicalName} -> ${boxLabels[selected.boxIndex] ?? `Box ${selected.boxIndex + 1}`}, Slot ${selected.slotIndex + 1}.`
           : `${canonicalName} has ${matches.length} possible slots.`,
       );
     },
-    [chooseAssistMatch, resolveAssistMatches],
+    [boxLabels, chooseAssistMatch, resolveAssistMatches],
   );
 
   const markAssistSlot = useCallback(
@@ -1145,7 +1156,7 @@ export default function HomeOrganizerStream() {
       setBoxIndex(selected.boxIndex);
       setAssistMessage(
         marked
-          ? `Marked ${compactSlotName(selected.slot.entry)} in Box ${selected.boxIndex + 1}, Slot ${selected.slotIndex + 1}.`
+          ? `Marked ${compactSlotName(selected.slot.entry)} in ${boxLabels[selected.boxIndex] ?? `Box ${selected.boxIndex + 1}`}, Slot ${selected.slotIndex + 1}.`
           : `${compactSlotName(selected.slot.entry)} cannot be marked from this slot.`,
       );
       if (marked) {
@@ -1168,6 +1179,7 @@ export default function HomeOrganizerStream() {
       assistTargetGender,
       assistTargetIsShiny,
       assistTargetName,
+      boxLabels,
       chooseAssistMatch,
       markAssistSlot,
       resolveAssistMatches,
@@ -1595,7 +1607,7 @@ export default function HomeOrganizerStream() {
                             </p>
                           </div>
                           <p className="text-right font-mono text-[10px] font-black text-[#f7c948]">
-                            B{boxIndex + 1} S{slotIndex + 1}
+                            {boxLabels[boxIndex] ?? `B${boxIndex + 1}`} S{slotIndex + 1}
                           </p>
                         </button>
                       ))
@@ -1718,8 +1730,7 @@ export default function HomeOrganizerStream() {
                 <div className="flex shrink-0 items-center gap-1.5">
                   {selectedAssistMatch && (
                     <span className="font-mono text-[10px] font-black text-[#f7c948]">
-                      B{selectedAssistMatch.boxIndex + 1} S
-                      {selectedAssistMatch.slotIndex + 1}
+                      {boxLabels[selectedAssistMatch.boxIndex] ?? `B${selectedAssistMatch.boxIndex + 1}`} S{selectedAssistMatch.slotIndex + 1}
                     </span>
                   )}
                   <button
@@ -1799,7 +1810,7 @@ export default function HomeOrganizerStream() {
                           )}
                         </span>
                         <span className="font-mono text-[10px] font-black text-[#f7c948]">
-                          B{match.boxIndex + 1} S{match.slotIndex + 1}
+                          {boxLabels[match.boxIndex] ?? `B${match.boxIndex + 1}`} S{match.slotIndex + 1}
                         </span>
                       </button>
                     );
