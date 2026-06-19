@@ -1412,15 +1412,17 @@ export default function HomeOrganizerStream() {
   const STRIP_PAGE_SIZE = 8;
   const [stripStartBase, setStripStart] = useState(0);
 
-  // Compute during render so safeIndex always stays in the visible strip window
-  const stripStart = (() => {
-    if (safeIndex < stripStartBase)
-      return Math.max(0, safeIndex - STRIP_PAGE_SIZE + 1);
-    if (safeIndex >= stripStartBase + STRIP_PAGE_SIZE)
-      return Math.min(Math.max(0, totalBoxes - STRIP_PAGE_SIZE), safeIndex);
-    return stripStartBase;
-  })();
-
+  // Clamp stripStartBase so safeIndex stays visible, but allow the strip
+  // arrows to scroll freely within that constraint.
+  const stripStartMin = Math.max(0, safeIndex - STRIP_PAGE_SIZE + 1);
+  const stripStartMax = Math.min(
+    safeIndex,
+    Math.max(0, totalBoxes - STRIP_PAGE_SIZE),
+  );
+  const stripStart = Math.max(
+    stripStartMin,
+    Math.min(stripStartBase, stripStartMax),
+  );
   const stripEnd = Math.min(stripStart + STRIP_PAGE_SIZE, totalBoxes);
   const visibleBoxStats = boxStats.slice(stripStart, stripEnd);
 
