@@ -86,9 +86,6 @@ type AssistMatch = SearchResult & {
 
 type AssistGender = "male" | "female";
 
-type OrderingAssistPollResponse = {
-  events: OrderingAssistStoredEvent[];
-};
 
 type BoxStat = {
   total: number;
@@ -590,7 +587,6 @@ export default function HomeOrganizerStream() {
   const [, forceUpdate] = useState(0);
   const activeItemRef = useRef<HTMLButtonElement>(null);
   const boxScrollerRef = useRef<HTMLDivElement>(null);
-  const assistLastEventIdRef = useRef(0);
   const processAssistEventRef = useRef<((event: OrderingAssistStoredEvent) => void) | null>(null);
   const assistClearTimerRef = useRef<number | null>(null);
 
@@ -1241,36 +1237,24 @@ export default function HomeOrganizerStream() {
 
   useEffect(() => {
     if (!assistEnabled) return;
-    let cancelled = false;
 
-    async function pollAssistEvents() {
+    const source = new EventSource("/api/ordering-assist");
+
+    source.onmessage = (e: MessageEvent<string>) => {
       try {
-        const response = await fetch(
-          `/api/ordering-assist?after=${assistLastEventIdRef.current}`,
-          { cache: "no-store" },
-        );
-        if (!response.ok) return;
-        const payload = (await response.json()) as OrderingAssistPollResponse;
-        if (cancelled) return;
-        for (const event of payload.events) {
-          assistLastEventIdRef.current = Math.max(
-            assistLastEventIdRef.current,
-            event.id,
-          );
-          processAssistEventRef.current?.(event);
-        }
+        const event = JSON.parse(e.data) as OrderingAssistStoredEvent;
+        processAssistEventRef.current?.(event);
       } catch {
-        if (!cancelled) setAssistMessage("Assist receiver unavailable.");
+        // ignore malformed frames
       }
-    }
+    };
 
-    void pollAssistEvents();
-    const id = window.setInterval(() => {
-      void pollAssistEvents();
-    }, 350);
+    source.onerror = () => {
+      setAssistMessage("Assist receiver unavailable.");
+    };
+
     return () => {
-      cancelled = true;
-      window.clearInterval(id);
+      source.close();
     };
   }, [assistEnabled]);
 

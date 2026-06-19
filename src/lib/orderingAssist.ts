@@ -29,6 +29,7 @@ export type OrderingAssistStoredEvent = OrderingAssistIncomingEvent & {
 type OrderingAssistMailbox = {
   nextId: number;
   events: OrderingAssistStoredEvent[];
+  subscribers: Set<(event: OrderingAssistStoredEvent) => void>;
 };
 
 const MAX_EVENTS = 100;
@@ -40,7 +41,7 @@ type GlobalWithMailbox = typeof globalThis & {
 
 function mailbox(): OrderingAssistMailbox {
   const globalScope = globalThis as GlobalWithMailbox;
-  globalScope[GLOBAL_KEY] ??= { nextId: 1, events: [] };
+  globalScope[GLOBAL_KEY] ??= { nextId: 1, events: [], subscribers: new Set() };
   return globalScope[GLOBAL_KEY];
 }
 
@@ -55,6 +56,9 @@ export function appendOrderingAssistEvent(
   };
   box.nextId += 1;
   box.events = [...box.events, stored].slice(-MAX_EVENTS);
+  for (const subscriber of box.subscribers) {
+    subscriber(stored);
+  }
   return stored;
 }
 
@@ -62,4 +66,12 @@ export function getOrderingAssistEventsAfter(
   afterId: number,
 ): OrderingAssistStoredEvent[] {
   return mailbox().events.filter((event) => event.id > afterId);
+}
+
+export function subscribeToAssistEvents(
+  callback: (event: OrderingAssistStoredEvent) => void,
+): () => void {
+  const box = mailbox();
+  box.subscribers.add(callback);
+  return () => box.subscribers.delete(callback);
 }

@@ -1,7 +1,6 @@
-import { NextResponse } from "next/server";
 import {
   appendOrderingAssistEvent,
-  getOrderingAssistEventsAfter,
+  subscribeToAssistEvents,
   type OrderingAssistDetection,
   type OrderingAssistIncomingEvent,
 } from "@/lib/orderingAssist";
@@ -61,16 +60,47 @@ function parseIncomingEvent(value: unknown): OrderingAssistIncomingEvent | null 
 export async function POST(request: Request) {
   const parsed = parseIncomingEvent(await request.json().catch(() => null));
   if (!parsed) {
-    return NextResponse.json({ error: "Invalid assist event." }, { status: 400 });
+    return new Response(JSON.stringify({ error: "Invalid assist event." }), {
+      status: 400,
+      headers: { "Content-Type": "application/json" },
+    });
   }
 
   const event = appendOrderingAssistEvent(parsed);
-  return NextResponse.json({ event });
+  return new Response(JSON.stringify({ event }), {
+    headers: { "Content-Type": "application/json" },
+  });
 }
 
 export function GET(request: Request) {
-  const url = new URL(request.url);
-  const after = Number(url.searchParams.get("after") ?? "0");
-  const events = getOrderingAssistEventsAfter(Number.isFinite(after) ? after : 0);
-  return NextResponse.json({ events });
+  const encoder = new TextEncoder();
+
+  const stream = new ReadableStream({
+    start(controller) {
+      const send = (data: unknown) => {
+        controller.enqueue(
+          encoder.encode(`data: ${JSON.stringify(data)}\n\n`),
+        );
+      };
+
+      // Send a keepalive comment immediately so the client knows it's connected.
+      controller.enqueue(encoder.encode(": connected\n\n"));
+
+      const unsubscribe = subscribeToAssistEvents(send);
+
+      // Close the subscription when the client disconnects.
+      request.signal.addEventListener("abort", () => {
+        unsubscribe();
+        controller.close();
+      });
+    },
+  });
+
+  return new Response(stream, {
+    headers: {
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache",
+      Connection: "keep-alive",
+    },
+  });
 }
