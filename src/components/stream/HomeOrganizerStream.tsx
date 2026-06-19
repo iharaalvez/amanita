@@ -16,7 +16,7 @@ import {
   Sprout,
   X,
 } from "lucide-react";
-import { useLivingDexEntries } from "@/hooks/usePokemon";
+import { useLivingDexEntries, usePokemonEvolution } from "@/hooks/usePokemon";
 import { useGameHomeBoxDex } from "@/hooks/useGamePokedex";
 import { GAME_LIST, getGameById } from "@/config/games";
 import { GENDER_DIFFERENCE_FORM_KEYS } from "@/config/cosmetic-forms";
@@ -582,6 +582,7 @@ export default function HomeOrganizerStream() {
   const [assistSelectedKey, setAssistSelectedKey] = useState("");
   const [assistMessage, setAssistMessage] = useState("Waiting for assist.");
   const [assistResolving, setAssistResolving] = useState(false);
+  const [assistEvoSpeciesId, setAssistEvoSpeciesId] = useState<number | null>(null);
   const [assistCalibrating, setAssistCalibrating] = useState(false);
   const [assistCalibKey, setAssistCalibKey] = useState(0);
   const [, forceUpdate] = useState(0);
@@ -611,6 +612,7 @@ export default function HomeOrganizerStream() {
 
   const { data: allEntries, isLoading } = useLivingDexEntries();
   const gameBoxQuery = useGameHomeBoxDex(selectedGameId);
+  const evolutionQuery = usePokemonEvolution(assistEvoSpeciesId ?? 0, assistEvoSpeciesId !== null);
   const homeRulesQuery = useQuery({
     queryKey: ["game-home-box-form-rules", HOME_DEX_GAME_ID],
     queryFn: () =>
@@ -942,6 +944,24 @@ export default function HomeOrganizerStream() {
     null;
   const shouldShowAssistCandidates = assistMatches.length > 2;
 
+  type AssistAdvice = { type: "release" } | { type: "evolve"; into: SlotData[] };
+  const assistAdvice = useMemo((): AssistAdvice | null => {
+    if (!selectedAssistMatch?.owned) return null;
+    if (!evolutionQuery.data) return { type: "release" };
+    const speciesId = selectedAssistMatch.slot.entry.speciesId;
+    const allStages = evolutionQuery.data.flat();
+    const successorIds = new Set(
+      allStages.filter((s) => s.evolvesFromId === speciesId).map((s) => s.id),
+    );
+    if (!successorIds.size) return { type: "release" };
+    const missingEvoSlots = allSlots.filter(
+      (s) => successorIds.has(s.entry.speciesId) && !getSlotOwned(s),
+    );
+    return missingEvoSlots.length > 0
+      ? { type: "evolve", into: missingEvoSlots }
+      : { type: "release" };
+  }, [allSlots, evolutionQuery.data, getSlotOwned, selectedAssistMatch]);
+
 
   const searchHighlightedKeys = useMemo(() => {
     if (!searchNorm) return new Set<string>();
@@ -1070,6 +1090,7 @@ export default function HomeOrganizerStream() {
       setAssistTargetName(canonicalName);
       setAssistSelectedKey(selected.key);
       setBoxIndex(selected.boxIndex);
+      setAssistEvoSpeciesId(selected.owned ? selected.slot.entry.speciesId : null);
       setAssistMessage(
         matches.length === 1
           ? `${canonicalName} -> ${boxLabels[selected.boxIndex] ?? `Box ${selected.boxIndex + 1}`}, Slot ${selected.slotIndex + 1}.`
@@ -1169,6 +1190,7 @@ export default function HomeOrganizerStream() {
           setAssistTargetGender(null);
           setAssistSelectedKey("");
           setAssistResolving(false);
+          setAssistEvoSpeciesId(null);
           assistClearTimerRef.current = null;
         }, 1100);
       }
@@ -1231,6 +1253,7 @@ export default function HomeOrganizerStream() {
         setAssistTargetGender(null);
         setAssistSelectedKey("");
         setAssistResolving(false);
+        setAssistEvoSpeciesId(null);
         setAssistMessage("Assist target cleared.");
         return;
       }
@@ -1763,6 +1786,20 @@ export default function HomeOrganizerStream() {
               <p className="mt-2 truncate font-mono text-[10px] text-[#8ca0c9]">
                 {assistMessage}
               </p>
+
+              {assistAdvice && (
+                <p
+                  className={`mt-1 font-mono text-[10px] font-black ${
+                    assistAdvice.type === "evolve"
+                      ? "text-[#67d9ff]"
+                      : "text-[#ff8f8f]"
+                  }`}
+                >
+                  {assistAdvice.type === "release"
+                    ? "✕ Already marked — release it"
+                    : `→ Evolve into ${assistAdvice.into.map((s) => compactSlotName(s.entry)).join(" / ")} before releasing`}
+                </p>
+              )}
 
               {/* Hotkey hint — only shown when ready */}
               {captureStatus === "ready" && (

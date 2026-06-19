@@ -225,7 +225,7 @@ export function usePokemonSpecies(speciesId: number) {
   });
 }
 
-export function usePokemonEvolution(speciesId: number) {
+export function usePokemonEvolution(speciesId: number, enabled = true) {
   return useQuery<EvolutionStage[][]>({
     queryKey: ["pokemon-evolution", speciesId],
     queryFn: async () => {
@@ -238,5 +238,6 @@ export function usePokemonEvolution(speciesId: number) {
       return buildEvolutionLines(chain.chain);
     },
     staleTime: Infinity,
+    enabled: enabled && speciesId > 0,
   });
 }
