@@ -370,26 +370,36 @@ function migrateToGameDex(
 function mergeGameDexRecords(
   local: Record<string, Record<string, GameDexFlags>>,
   remote: Record<string, Record<string, GameDexFlags>>,
+  remoteLayoutIds: Set<string>,
 ): Record<string, Record<string, GameDexFlags>> {
   const gameIds = new Set([...Object.keys(local), ...Object.keys(remote)]);
   const result: Record<string, Record<string, GameDexFlags>> = {};
   for (const gameId of gameIds) {
     const localGame = local[gameId] ?? {};
     const remoteGame = remote[gameId] ?? {};
-    const keys = new Set([
-      ...Object.keys(localGame),
-      ...Object.keys(remoteGame),
-    ]);
-    result[gameId] = {};
-    for (const key of keys) {
-      const l = localGame[key];
-      const r = remoteGame[key];
-      result[gameId][key] = {
-        owned: !!(l?.owned || r?.owned),
-        shiny: !!(l?.shiny || r?.shiny),
-        alpha: !!(l?.alpha || r?.alpha) || undefined,
-        shiny_alpha: !!(l?.shiny_alpha || r?.shiny_alpha) || undefined,
-      };
+
+    if (isHomeLayoutProgressScope(gameId) && remoteLayoutIds.has(gameId)) {
+      // Layout exists in Supabase — trust remote as source of truth so that
+      // entries deleted directly from the DB (e.g. ghost-entry cleanup) are
+      // not restored by stale in-memory or localStorage data.
+      result[gameId] = { ...remoteGame };
+    } else {
+      // Game dex or local-only layout — OR-merge, local wins on conflicts.
+      const keys = new Set([
+        ...Object.keys(localGame),
+        ...Object.keys(remoteGame),
+      ]);
+      result[gameId] = {};
+      for (const key of keys) {
+        const l = localGame[key];
+        const r = remoteGame[key];
+        result[gameId][key] = {
+          owned: !!(l?.owned || r?.owned),
+          shiny: !!(l?.shiny || r?.shiny),
+          alpha: !!(l?.alpha || r?.alpha) || undefined,
+          shiny_alpha: !!(l?.shiny_alpha || r?.shiny_alpha) || undefined,
+        };
+      }
     }
   }
   return result;
@@ -777,13 +787,15 @@ export const usePokedexStore = create<PokedexState>()(
 
       mergeProgressSnapshot: (snapshot) => {
         const current = get();
+        const remoteLayouts = normalizeHomeBoxLayouts(snapshot.homeBoxLayouts);
+        const remoteLayoutIds = new Set(remoteLayouts.map((l) => l.id));
         const homeBoxLayouts = mergeHomeBoxLayouts(
           current.homeBoxLayouts,
-          normalizeHomeBoxLayouts(snapshot.homeBoxLayouts),
+          remoteLayouts,
         );
         const merged: ProgressSnapshot = {
           gameDex: pruneGameDexToHomeLayouts(
-            mergeGameDexRecords(current.gameDex, snapshot.gameDex),
+            mergeGameDexRecords(current.gameDex, snapshot.gameDex, remoteLayoutIds),
             homeBoxLayouts,
           ),
           gameHomeBoxes: mergeGameHomeBoxRecords(
