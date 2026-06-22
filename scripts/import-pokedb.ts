@@ -6,6 +6,7 @@ import { createClient } from "@supabase/supabase-js";
 import "dotenv/config";
 import { config as loadDotenv } from "dotenv";
 import { POKEDB_FORM_ALIASES } from "../src/config/pokedb-form-aliases";
+import { canonicalizeLocationName } from "../src/lib/locationNames";
 
 loadDotenv({ path: ".env.local" });
 
@@ -615,9 +616,9 @@ async function main() {
       form_name: mapPokeDbFormName(form),
       pokemon_form_identifier: encounter.pokemon_form_identifier,
       location_identifier: location.identifier,
-      location_name: location.name,
+      location_name: canonicalizeLocationName(location.name),
       location_area_identifier: area.identifier,
-      location_area_name: area.name,
+      location_area_name: canonicalizeLocationName(area.name),
       region_area_identifier: location.region_area_identifier,
       encounter_method_identifier: method.identifier,
       encounter_method_name: method.name,
@@ -653,7 +654,7 @@ async function main() {
       outlineRowsByKey.set(outlineSourceKey, {
         game_id: config.gameId,
         location_identifier: location.identifier,
-        location_name: location.name,
+        location_name: canonicalizeLocationName(location.name),
         region_area_identifier: location.region_area_identifier,
         layer: coordinate.layer,
         outline_type: coordinate.type,

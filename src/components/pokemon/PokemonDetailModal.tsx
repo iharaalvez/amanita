@@ -12,10 +12,6 @@ import {
   usePokemonSpecies,
 } from "@/hooks/usePokemon";
 import { useEncounters } from "@/hooks/useEncounters";
-import {
-  GAME_POKEMON_LOCATION_OVERRIDES,
-  getGamePokemonLocationOverride,
-} from "@/config/game-pokemon-location-overrides";
 import { GAME_LIST } from "@/config/games";
 import {
   getLivingDexCatchRecommendations,
@@ -510,13 +506,6 @@ export function PokemonDetailModal({
     for (const game of enc.games) {
       if (!encountersByGame.has(game)) encountersByGame.set(game, []);
       encountersByGame.get(game)!.push(enc.location);
-    }
-  }
-  for (const game of GAME_LIST) {
-    if (!(game.id in GAME_POKEMON_LOCATION_OVERRIDES)) continue;
-    const locationOverride = getGamePokemonLocationOverride(game.id, speciesId);
-    if (locationOverride.length > 0) {
-      encountersByGame.set(game.name, locationOverride);
     }
   }
 

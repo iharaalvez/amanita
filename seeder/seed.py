@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import hashlib
 import os
+import re
 import sys
 from collections import defaultdict
 from typing import Any
@@ -152,6 +154,21 @@ def format_location_name(name: str) -> str:
     return title_case(name.replace("-area", ""))
 
 
+def slug(value: str) -> str:
+    normalized = re.sub(r"[^a-z0-9]+", "-", value.lower()).strip("-")
+    return normalized or "unknown"
+
+
+def pokeapi_spawn_source_key(
+    game_id: str,
+    species_id: int,
+    form_name: str | None,
+    location_name: str,
+) -> str:
+    seed = f"{game_id}|{species_id}|{form_name or ''}|{location_name}"
+    return f"legacy-encounter:{hashlib.md5(seed.encode('utf-8')).hexdigest()}"
+
+
 def region_key_from_label(label: str | None) -> str | None:
     if label is None:
         return None
@@ -204,6 +221,7 @@ async def gather_with_progress(
 def truncate_tables() -> None:
     with Session() as db:
         db.query(Encounter).delete()
+        db.execute(text("DELETE FROM spawn_locations WHERE source = 'pokeapi'"))
         db.query(GameDexEntry).delete()
         db.query(LivingDexEntry).delete()
         db.query(Species).delete()
@@ -358,6 +376,19 @@ async def seed_living_dex_entries(
     return regional_forms_by_species
 
 
+GAME_DEX_FORM_OVERRIDES: dict[tuple[str, int], list[str]] = {
+    ("scarlet-violet", 128): [
+        "tauros-paldea-combat-breed",
+        "tauros-paldea-blaze-breed",
+        "tauros-paldea-aqua-breed",
+    ],
+    ("pla", 37): ["vulpix-alola"],
+    ("pla", 38): ["ninetales-alola"],
+    ("pla", 215): ["", "sneasel-hisui"],
+    ("pla", 550): ["basculin-white-striped"],
+}
+
+
 async def seed_game_dexes(
     client: httpx.AsyncClient,
     semaphore: asyncio.Semaphore,
@@ -382,17 +413,20 @@ async def seed_game_dexes(
             for entry in pokedex_data.get("pokemon_entries", []):
                 species_id = species_id_from_url(entry["pokemon_species"]["url"])
                 entry_number = int(entry["entry_number"])
-                regional_form_name = ""
-                if region:
-                    regional_form_name = next(
-                        (
-                            form_name
-                            for form_name in regional_forms_by_species.get(species_id, [])
-                            if region in form_name
-                        ),
-                        "",
-                    )
-                rows[(game_id, species_id, regional_form_name)] = entry_number
+                override_form_names = GAME_DEX_FORM_OVERRIDES.get((game_id, species_id))
+                if override_form_names is not None:
+                    form_names = override_form_names
+                elif region:
+                    matching = [
+                        form_name
+                        for form_name in regional_forms_by_species.get(species_id, [])
+                        if region in form_name
+                    ]
+                    form_names = matching if matching else [""]
+                else:
+                    form_names = [""]
+                for regional_form_name in form_names:
+                    rows[(game_id, species_id, regional_form_name)] = entry_number
 
             for (row_game_id, species_id, form_name), entry_number in rows.items():
                 db.merge(
@@ -467,7 +501,7 @@ def seed_manual_game_dexes() -> None:
 
 
 async def seed_encounters(client: httpx.AsyncClient, semaphore: asyncio.Semaphore) -> None:
-    print("Step 4 - Seeding encounters...")
+    print("Step 4 - Seeding PokeAPI encounters into spawn_locations...")
 
     async def fetch_encounters(species_id: int) -> tuple[int, list[dict[str, Any]]]:
         data = await fetch_json(client, semaphore, f"/pokemon/{species_id}/encounters")
@@ -489,15 +523,86 @@ async def seed_encounters(client: httpx.AsyncClient, semaphore: asyncio.Semaphor
                 if game_id:
                     rows.add((species_id, game_id, location_name))
 
+    upsert_sql = text(
+        """
+        insert into spawn_locations (
+          game_id,
+          version_ids,
+          species_id,
+          form_name,
+          pokemon_form_identifier,
+          location_identifier,
+          location_name,
+          location_area_identifier,
+          location_area_name,
+          region_area_identifier,
+          encounter_method_identifier,
+          encounter_method_name,
+          levels,
+          alpha_levels,
+          tera_raid_star_level,
+          time_labels,
+          weather_labels,
+          terrain_labels,
+          rates,
+          notes,
+          source,
+          source_key,
+          confidence
+        )
+        values (
+          :game_id,
+          ARRAY[]::text[],
+          :species_id,
+          null,
+          :pokemon_form_identifier,
+          :location_identifier,
+          :location_name,
+          :location_area_identifier,
+          :location_area_name,
+          null,
+          'pokeapi-encounter',
+          'PokeAPI Encounter',
+          null,
+          null,
+          null,
+          ARRAY[]::text[],
+          ARRAY[]::text[],
+          ARRAY[]::text[],
+          '{}'::jsonb,
+          null,
+          'pokeapi',
+          :source_key,
+          'medium'
+        )
+        on conflict (source, source_key) do nothing
+        """
+    )
+
     with Session() as db:
-        for species_id, game_id, location_name in tqdm(rows, desc="Inserting encounters", unit="row"):
-            db.add(
-                Encounter(
-                    species_id=species_id,
-                    form_name=None,
-                    game_id=game_id,
-                    location_name=location_name,
-                )
+        for species_id, game_id, location_name in tqdm(
+            rows,
+            desc="Inserting PokeAPI spawn rows",
+            unit="row",
+        ):
+            location_identifier = f"pokeapi-legacy-{slug(location_name)}"
+            db.execute(
+                upsert_sql,
+                {
+                    "game_id": game_id,
+                    "species_id": species_id,
+                    "pokemon_form_identifier": str(species_id),
+                    "location_identifier": location_identifier,
+                    "location_name": location_name,
+                    "location_area_identifier": location_identifier,
+                    "location_area_name": location_name,
+                    "source_key": pokeapi_spawn_source_key(
+                        game_id,
+                        species_id,
+                        None,
+                        location_name,
+                    ),
+                },
             )
         db.commit()
 
@@ -509,7 +614,9 @@ def print_summary() -> None:
             "species": db.query(func.count(Species.id)).scalar(),
             "living_dex_entries": db.query(func.count(LivingDexEntry.id)).scalar(),
             "game_dex_entries": db.query(func.count()).select_from(GameDexEntry).scalar(),
-            "encounters": db.query(func.count(Encounter.id)).scalar(),
+            "spawn_locations": db.execute(
+                text("select count(*) from spawn_locations")
+            ).scalar(),
         }
     for table_name, count in counts.items():
         print(f"{table_name}: {count}")

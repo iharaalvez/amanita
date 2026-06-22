@@ -14,9 +14,11 @@ import { BATTLE_ONLY_FORM_NAMES } from "@/config/battle-forms";
 import { isAllowedGameHomeBoxForm } from "@/config/game-home-box-forms";
 import { GAME_LIST } from "@/config/games";
 import type { GameEntry } from "@/config/games";
+import { canonicalizeLocationName } from "@/lib/locationNames";
 import { supabase } from "./supabase";
 
 const LIVING_DEX_PAGE_SIZE = 1000;
+const SPAWN_LOCATION_PAGE_SIZE = 1000;
 let rawLivingDexEntriesPromise: Promise<RawLivingDexEntry[]> | null = null;
 
 const MYTHICAL_IDS = new Set([
@@ -53,13 +55,6 @@ type RawGameDexEntry = {
   species_id: number;
   form_name: string;
   entry_number: number | null;
-};
-
-type RawEncounter = {
-  species_id: number;
-  form_name: string | null;
-  game_id: string;
-  location_name: string;
 };
 
 type RawSpawnLocation = {
@@ -203,6 +198,56 @@ async function getRawGameDexEntries(
   return (data ?? []) as RawGameDexEntry[];
 }
 
+async function getRawSpawnLocations(
+  gameId: string,
+): Promise<RawSpawnLocation[]> {
+  const rows: RawSpawnLocation[] = [];
+
+  for (let from = 0; ; from += SPAWN_LOCATION_PAGE_SIZE) {
+    const { data, error } = await supabase
+      .from("spawn_locations")
+      .select(
+        "game_id,version_ids,species_id,form_name,location_identifier,location_name,location_area_identifier,location_area_name,encounter_method_name,levels,source,confidence",
+      )
+      .eq("game_id", gameId)
+      .order("location_name", { ascending: true })
+      .order("location_area_name", { ascending: true })
+      .order("species_id", { ascending: true })
+      .range(from, from + SPAWN_LOCATION_PAGE_SIZE - 1);
+
+    if (error) throw error;
+    rows.push(...((data ?? []) as RawSpawnLocation[]));
+    if ((data ?? []).length < SPAWN_LOCATION_PAGE_SIZE) break;
+  }
+
+  return rows;
+}
+
+async function getRawSpawnLocationsBySpecies(
+  speciesId: number,
+): Promise<RawSpawnLocation[]> {
+  const rows: RawSpawnLocation[] = [];
+
+  for (let from = 0; ; from += SPAWN_LOCATION_PAGE_SIZE) {
+    const { data, error } = await supabase
+      .from("spawn_locations")
+      .select(
+        "game_id,version_ids,species_id,form_name,location_identifier,location_name,location_area_identifier,location_area_name,encounter_method_name,levels,source,confidence",
+      )
+      .eq("species_id", speciesId)
+      .order("game_id", { ascending: true })
+      .order("location_name", { ascending: true })
+      .order("location_area_name", { ascending: true })
+      .range(from, from + SPAWN_LOCATION_PAGE_SIZE - 1);
+
+    if (error) throw error;
+    rows.push(...((data ?? []) as RawSpawnLocation[]));
+    if ((data ?? []).length < SPAWN_LOCATION_PAGE_SIZE) break;
+  }
+
+  return rows;
+}
+
 function isOptionalInGameDex(gameId: string, speciesId: number): boolean {
   return (
     SHINY_CHARM_GAME_IDS.has(gameId) &&
@@ -335,7 +380,7 @@ function shouldExpandLivingFormForGameRow(
   if (isGenderDifferenceForGameForm(entry, baseEntry, formName)) return true;
   if (isGenderDifferenceEntry(entry)) return false;
   if (formName) return entry.formName === formName;
-  return true;
+  return !entry.isRegionalForm;
 }
 
 export const api = {
@@ -531,20 +576,14 @@ export const api = {
   },
 
   async getEncounters(speciesId: number): Promise<Record<string, string[]>> {
-    const { data, error } = await supabase
-      .from("encounters")
-      .select("species_id,form_name,game_id,location_name")
-      .eq("species_id", speciesId)
-      .order("game_id", { ascending: true })
-      .order("location_name", { ascending: true });
-
-    if (error) throw error;
-
     const encountersByGame: Record<string, string[]> = {};
-    for (const row of (data ?? []) as RawEncounter[]) {
+    const rows = await getRawSpawnLocationsBySpecies(speciesId);
+
+    for (const row of rows) {
+      const locationName = canonicalizeLocationName(row.location_name);
       encountersByGame[row.game_id] ??= [];
-      if (!encountersByGame[row.game_id].includes(row.location_name)) {
-        encountersByGame[row.game_id].push(row.location_name);
+      if (!encountersByGame[row.game_id].includes(locationName)) {
+        encountersByGame[row.game_id].push(locationName);
       }
     }
 
@@ -552,17 +591,9 @@ export const api = {
   },
 
   async getGameLocations(gameId: string): Promise<GameLocationGroup[]> {
-    const [livingRows, spawnResult] = await Promise.all([
+    const [livingRows, spawnRows] = await Promise.all([
       getRawLivingDexEntries(),
-      supabase
-        .from("spawn_locations")
-        .select(
-          "game_id,version_ids,species_id,form_name,location_identifier,location_name,location_area_identifier,location_area_name,encounter_method_name,levels,source,confidence",
-        )
-        .eq("game_id", gameId)
-        .order("location_name", { ascending: true })
-        .order("location_area_name", { ascending: true })
-        .order("species_id", { ascending: true }),
+      getRawSpawnLocations(gameId),
     ]);
 
     const livingEntries = livingRows.map(mapLivingDexEntry);
@@ -572,9 +603,6 @@ export const api = {
         entry,
       ]),
     );
-    if (spawnResult.error) throw spawnResult.error;
-
-    const spawnRows = (spawnResult.data ?? []) as RawSpawnLocation[];
     if (spawnRows.length > 0) {
       const locations = new Map<
         string,
@@ -594,18 +622,22 @@ export const api = {
       >();
 
       for (const row of spawnRows) {
+        const locationName = canonicalizeLocationName(row.location_name);
+        const locationAreaName = canonicalizeLocationName(
+          row.location_area_name,
+        );
         const livingEntry =
           livingEntryByKey.get(livingEntryKey(row.species_id, row.form_name)) ??
           livingEntryByKey.get(livingEntryKey(row.species_id, null));
         if (!livingEntry) continue;
 
-        const locationGroup = locations.get(row.location_name) ?? {
+        const locationGroup = locations.get(locationName) ?? {
           source: row.source,
           confidence: row.confidence,
           areas: new Set<string>(),
           pokemon: new Map(),
         };
-        locationGroup.areas.add(row.location_area_name);
+        locationGroup.areas.add(locationAreaName);
 
         const pokemonKey = livingEntryKey(
           livingEntry.speciesId,
@@ -627,7 +659,7 @@ export const api = {
         if (row.levels) pokemon.levelSet.add(row.levels);
         for (const version of row.version_ids) pokemon.versionSet.add(version);
         locationGroup.pokemon.set(pokemonKey, pokemon);
-        locations.set(row.location_name, locationGroup);
+        locations.set(locationName, locationGroup);
       }
 
       return Array.from(locations.entries())
@@ -659,46 +691,7 @@ export const api = {
         .sort((a, b) => a.location.localeCompare(b.location));
     }
 
-    const encounterResult = await supabase
-      .from("encounters")
-      .select("species_id,form_name,game_id,location_name")
-      .eq("game_id", gameId)
-      .order("location_name", { ascending: true })
-      .order("species_id", { ascending: true });
-
-    if (encounterResult.error) throw encounterResult.error;
-
-    const locations = new Map<string, Map<string, GameLocationPokemon>>();
-    for (const row of (encounterResult.data ?? []) as RawEncounter[]) {
-      const formName = row.form_name ?? null;
-      const livingEntry =
-        livingEntryByKey.get(livingEntryKey(row.species_id, formName)) ??
-        livingEntryByKey.get(livingEntryKey(row.species_id, null));
-      if (!livingEntry) continue;
-
-      const locationPokemon = locations.get(row.location_name) ?? new Map();
-      locationPokemon.set(livingEntryKey(livingEntry.speciesId, formName), {
-        speciesId: livingEntry.speciesId,
-        formName: livingEntry.formName,
-        displayName: livingEntry.displayName,
-        spriteUrl: livingEntry.spriteUrl,
-        optional: isOptionalInGameDex(gameId, livingEntry.speciesId),
-        source: "pokeapi",
-        confidence: "medium",
-      });
-      locations.set(row.location_name, locationPokemon);
-    }
-
-    return Array.from(locations.entries()).map(([location, pokemonByKey]) => ({
-      location,
-      source: "pokeapi",
-      confidence: "medium",
-      pokemon: Array.from(pokemonByKey.values()).sort((a, b) =>
-        a.speciesId === b.speciesId
-          ? a.displayName.localeCompare(b.displayName)
-          : a.speciesId - b.speciesId,
-      ),
-    }));
+    return [];
   },
 
   async getMapOutlines(gameId: string): Promise<MapLocationOutline[]> {

@@ -1510,6 +1510,12 @@ export const COSMETIC_FORMS: CosmeticFormConfig[] = [
   },
   {
     speciesId: 666,
+    apiName: "vivillon-icy-snow",
+    displayName: "Vivillon Icy Snow",
+    label: "Icy Snow",
+  },
+  {
+    speciesId: 666,
     apiName: "vivillon-modern",
     displayName: "Vivillon Modern",
     label: "Modern",
@@ -2323,7 +2329,7 @@ export const COSMETIC_FORMS: CosmeticFormConfig[] = [
   {
     speciesId: 925,
     apiName: "maushold-family-of-three",
-    displayName: "Maushold Family of 3",
+    displayName: "Maushold Family of Three",
     label: "Family of 3",
   },
   {
