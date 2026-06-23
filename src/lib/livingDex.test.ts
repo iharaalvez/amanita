@@ -61,6 +61,20 @@ describe("Living Dex entry rules", () => {
     assert.equal(isHomeTrackedEntry(cosmetic, true, false), true);
   });
 
+  it("does not duplicate cosmetic forms that are represented by the base form", () => {
+    const baseVivillon = entry(666, "Vivillon");
+    const meadowVivillon = entry(
+      666,
+      "Vivillon Meadow",
+      "vivillon-meadow",
+    );
+    const polarVivillon = entry(666, "Vivillon Polar", "vivillon-polar");
+
+    assert.equal(isHomeTrackedEntry(baseVivillon, true, false), true);
+    assert.equal(isHomeTrackedEntry(meadowVivillon, true, false), false);
+    assert.equal(isHomeTrackedEntry(polarVivillon, true, false), true);
+  });
+
   it("excludes battle-only forms from HOME boxes even when forms are enabled", () => {
     const battleOnlyForms = [
       entry(6, "Charizard Mega X", "charizard-mega-x"),

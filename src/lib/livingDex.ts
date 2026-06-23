@@ -14,6 +14,7 @@ export function isHomeTrackedEntry(
   includeGenderDifferences: boolean,
   includeGigantamaxForms = false,
 ): boolean {
+  if (isDuplicateBaseForm(entry)) return false;
   if (isGigantamaxForm(entry)) return includeGigantamaxForms;
   if (isBattleOnlyForm(entry)) return false;
   if (isLivingDexSpecies(entry)) return true;
@@ -34,6 +35,10 @@ export function isGenderDifferenceForm(entry: LivingDexEntry): boolean {
   return GENDER_DIFFERENCE_FORM_KEYS.has(
     `${entry.speciesId}-${entry.formName}`,
   );
+}
+
+export function isDuplicateBaseForm(entry: LivingDexEntry): boolean {
+  return entry.speciesId === 666 && entry.formName === "vivillon-meadow";
 }
 
 function formSortRank(entry: LivingDexEntry): number {
