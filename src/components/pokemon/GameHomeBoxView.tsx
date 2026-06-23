@@ -5,6 +5,7 @@ import { useGameHomeBoxDex } from "@/hooks/useGamePokedex";
 import { ownedKey, usePokedexStore } from "@/store/pokedexStore";
 import { CheckIcon, HomeIcon, XIcon } from "@/components/ui";
 import {
+  getBaseFormLabel,
   getCosmeticFormLabel,
   getDisplayNameWithoutFormLabel,
   getFormLabel,
@@ -65,7 +66,8 @@ function GameHomeSlot({
     entry.formName && !regionLabel
       ? getCosmeticFormLabel(entry.formName)
       : null;
-  const formPill = regionLabel || cosmeticLabel;
+  const baseLabel = entry.formName ? null : getBaseFormLabel(entry.speciesId);
+  const formPill = regionLabel || cosmeticLabel || baseLabel;
   const slotName = getDisplayNameWithoutFormLabel(entry.displayName, formPill);
   const label = `${paddedNumber} - ${entry.displayName} (${nationalNumber})${
     boxed ? " - in HOME transfer box" : " - missing from HOME transfer box"

@@ -137,7 +137,7 @@ const SHEET_CONFIGS: Record<SheetKey, SheetConfig> = {
 
 const FORM_DETAIL_DISPLAY_ALIASES: Record<string, string | null> = {
   "vivillon|fancy": "Vivillon Fancy",
-  "vivillon|meadow": "Vivillon Meadow",
+  "vivillon|meadow": null,
   "vivillon|icy snow": "Vivillon Icy Snow",
   "vivillon|polar": "Vivillon Polar",
   "vivillon|tundra": "Vivillon Tundra",

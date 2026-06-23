@@ -5,6 +5,7 @@ import { usePokedexStore, ownedKey } from "@/store/pokedexStore";
 import { CheckIcon, SparkleIcon } from "@/components/ui";
 import { isShinyLocked } from "@/config/pokemon-flags";
 import {
+  getBaseFormLabel,
   getCosmeticFormLabel,
   getDisplayNameWithoutFormLabel,
   getFormLabel,
@@ -55,7 +56,8 @@ export function BoxSlot({
     entry.formName && !regionLabel
       ? getCosmeticFormLabel(entry.formName)
       : null;
-  const formPill = regionLabel || cosmeticLabel;
+  const baseLabel = entry.formName ? null : getBaseFormLabel(entry.speciesId);
+  const formPill = regionLabel || cosmeticLabel || baseLabel;
   const slotName = getDisplayNameWithoutFormLabel(entry.displayName, formPill);
   const shinyLocked =
     shinyLockedProp !== undefined

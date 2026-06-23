@@ -1504,12 +1504,6 @@ export const COSMETIC_FORMS: CosmeticFormConfig[] = [
   },
   {
     speciesId: 666,
-    apiName: "vivillon-meadow",
-    displayName: "Vivillon Meadow",
-    label: "Meadow",
-  },
-  {
-    speciesId: 666,
     apiName: "vivillon-icy-snow",
     displayName: "Vivillon Icy Snow",
     label: "Icy Snow",

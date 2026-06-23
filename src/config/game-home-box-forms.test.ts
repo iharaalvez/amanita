@@ -86,6 +86,7 @@ describe("game HOME box form allowlists", () => {
       isAllowedGameHomeBoxForm("scarlet-violet", 666, "vivillon-meadow"),
       false,
     );
+    assert.equal(vivillonForms.has("vivillon-meadow"), false);
 
     for (const formName of [
       "vivillon-fancy",

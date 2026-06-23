@@ -4,9 +4,18 @@ const COSMETIC_LABEL_MAP = new Map(
   COSMETIC_FORMS.map((f) => [f.apiName, f.label]),
 );
 
+const BASE_FORM_LABELS = new Map<number, string>([
+  // PokeAPI's default Vivillon sprite/form is Meadow.
+  [666, "Meadow"],
+]);
+
 /** Returns the short label for a cosmetic form (e.g. 'Midnight', 'Pom-Pom'), or null if not cosmetic. */
 export function getCosmeticFormLabel(formName: string): string | null {
   return COSMETIC_LABEL_MAP.get(formName) ?? null;
+}
+
+export function getBaseFormLabel(speciesId: number): string | null {
+  return BASE_FORM_LABELS.get(speciesId) ?? null;
 }
 
 export function getDisplayNameWithoutFormLabel(
