@@ -74,16 +74,21 @@ describe("game HOME box form allowlists", () => {
     );
   });
 
-  it("tracks every SV Vivillon pattern except event-only Poke Ball", () => {
+  it("tracks every distinct SV Vivillon pattern without duplicating base Meadow", () => {
     const vivillonForms = new Set(
       COSMETIC_FORMS.filter((form) => form.speciesId === 666).map(
         (form) => form.apiName,
       ),
     );
 
+    assert.equal(isAllowedGameHomeBoxForm("scarlet-violet", 666, null), true);
+    assert.equal(
+      isAllowedGameHomeBoxForm("scarlet-violet", 666, "vivillon-meadow"),
+      false,
+    );
+
     for (const formName of [
       "vivillon-fancy",
-      "vivillon-meadow",
       "vivillon-icy-snow",
       "vivillon-polar",
       "vivillon-tundra",

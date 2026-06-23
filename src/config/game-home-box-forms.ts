@@ -12,10 +12,11 @@ export const GAME_HOME_BOX_FORM_ALLOWLIST: Record<
     25: [null, "pikachu-female"],
     // White Stripe Basculin is PLA-exclusive (evolves to Basculegion); only Red and Blue are in SV.
     550: [null, "basculin-blue-striped"],
+    // Base Vivillon uses the Meadow/default sprite, so do not duplicate it as vivillon-meadow.
     // SV supports Fancy plus postcard patterns, but not the event-only Poke Ball pattern.
     666: [
+      null,
       "vivillon-fancy",
-      "vivillon-meadow",
       "vivillon-icy-snow",
       "vivillon-polar",
       "vivillon-tundra",
