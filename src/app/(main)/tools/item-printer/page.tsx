@@ -546,7 +546,7 @@ function SearchView() {
           ) : grouped.length === 0 ? (
             <div className="rounded-xl border border-dashed border-[#2f2b40] p-10 text-center">
               <p className="text-sm font-semibold text-[#6b6480]">
-                No seeds found for "{query}".
+                No seeds found for &quot;{query}&quot;.
               </p>
             </div>
           ) : (
@@ -572,7 +572,7 @@ function SearchView() {
             Type at least 2 characters to search seeds.
           </p>
           <p className="mt-1 text-xs text-[#3d3456]">
-            Try "Ability Patch", "Normal Tera", "Fast Ball", "Gold Bottle Cap"
+            Try &quot;Ability Patch&quot;, &quot;Normal Tera&quot;, &quot;Fast Ball&quot;, &quot;Gold Bottle Cap&quot;
           </p>
         </div>
       )}
