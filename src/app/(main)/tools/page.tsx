@@ -5,6 +5,7 @@ import {
   Donut,
   Gamepad2,
   MonitorPlay,
+  Printer,
   Sparkles,
 } from "lucide-react";
 
@@ -39,6 +40,14 @@ const tools = [
       "Show the current game, goal, shiny hunt, recent finds, and party on stream.",
     Icon: Gamepad2,
     href: "/stream/game",
+    available: true,
+  },
+  {
+    title: "Item Printer Seeds",
+    description:
+      "Find RNG seeds for the SV Item Printer. Set your Switch clock to guarantee Ability Patches, Tera Shards, Rare Balls, and more.",
+    Icon: Printer,
+    href: "/tools/item-printer",
     available: true,
   },
   {

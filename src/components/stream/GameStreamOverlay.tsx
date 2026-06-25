@@ -37,6 +37,8 @@ type GameOverlaySettings = {
   huntId: string;
   showHuntPanel: boolean;
   showHuntCount: boolean;
+  showRecentFinds: boolean;
+  showSessionNotes: boolean;
   showParty: boolean;
   partyText: string;
 };
@@ -49,6 +51,8 @@ const DEFAULT_SETTINGS: GameOverlaySettings = {
   huntId: "",
   showHuntPanel: true,
   showHuntCount: true,
+  showRecentFinds: true,
+  showSessionNotes: true,
   showParty: false,
   partyText: "",
 };
@@ -412,7 +416,7 @@ function SetupDock({
           />
         </label>
 
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-4 gap-2">
           <button
             type="button"
             onClick={() =>
@@ -438,6 +442,32 @@ function SetupDock({
             }`}
           >
             Count {settings.showHuntCount ? "On" : "Off"}
+          </button>
+          <button
+            type="button"
+            onClick={() =>
+              onSettingsChange({ showRecentFinds: !settings.showRecentFinds })
+            }
+            className={`h-9 rounded border px-3 text-left font-mono text-[10px] font-black uppercase tracking-[0.14em] transition ${
+              settings.showRecentFinds
+                ? "border-[#8fe388]/45 bg-[#0c1c18] text-[#8fe388]"
+                : "border-[#27304c] bg-[#050814] text-[#687696]"
+            }`}
+          >
+            Recent {settings.showRecentFinds ? "On" : "Off"}
+          </button>
+          <button
+            type="button"
+            onClick={() =>
+              onSettingsChange({ showSessionNotes: !settings.showSessionNotes })
+            }
+            className={`h-9 rounded border px-3 text-left font-mono text-[10px] font-black uppercase tracking-[0.14em] transition ${
+              settings.showSessionNotes
+                ? "border-[#8fe388]/45 bg-[#0c1c18] text-[#8fe388]"
+                : "border-[#27304c] bg-[#050814] text-[#687696]"
+            }`}
+          >
+            Notes {settings.showSessionNotes ? "On" : "Off"}
           </button>
         </div>
 
@@ -641,9 +671,20 @@ export default function GameStreamOverlay() {
     (flags) => flags.shiny || flags.shiny_alpha,
   ).length;
 
-  const rightRailRows = settings.showHuntPanel
-    ? "grid-rows-[auto_minmax(0,1fr)_auto]"
-    : "grid-rows-[minmax(0,1fr)_auto]";
+  const rightRailRows = (() => {
+    const hunt = settings.showHuntPanel;
+    const recent = settings.showRecentFinds;
+    const notes = settings.showSessionNotes;
+    // The flex-fill slot goes to Recent Finds if shown, otherwise Session Notes, otherwise Hunt Panel
+    if (hunt && recent && notes) return "grid-rows-[auto_minmax(0,1fr)_auto]";
+    if (hunt && recent)          return "grid-rows-[auto_minmax(0,1fr)]";
+    if (hunt && notes)           return "grid-rows-[auto_minmax(0,1fr)]";
+    if (recent && notes)         return "grid-rows-[minmax(0,1fr)_auto]";
+    if (hunt)                    return "grid-rows-[minmax(0,1fr)]";
+    if (recent)                  return "grid-rows-[minmax(0,1fr)]";
+    if (notes)                   return "grid-rows-[minmax(0,1fr)]";
+    return "grid-rows-[minmax(0,1fr)]";
+  })();
   const pageRows = settings.showParty
     ? "grid-rows-[52px_minmax(0,1fr)_76px]"
     : "grid-rows-[52px_minmax(0,1fr)]";
@@ -875,61 +916,65 @@ export default function GameStreamOverlay() {
                 </Panel>
               )}
 
-              <Panel
-                title="Recent Finds"
-                icon={<CheckCircle2 className="h-4 w-4 text-[#8fe388]" />}
-                className="min-h-0"
-              >
-                <div className="grid max-h-full gap-1.5 overflow-hidden p-2.5">
-                  {recentFinds.length > 0 ? (
-                    recentFinds.map((event) => (
-                      <RecentFind
-                        key={`${event.speciesId}-${event.formName ?? "base"}-${event.gameId}-${event.date}`}
-                        event={event}
-                        entry={findEntryForEvent(entriesByKey, event)}
-                      />
-                    ))
-                  ) : (
-                    <p className="rounded border border-[#27304c] bg-[#050814] px-3 py-8 text-center text-xs font-bold text-[#53607c]">
-                      No recent catches yet.
-                    </p>
-                  )}
-                </div>
-              </Panel>
+              {settings.showRecentFinds && (
+                <Panel
+                  title="Recent Finds"
+                  icon={<CheckCircle2 className="h-4 w-4 text-[#8fe388]" />}
+                  className="min-h-0"
+                >
+                  <div className="grid max-h-full gap-1.5 overflow-hidden p-2.5">
+                    {recentFinds.length > 0 ? (
+                      recentFinds.map((event) => (
+                        <RecentFind
+                          key={`${event.speciesId}-${event.formName ?? "base"}-${event.gameId}-${event.date}`}
+                          event={event}
+                          entry={findEntryForEvent(entriesByKey, event)}
+                        />
+                      ))
+                    ) : (
+                      <p className="rounded border border-[#27304c] bg-[#050814] px-3 py-8 text-center text-xs font-bold text-[#53607c]">
+                        No recent catches yet.
+                      </p>
+                    )}
+                  </div>
+                </Panel>
+              )}
 
-              <Panel title="Session Notes">
-                <div className="p-3">
-                  <p className="text-sm font-semibold leading-6 text-[#d7c8ff]">
-                    {settings.note}
-                  </p>
-                  <div className="mt-3 grid grid-cols-3 gap-2">
-                    <div className="rounded border border-[#27304c] bg-[#050814] px-3 py-2">
-                      <p className="font-mono text-[9px] font-black uppercase tracking-[0.16em] text-[#687696]">
-                        Game Dex
-                      </p>
-                      <p className="mt-1 font-mono text-xl font-black text-[#8fe388]">
-                        {gameOwned}
-                      </p>
-                    </div>
-                    <div className="rounded border border-[#27304c] bg-[#050814] px-3 py-2">
-                      <p className="font-mono text-[9px] font-black uppercase tracking-[0.16em] text-[#687696]">
-                        Shinies
-                      </p>
-                      <p className="mt-1 font-mono text-xl font-black text-[#f7c948]">
-                        {shinyOwned}
-                      </p>
-                    </div>
-                    <div className="rounded border border-[#27304c] bg-[#050814] px-3 py-2">
-                      <p className="font-mono text-[9px] font-black uppercase tracking-[0.16em] text-[#687696]">
-                        Hunts
-                      </p>
-                      <p className="mt-1 font-mono text-xl font-black text-[#bda9ff]">
-                        {activeHunts.length}
-                      </p>
+              {settings.showSessionNotes && (
+                <Panel title="Session Notes">
+                  <div className="p-3">
+                    <p className="text-sm font-semibold leading-6 text-[#d7c8ff]">
+                      {settings.note}
+                    </p>
+                    <div className="mt-3 grid grid-cols-3 gap-2">
+                      <div className="rounded border border-[#27304c] bg-[#050814] px-3 py-2">
+                        <p className="font-mono text-[9px] font-black uppercase tracking-[0.16em] text-[#687696]">
+                          Game Dex
+                        </p>
+                        <p className="mt-1 font-mono text-xl font-black text-[#8fe388]">
+                          {gameOwned}
+                        </p>
+                      </div>
+                      <div className="rounded border border-[#27304c] bg-[#050814] px-3 py-2">
+                        <p className="font-mono text-[9px] font-black uppercase tracking-[0.16em] text-[#687696]">
+                          Shinies
+                        </p>
+                        <p className="mt-1 font-mono text-xl font-black text-[#f7c948]">
+                          {shinyOwned}
+                        </p>
+                      </div>
+                      <div className="rounded border border-[#27304c] bg-[#050814] px-3 py-2">
+                        <p className="font-mono text-[9px] font-black uppercase tracking-[0.16em] text-[#687696]">
+                          Hunts
+                        </p>
+                        <p className="mt-1 font-mono text-xl font-black text-[#bda9ff]">
+                          {activeHunts.length}
+                        </p>
+                      </div>
                     </div>
                   </div>
-                </div>
-              </Panel>
+                </Panel>
+              )}
             </aside>
           </main>
 

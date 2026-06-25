@@ -14,7 +14,8 @@
     "seed:force": "python seeder/seed.py --force",
     "seed:forms": "tsx scripts/seed-cosmetic-forms.ts",
     "import:pokedb": "tsx scripts/import-pokedb.ts",
-    "import:sylvanoth-sv": "tsx scripts/import-sylvanoth-sv-locations.ts"
+    "import:sylvanoth-sv": "tsx scripts/import-sylvanoth-sv-locations.ts",
+    "seed:item-printer": "tsx scripts/seed-item-printer.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.105.1",
