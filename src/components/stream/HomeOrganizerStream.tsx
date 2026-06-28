@@ -290,11 +290,6 @@ function TemplateSlot({
       ? !!s.gameHomeBoxes[slot.gameId]?.[key]
       : false,
   );
-  const gameDexOwned = usePokedexStore((s) =>
-    slot?.source === "game" && slot.gameId
-      ? !!s.gameDex[slot.gameId]?.[key]?.owned
-      : false,
-  );
   const markHomeBoxLayoutSlot = usePokedexStore((s) => s.markHomeBoxLayoutSlot);
   const clearHomeBoxLayoutSlot = usePokedexStore(
     (s) => s.clearHomeBoxLayoutSlot,
@@ -459,14 +454,6 @@ function TemplateSlot({
               title={regionLabel}
             >
               {regionBadge.letter}
-            </span>
-          )}
-          {gameDexOwned && !gameBoxed && (
-            <span
-              className="rounded bg-[#2a1200] px-0.5 font-mono text-[7px] font-black leading-none text-[#ff8c42]"
-              title="Not yet in HOME boxes — don't release!"
-            >
-              !H
             </span>
           )}
         </div>
@@ -971,12 +958,14 @@ export default function HomeOrganizerStream() {
     assistMatches.find((match) => match.key === assistSelectedKey) ??
     assistMatches[0] ??
     null;
-  const assistMatchNotInHome = usePokedexStore((s) => {
-    const slot = selectedAssistMatch?.slot;
-    if (!slot || slot.source !== "game" || !slot.gameId) return false;
-    const key = ownedKey(slot.entry.speciesId, slot.entry.formName);
-    return !!s.gameDex[slot.gameId]?.[key]?.owned && !s.gameHomeBoxes[slot.gameId]?.[key];
-  });
+  const assistMatchNeedsHome = (() => {
+    if (!selectedAssistMatch || !layoutProgressId) return false;
+    const key = ownedKey(
+      selectedAssistMatch.slot.entry.speciesId,
+      selectedAssistMatch.slot.entry.formName,
+    );
+    return !homeLayoutFlags[key]?.owned;
+  })();
   const shouldShowAssistCandidates = assistMatches.length > 2;
 
   type AssistAdvice =
@@ -1856,14 +1845,6 @@ export default function HomeOrganizerStream() {
                       </div>
                     </div>
                     <div className="flex shrink-0 items-center gap-1.5">
-                      {assistMatchNotInHome && (
-                        <span
-                          className="rounded bg-[#2a1200] px-1 font-mono text-[9px] font-black text-[#ff8c42]"
-                          title="Not yet in HOME boxes — don't release!"
-                        >
-                          ! HOME
-                        </span>
-                      )}
                       {selectedAssistMatch && (
                         <span className="font-mono text-[10px] font-black text-[#f7c948]">
                           {boxLabels[selectedAssistMatch.boxIndex] ??
@@ -1913,6 +1894,11 @@ export default function HomeOrganizerStream() {
                       {assistAdvice.type === "release"
                         ? "✕ Already marked"
                         : `→ Evolve into ${assistAdvice.into.map((s) => compactSlotName(s.entry)).join(" / ")}`}
+                    </p>
+                  )}
+                  {assistAdvice?.type === "release" && !assistJustMarked && assistMatchNeedsHome && (
+                    <p className="mt-1 font-mono text-[10px] font-black text-[#ff8c42]">
+                      → Move to HOME before releasing!
                     </p>
                   )}
 
