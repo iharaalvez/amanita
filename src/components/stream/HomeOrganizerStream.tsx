@@ -290,6 +290,11 @@ function TemplateSlot({
       ? !!s.gameHomeBoxes[slot.gameId]?.[key]
       : false,
   );
+  const gameDexOwned = usePokedexStore((s) =>
+    slot?.source === "game" && slot.gameId
+      ? !!s.gameDex[slot.gameId]?.[key]?.owned
+      : false,
+  );
   const markHomeBoxLayoutSlot = usePokedexStore((s) => s.markHomeBoxLayoutSlot);
   const clearHomeBoxLayoutSlot = usePokedexStore(
     (s) => s.clearHomeBoxLayoutSlot,
@@ -454,6 +459,14 @@ function TemplateSlot({
               title={regionLabel}
             >
               {regionBadge.letter}
+            </span>
+          )}
+          {gameDexOwned && !gameBoxed && (
+            <span
+              className="rounded bg-[#2a1200] px-0.5 font-mono text-[7px] font-black leading-none text-[#ff8c42]"
+              title="Not yet in HOME boxes — don't release!"
+            >
+              !H
             </span>
           )}
         </div>
@@ -911,10 +924,13 @@ export default function HomeOrganizerStream() {
 
   const assistMatches = useMemo<AssistMatch[]>(() => {
     if (!assistTargetName) return [];
-    const shinyMatches = allPositionedSlots.filter(({ slot }) => {
+    const shinyFiltered = allPositionedSlots.filter(({ slot }) => {
       if (assistTargetIsShiny === null) return true;
       return slot.isShiny === assistTargetIsShiny;
     });
+    // Fall back to all slots when the layout has no shiny slots (e.g. standard mode)
+    const shinyMatches =
+      shinyFiltered.length > 0 ? shinyFiltered : allPositionedSlots;
     const exactMatches = shinyMatches.filter(({ slot }) =>
       slotMatchesAssistName(slot, assistTargetName),
     );
@@ -955,6 +971,12 @@ export default function HomeOrganizerStream() {
     assistMatches.find((match) => match.key === assistSelectedKey) ??
     assistMatches[0] ??
     null;
+  const assistMatchNotInHome = usePokedexStore((s) => {
+    const slot = selectedAssistMatch?.slot;
+    if (!slot || slot.source !== "game" || !slot.gameId) return false;
+    const key = ownedKey(slot.entry.speciesId, slot.entry.formName);
+    return !!s.gameDex[slot.gameId]?.[key]?.owned && !s.gameHomeBoxes[slot.gameId]?.[key];
+  });
   const shouldShowAssistCandidates = assistMatches.length > 2;
 
   type AssistAdvice =
@@ -1099,10 +1121,13 @@ export default function HomeOrganizerStream() {
       isShiny: boolean | null,
       gender: AssistGender | null,
     ): AssistMatch[] => {
-      const shinyMatches = allPositionedSlots.filter(({ slot }) => {
+      const shinyFiltered = allPositionedSlots.filter(({ slot }) => {
         if (isShiny === null) return true;
         return slot.isShiny === isShiny;
       });
+      // Fall back to all slots when the layout has no shiny slots (e.g. standard mode)
+      const shinyMatches =
+        shinyFiltered.length > 0 ? shinyFiltered : allPositionedSlots;
       const exactMatches = shinyMatches.filter(({ slot }) =>
         slotMatchesAssistName(slot, name),
       );
@@ -1831,6 +1856,14 @@ export default function HomeOrganizerStream() {
                       </div>
                     </div>
                     <div className="flex shrink-0 items-center gap-1.5">
+                      {assistMatchNotInHome && (
+                        <span
+                          className="rounded bg-[#2a1200] px-1 font-mono text-[9px] font-black text-[#ff8c42]"
+                          title="Not yet in HOME boxes — don't release!"
+                        >
+                          ! HOME
+                        </span>
+                      )}
                       {selectedAssistMatch && (
                         <span className="font-mono text-[10px] font-black text-[#f7c948]">
                           {boxLabels[selectedAssistMatch.boxIndex] ??

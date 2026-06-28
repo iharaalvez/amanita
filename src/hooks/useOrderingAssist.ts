@@ -109,6 +109,11 @@ export function useOrderingAssist(): UseOrderingAssistReturn {
         tessedit_pageseg_mode: "7",
       } as Parameters<typeof worker.setParameters>[0]);
       workerRef.current = worker;
+      // Restore ready state — guard against a stop() that fired mid-init
+      if (statusRef.current === "initializing-ocr") {
+        setStatus("ready");
+        setMessage("Ready — press the hotkey to detect.");
+      }
     })();
 
     await workerInitRef.current;

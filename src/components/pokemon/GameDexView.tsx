@@ -98,12 +98,16 @@ function GameSlot({ entry, gameId, onSelect }: GameSlotProps) {
   const flags = usePokedexStore(
     (state) => state.gameDex[gameId]?.[entryKey] ?? DEFAULT_FLAGS,
   );
+  const inHomeBox = usePokedexStore(
+    (state) => !!state.gameHomeBoxes[gameId]?.[entryKey],
+  );
   const {
     owned,
     shiny: shinyOwned,
     alpha: alphaOwned,
     shiny_alpha: shinyAlphaOwned,
   } = flags;
+  const notInHome = owned && !inHomeBox;
 
   const markOwnedInGame = usePokedexStore((s) => s.markOwnedInGame);
   const clearOwnedInGame = usePokedexStore((s) => s.clearOwnedInGame);
@@ -161,6 +165,15 @@ function GameSlot({ entry, gameId, onSelect }: GameSlotProps) {
             aria-hidden
           >
             {exclusiveVersion.split(" ")[0]}
+          </span>
+        )}
+        {notInHome && (
+          <span
+            className="absolute right-2 top-2 rounded bg-orange-100 px-1 text-[8px] font-bold uppercase tracking-wide text-orange-700 dark:bg-orange-900/40 dark:text-orange-400"
+            title="Not yet in HOME boxes — don't release!"
+            aria-label="Not yet transferred to HOME"
+          >
+            ! HOME
           </span>
         )}
         <span
