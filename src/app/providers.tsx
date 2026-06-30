@@ -4,7 +4,11 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { loadFromSupabase, syncAllRecords } from "@/lib/sync";
-import { usePokedexStore, hasPendingWrites } from "@/store/pokedexStore";
+import {
+  usePokedexStore,
+  hasPendingWrites,
+  hadRecentLocalWrite,
+} from "@/store/pokedexStore";
 import { reportAuthError } from "@/lib/authErrors";
 
 const REALTIME_DEBOUNCE_MS = 2000;
@@ -19,10 +23,10 @@ function AuthSync({
 }: {
   onSyncingChange: (syncing: boolean) => void;
 }) {
-  const setProgressSnapshot = usePokedexStore((s) => s.setProgressSnapshot);
   const mergeProgressSnapshot = usePokedexStore((s) => s.mergeProgressSnapshot);
   const clearAll = usePokedexStore((s) => s.clearAll);
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const focusDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const mergedSignInsRef = useRef<Set<string>>(new Set());
   const initialSyncDoneRef = useRef(false);
 
@@ -54,7 +58,7 @@ function AuthSync({
             await syncAllRecords(merged);
             return;
           }
-          setProgressSnapshot(snapshot);
+          mergeProgressSnapshot(snapshot);
         })
         .catch(reportAuthError)
         .finally(markInitialSyncDone);
@@ -89,6 +93,9 @@ function AuthSync({
 
       const handleChange = () => {
         if (!active) return;
+        // Skip reloads triggered by our own writes — local state is already up
+        // to date and we'd just be making 7 unnecessary SELECT calls.
+        if (hadRecentLocalWrite()) return;
         if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
         debounceTimerRef.current = setTimeout(
           () => loadAndMerge(userId),
@@ -182,8 +189,16 @@ function AuthSync({
               onSyncingChange(true);
               loadAndApply(session.user.id);
             } else {
-              // Window focus / visibility change: merge so local changes survive.
-              loadAndMerge(session.user.id);
+              // Window focus / visibility change: delay 500ms so that any
+              // click that triggered the focus event can call touchLocalWrite()
+              // first. If a local write just happened, skip the reload entirely
+              // — local state is already authoritative.
+              if (focusDebounceRef.current)
+                clearTimeout(focusDebounceRef.current);
+              focusDebounceRef.current = setTimeout(() => {
+                if (!active || hadRecentLocalWrite()) return;
+                loadAndMerge(session.user.id);
+              }, 500);
             }
             setupRealtime(session.user.id);
           } else {
@@ -234,8 +249,9 @@ function AuthSync({
       subscription.unsubscribe();
       realtimeChannel?.unsubscribe();
       if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+      if (focusDebounceRef.current) clearTimeout(focusDebounceRef.current);
     };
-  }, [setProgressSnapshot, mergeProgressSnapshot, clearAll, onSyncingChange]);
+  }, [mergeProgressSnapshot, clearAll, onSyncingChange]);
 
   return null;
 }

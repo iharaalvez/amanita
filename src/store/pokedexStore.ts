@@ -3,8 +3,9 @@ import { persist } from "zustand/middleware";
 import {
   syncAvailableGame,
   syncGameDex,
-  syncGameDexEntry,
-  syncGameHomeBoxEntry,
+  syncGameDexEntry as _syncGameDexEntry,
+  syncGameHomeBoxEntry as _syncGameHomeBoxEntry,
+  syncRecentCatch as _syncRecentCatch,
   syncPinnedGameId,
   syncHomeBoxLayouts,
   syncSingleHomeBoxLayout,
@@ -12,7 +13,6 @@ import {
   syncShinyHunt,
   deleteGameDexScope,
   deleteShinyHunt,
-  syncRecentCatch,
   deleteRecentCatch,
   deleteAvailableGame,
 } from "@/lib/sync";
@@ -32,6 +32,36 @@ export type { CatchEvent, ShinyHunt, HuntCounterMode, HomeBoxMode };
 let pendingWriteCount = 0;
 export function hasPendingWrites(): boolean {
   return pendingWriteCount > 0;
+}
+
+// Track the last time this client wrote to Supabase so that the realtime
+// listener in providers.tsx can skip reloads triggered by our own writes.
+let lastLocalWriteAt = 0;
+export function hadRecentLocalWrite(windowMs = 4000): boolean {
+  return Date.now() - lastLocalWriteAt < windowMs;
+}
+function touchLocalWrite(): void {
+  lastLocalWriteAt = Date.now();
+}
+
+// Wrappers that record the local-write timestamp before delegating to sync.ts
+function syncGameDexEntry(
+  ...args: Parameters<typeof _syncGameDexEntry>
+): Promise<void> {
+  touchLocalWrite();
+  return _syncGameDexEntry(...args);
+}
+function syncGameHomeBoxEntry(
+  ...args: Parameters<typeof _syncGameHomeBoxEntry>
+): Promise<void> {
+  touchLocalWrite();
+  return _syncGameHomeBoxEntry(...args);
+}
+function syncRecentCatch(
+  ...args: Parameters<typeof _syncRecentCatch>
+): Promise<void> {
+  touchLocalWrite();
+  return _syncRecentCatch(...args);
 }
 
 export function ownedKey(speciesId: number, formName?: string | null): string {
@@ -378,28 +408,22 @@ function mergeGameDexRecords(
     const localGame = local[gameId] ?? {};
     const remoteGame = remote[gameId] ?? {};
 
-    if (isHomeLayoutProgressScope(gameId) && remoteLayoutIds.has(gameId)) {
-      // Layout exists in Supabase — trust remote as source of truth so that
-      // entries deleted directly from the DB (e.g. ghost-entry cleanup) are
-      // not restored by stale in-memory or localStorage data.
-      result[gameId] = { ...remoteGame };
-    } else {
-      // Game dex or local-only layout — OR-merge, local wins on conflicts.
-      const keys = new Set([
-        ...Object.keys(localGame),
-        ...Object.keys(remoteGame),
-      ]);
-      result[gameId] = {};
-      for (const key of keys) {
-        const l = localGame[key];
-        const r = remoteGame[key];
-        result[gameId][key] = {
-          owned: !!(l?.owned || r?.owned),
-          shiny: !!(l?.shiny || r?.shiny),
-          alpha: !!(l?.alpha || r?.alpha) || undefined,
-          shiny_alpha: !!(l?.shiny_alpha || r?.shiny_alpha) || undefined,
-        };
-      }
+    // OR-merge all scopes: local marks in-flight to Supabase survive any merge.
+    // Remote clears (unowned) only win if local also has no flag set.
+    const keys = new Set([
+      ...Object.keys(localGame),
+      ...Object.keys(remoteGame),
+    ]);
+    result[gameId] = {};
+    for (const key of keys) {
+      const l = localGame[key];
+      const r = remoteGame[key];
+      result[gameId][key] = {
+        owned: !!(l?.owned || r?.owned),
+        shiny: !!(l?.shiny || r?.shiny),
+        alpha: !!(l?.alpha || r?.alpha) || undefined,
+        shiny_alpha: !!(l?.shiny_alpha || r?.shiny_alpha) || undefined,
+      };
     }
   }
   return result;

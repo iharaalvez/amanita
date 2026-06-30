@@ -613,7 +613,7 @@ export default function HomeOrganizerStream() {
   const gameHomeBoxes = usePokedexStore((s) => s.gameHomeBoxes);
   const homeBoxLayouts = usePokedexStore((s) => s.homeBoxLayouts);
   const activeHomeBoxLayoutId = usePokedexStore((s) => s.activeHomeBoxLayoutId);
-  const setProgressSnapshot = usePokedexStore((s) => s.setProgressSnapshot);
+  const mergeProgressSnapshot = usePokedexStore((s) => s.mergeProgressSnapshot);
   const setActiveHomeBoxLayout = usePokedexStore(
     (s) => s.setActiveHomeBoxLayout,
   );
@@ -724,7 +724,7 @@ export default function HomeOrganizerStream() {
         return;
       }
 
-      setProgressSnapshot(snapshot);
+      mergeProgressSnapshot(snapshot);
       const layoutCount = snapshot.homeBoxLayouts?.length ?? 0;
       setLayoutSyncMessage(
         layoutCount > 0
