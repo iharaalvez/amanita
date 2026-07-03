@@ -76,6 +76,20 @@ export const GAME_LIST: readonly GameEntry[] = [
   },
   { id: "swsh", name: "Sword / Shield", generation: 8, hasShinyCharm: true },
   {
+    id: "swsh-isle-of-armor",
+    name: "The Isle of Armor",
+    generation: 8,
+    hasShinyCharm: false,
+    dlcOf: "swsh",
+  },
+  {
+    id: "swsh-crown-tundra",
+    name: "The Crown Tundra",
+    generation: 8,
+    hasShinyCharm: false,
+    dlcOf: "swsh",
+  },
+  {
     id: "bdsp",
     name: "Brilliant Diamond / Shining Pearl",
     generation: 8,

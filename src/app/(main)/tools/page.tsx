@@ -105,14 +105,6 @@ const GAME_SECTIONS: GameSection[] = [
         href: null,
         available: false,
       },
-      {
-        title: "Catch Planner",
-        description:
-          "Prioritize targets by game, location, and ownership gaps.",
-        Icon: Calculator,
-        href: null,
-        available: false,
-      },
     ],
   },
 ];
