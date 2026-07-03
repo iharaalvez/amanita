@@ -3,14 +3,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
-import type { AssistConfig, AssistRegion } from "@/lib/assistDetection";
-import { cropToCanvas } from "@/lib/assistDetection";
+import type { AssistConfig, AssistRegion } from "@/lib/imageProcessing";
+import { cropToCanvas } from "@/lib/imageProcessing";
 
-type RegionKey = "nameRegion" | "shinyRegion" | "genderRegion";
+export type RegionMetaEntry = { label: string; color: string; optional: boolean };
 
-const REGION_META: Record<
-  RegionKey,
-  { label: string; color: string; optional: boolean }
+export const HOME_REGION_META: Record<
+  "nameRegion" | "shinyRegion" | "genderRegion",
+  RegionMetaEntry
 > = {
   nameRegion: { label: "Name", color: "#f7c948", optional: false },
   shinyRegion: { label: "Shiny", color: "#67d9ff", optional: true },
@@ -21,6 +21,7 @@ type Props = {
   getFrameCanvas: () => HTMLCanvasElement | null;
   captureFrame: () => boolean;
   config: AssistConfig;
+  regionMeta?: Record<string, RegionMetaEntry>;
   onSave: (config: AssistConfig) => void;
   onClose: () => void;
 };
@@ -47,15 +48,18 @@ export function AssistCalibration({
   getFrameCanvas,
   captureFrame,
   config,
+  regionMeta = HOME_REGION_META,
   onSave,
   onClose,
 }: Props) {
   const displayRef = useRef<HTMLCanvasElement>(null);
   const previewRef = useRef<HTMLCanvasElement>(null);
 
+  const regionKeys = Object.keys(regionMeta) as (keyof AssistConfig & string)[];
+
   const [snapshot, setSnapshot] = useState<HTMLCanvasElement | null>(null);
   const [draft, setDraft] = useState<AssistConfig>(() => config);
-  const [activeKey, setActiveKey] = useState<RegionKey>("nameRegion");
+  const [activeKey, setActiveKey] = useState<string>(regionKeys[0] ?? "nameRegion");
   const [drag, setDrag] = useState<DragState | null>(null);
   const [dirty, setDirty] = useState(false);
 
@@ -108,17 +112,14 @@ export function AssistCalibration({
       ctx.fillText(label, x + 3, Math.max(y - 3, fontSize));
     };
 
-    for (const [key, meta] of Object.entries(REGION_META) as [
-      RegionKey,
-      (typeof REGION_META)[RegionKey],
-    ][]) {
-      const region = draft[key];
+    for (const [key, meta] of Object.entries(regionMeta)) {
+      const region = (draft as unknown as Record<string, AssistRegion | null>)[key];
       if (region) drawRegion(region, meta.color, meta.label, key === activeKey);
     }
 
     if (drag) {
       const r = dragToRegion(drag);
-      const { color } = REGION_META[activeKey];
+      const { color } = regionMeta[activeKey] ?? { color: "#ffffff" };
       const x = r.left * canvas.width;
       const y = r.top * canvas.height;
       const w = r.width * canvas.width;
@@ -131,12 +132,12 @@ export function AssistCalibration({
       ctx.fillStyle = `${color}22`;
       ctx.fillRect(x, y, w, h);
     }
-  }, [snapshot, draft, drag, activeKey]);
+  }, [snapshot, draft, drag, activeKey, regionMeta]);
 
   useEffect(() => {
     const preview = previewRef.current;
     if (!preview || !snapshot) return;
-    const region = draft[activeKey];
+    const region = (draft as unknown as Record<string, AssistRegion | null>)[activeKey];
     if (!region) {
       preview.width = 1;
       preview.height = 1;
@@ -180,15 +181,17 @@ export function AssistCalibration({
     setDrag(null);
   };
 
-  const toggleOptional = (key: "shinyRegion" | "genderRegion") => {
+  const toggleOptional = (key: string) => {
+    const current = (draft as unknown as Record<string, AssistRegion | null>)[key];
     setDraft((prev) => ({
       ...prev,
-      [key]: prev[key] ? null : { left: 0.3, top: 0.3, width: 0.1, height: 0.05 },
+      [key]: current ? null : { left: 0.3, top: 0.3, width: 0.1, height: 0.05 },
     }));
     setDirty(true);
   };
 
-  const activeRegion = draft[activeKey];
+  const activeMeta = regionMeta[activeKey];
+  const activeRegion = (draft as unknown as Record<string, AssistRegion | null>)[activeKey];
   const sw = snapshot?.width ?? 0;
   const sh = snapshot?.height ?? 0;
 
@@ -206,37 +209,43 @@ export function AssistCalibration({
             </p>
             {/* Region tabs */}
             <div className="flex gap-1.5">
-              {(Object.entries(REGION_META) as [RegionKey, (typeof REGION_META)[RegionKey]][]).map(
-                ([key, meta]) => (
-                  <div key={key} className="flex items-center gap-0.5">
-                    {meta.optional && (
-                      <button
-                        type="button"
-                        onClick={() => toggleOptional(key as "shinyRegion" | "genderRegion")}
-                        className="font-mono text-[10px] text-[#53607c] transition hover:text-[#f4f1ff]"
-                        title={draft[key] ? "Disable this region" : "Enable this region"}
-                      >
-                        {draft[key] ? "✕" : "+"}
-                      </button>
-                    )}
+              {Object.entries(regionMeta).map(([key, meta]) => (
+                <div key={key} className="flex items-center gap-0.5">
+                  {meta.optional && (
                     <button
                       type="button"
-                      onClick={() => setActiveKey(key)}
-                      disabled={meta.optional && !draft[key]}
-                      className="rounded px-2 py-1 font-mono text-[10px] uppercase tracking-[0.12em] transition disabled:opacity-30"
-                      style={{
-                        color: meta.color,
-                        background: activeKey === key ? `${meta.color}22` : "transparent",
-                        borderWidth: 1,
-                        borderStyle: "solid",
-                        borderColor: activeKey === key ? meta.color : "#27304c",
-                      }}
+                      onClick={() => toggleOptional(key)}
+                      className="font-mono text-[10px] text-[#53607c] transition hover:text-[#f4f1ff]"
+                      title={
+                        (draft as unknown as Record<string, AssistRegion | null>)[key]
+                          ? "Disable this region"
+                          : "Enable this region"
+                      }
                     >
-                      {meta.label}
+                      {(draft as unknown as Record<string, AssistRegion | null>)[key] ? "✕" : "+"}
                     </button>
-                  </div>
-                ),
-              )}
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setActiveKey(key)}
+                    disabled={
+                      meta.optional &&
+                      !(draft as unknown as Record<string, AssistRegion | null>)[key]
+                    }
+                    className="rounded px-2 py-1 font-mono text-[10px] uppercase tracking-[0.12em] transition disabled:opacity-30"
+                    style={{
+                      color: meta.color,
+                      background:
+                        activeKey === key ? `${meta.color}22` : "transparent",
+                      borderWidth: 1,
+                      borderStyle: "solid",
+                      borderColor: activeKey === key ? meta.color : "#27304c",
+                    }}
+                  >
+                    {meta.label}
+                  </button>
+                </div>
+              ))}
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -277,7 +286,12 @@ export function AssistCalibration({
               >
                 <canvas
                   ref={displayRef}
-                  style={{ width: "100%", height: "100%", cursor: "crosshair", display: "block" }}
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    cursor: "crosshair",
+                    display: "block",
+                  }}
                   onMouseDown={onMouseDown}
                   onMouseMove={onMouseMove}
                   onMouseUp={onMouseUp}
@@ -292,13 +306,13 @@ export function AssistCalibration({
             {/* Active region info */}
             <div>
               <p className="mb-1 font-mono text-[9px] font-black uppercase tracking-[0.16em] text-[#687696]">
-                Active — {REGION_META[activeKey].label}
+                Active — {activeMeta?.label ?? activeKey}
               </p>
               {activeRegion ? (
                 <p className="font-mono text-[10px] text-[#8ca0c9]">
                   {regionLabel(activeRegion, sw, sh)}
                 </p>
-              ) : REGION_META[activeKey].optional ? (
+              ) : activeMeta?.optional ? (
                 <p className="font-mono text-[10px] text-[#53607c]">
                   Click + to enable, then drag to draw.
                 </p>
@@ -353,7 +367,10 @@ export function AssistCalibration({
             <div className="flex gap-2">
               <button
                 type="button"
-                onClick={() => { setDraft(config); setDirty(false); }}
+                onClick={() => {
+                  setDraft(config);
+                  setDirty(false);
+                }}
                 disabled={!dirty}
                 className="flex-1 rounded border border-[#27304c] px-3 py-2 font-mono text-[10px] uppercase tracking-[0.12em] text-[#687696] transition hover:border-[#f4f1ff] hover:text-[#f4f1ff] disabled:opacity-30"
               >
@@ -361,7 +378,10 @@ export function AssistCalibration({
               </button>
               <button
                 type="button"
-                onClick={() => { onSave(draft); setDirty(false); }}
+                onClick={() => {
+                  onSave(draft);
+                  setDirty(false);
+                }}
                 disabled={!dirty}
                 className="flex-1 rounded border border-[#8fe388] bg-[#07140f] px-3 py-2 font-mono text-[10px] uppercase tracking-[0.12em] text-[#8fe388] transition hover:bg-[#0e2519] disabled:opacity-30"
               >

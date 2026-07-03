@@ -1,14 +1,20 @@
-export type AssistRegion = {
+// Generic image processing utilities for screen-capture OCR features.
+// No domain-specific logic here — callers normalise results for their context.
+
+export type CaptureRegion = {
   left: number;
   top: number;
   width: number;
   height: number;
 };
 
+/** Alias kept for backward-compat with AssistCalibration / useOrderingAssist */
+export type AssistRegion = CaptureRegion;
+
 export type AssistConfig = {
-  nameRegion: AssistRegion;
-  shinyRegion: AssistRegion | null;
-  genderRegion: AssistRegion | null;
+  nameRegion: CaptureRegion;
+  shinyRegion: CaptureRegion | null;
+  genderRegion: CaptureRegion | null;
   shinyThreshold: number;
   genderThreshold: number;
   detectKey: string;
@@ -48,7 +54,7 @@ function rgbToHsv(r: number, g: number, b: number): [number, number, number] {
 
 export function cropToCanvas(
   src: HTMLCanvasElement,
-  region: AssistRegion,
+  region: CaptureRegion,
 ): HTMLCanvasElement {
   const x = Math.round(region.left * src.width);
   const y = Math.round(region.top * src.height);
@@ -61,9 +67,33 @@ export function cropToCanvas(
   return out;
 }
 
-export function detectShiny(
+/**
+ * Scale a region 3× and apply grayscale + contrast boost — the standard
+ * preprocessing step before passing a canvas to Tesseract.
+ */
+export function preprocessForOcr(
   src: HTMLCanvasElement,
-  region: AssistRegion,
+  region: CaptureRegion,
+  scale = 3,
+  contrast = 1.8,
+): HTMLCanvasElement {
+  const crop = cropToCanvas(src, region);
+  const out = document.createElement("canvas");
+  out.width = crop.width * scale;
+  out.height = crop.height * scale;
+  const ctx = out.getContext("2d")!;
+  ctx.filter = `grayscale(1) contrast(${contrast})`;
+  ctx.drawImage(crop, 0, 0, out.width, out.height);
+  return out;
+}
+
+/**
+ * Returns true when the region contains enough gold/yellow pixels to indicate
+ * a shiny sparkle (HOME box or in-game encounter sparkle particles).
+ */
+export function detectShinyPixels(
+  src: HTMLCanvasElement,
+  region: CaptureRegion,
   threshold: number,
 ): boolean {
   const crop = cropToCanvas(src, region);
@@ -79,9 +109,13 @@ export function detectShiny(
   return count / (width * height) >= threshold;
 }
 
-export function detectGender(
+/**
+ * Returns the dominant gender colour in the region, or null if ambiguous.
+ * Red-dominant → female, blue-dominant → male (Pokémon HOME icon convention).
+ */
+export function detectGenderPixels(
   src: HTMLCanvasElement,
-  region: AssistRegion,
+  region: CaptureRegion,
   threshold: number,
 ): "male" | "female" | null {
   const crop = cropToCanvas(src, region);
@@ -104,6 +138,13 @@ export function detectGender(
   return rr >= br ? "female" : "male";
 }
 
+// ---------------------------------------------------------------------------
+// Domain-specific text normalisers
+// ---------------------------------------------------------------------------
+
+/**
+ * Strips level, parentheses, and noise from a Pokémon HOME box name OCR result.
+ */
 export function normalizeHomeName(raw: string): string | null {
   let t = raw.trim();
   if (!t) return null;
@@ -115,4 +156,26 @@ export function normalizeHomeName(raw: string): string | null {
     .trim()
     .replace(/^[-\s]+|[-\s]+$/g, "");
   return t.length < 2 ? null : t;
+}
+
+/**
+ * Strips "A wild … appeared!" framing and normalises casing.
+ * Handles both modern Title Case and old ALL-CAPS DS-era dialog.
+ */
+export function normalizeEncounterName(raw: string): string | null {
+  let t = raw.trim();
+  if (!t) return null;
+  // Strip common dialog framing
+  t = t
+    .replace(/^a\s+wild\s+/i, "")
+    .replace(/\s+appeared[.!]*$/i, "")
+    .replace(/[^A-Za-z0-9 .':'-]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (t.length < 2) return null;
+  // Normalise ALL-CAPS to Title Case
+  if (t === t.toUpperCase()) {
+    t = t.toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
+  }
+  return t;
 }
