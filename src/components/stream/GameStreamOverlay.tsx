@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { useLivingDexEntries } from "@/hooks/usePokemon";
 import { GAME_LIST, getGameById } from "@/config/games";
+import { EncounterAutoCounter } from "@/components/stream/EncounterAutoCounter";
 import { usePokedexStore, ownedKey } from "@/store/pokedexStore";
 import type {
   CatchEvent,
@@ -37,6 +38,7 @@ type GameOverlaySettings = {
   huntId: string;
   showHuntPanel: boolean;
   showHuntCount: boolean;
+  showAutoCount: boolean;
   showRecentFinds: boolean;
   showSessionNotes: boolean;
   showParty: boolean;
@@ -51,6 +53,7 @@ const DEFAULT_SETTINGS: GameOverlaySettings = {
   huntId: "",
   showHuntPanel: true,
   showHuntCount: true,
+  showAutoCount: false,
   showRecentFinds: true,
   showSessionNotes: true,
   showParty: false,
@@ -416,7 +419,7 @@ function SetupDock({
           />
         </label>
 
-        <div className="grid grid-cols-4 gap-2">
+        <div className="grid grid-cols-5 gap-2">
           <button
             type="button"
             onClick={() =>
@@ -442,6 +445,19 @@ function SetupDock({
             }`}
           >
             Count {settings.showHuntCount ? "On" : "Off"}
+          </button>
+          <button
+            type="button"
+            onClick={() =>
+              onSettingsChange({ showAutoCount: !settings.showAutoCount })
+            }
+            className={`h-9 rounded border px-3 text-left font-mono text-[10px] font-black uppercase tracking-[0.14em] transition ${
+              settings.showAutoCount
+                ? "border-[#67d9ff]/45 bg-[#061620] text-[#67d9ff]"
+                : "border-[#27304c] bg-[#050814] text-[#687696]"
+            }`}
+          >
+            Auto {settings.showAutoCount ? "On" : "Off"}
           </button>
           <button
             type="button"
@@ -888,6 +904,13 @@ export default function GameStreamOverlay() {
                             <Plus className="h-4 w-4" />
                           </button>
                         </div>
+                      )}
+
+                      {settings.showAutoCount && (
+                        <EncounterAutoCounter
+                          gameId={settings.gameId}
+                          onEncounter={() => incrementShinyHunt(activeHunt.id)}
+                        />
                       )}
 
                       {!controlsHidden && (
