@@ -1,8 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Map, Search } from "lucide-react";
+import { Map, X } from "lucide-react";
 import { PokemonSprite } from "@/components/pokemon/PokemonSprite";
 import {
   DYNAMAX_ADVENTURE_LEGENDARIES,
@@ -40,18 +40,34 @@ function buildEffectivenessList(
 }
 
 export default function DynamaxAdventuresPage() {
-  const [query, setQuery] = useState("");
+  const [selectedTypes, setSelectedTypes] = useState<PokemonType[]>([]);
   const [selectedId, setSelectedId] = useState<number>(
     DYNAMAX_ADVENTURE_LEGENDARIES[0].speciesId,
   );
 
+  const toggleType = (type: PokemonType) => {
+    setSelectedTypes((prev) => {
+      if (prev.includes(type)) return prev.filter((t) => t !== type);
+      // Max 2 types — drop the first if already at cap
+      if (prev.length >= 2) return [prev[1], type];
+      return [...prev, type];
+    });
+  };
+
   const filteredLegendaries = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return DYNAMAX_ADVENTURE_LEGENDARIES;
-    return DYNAMAX_ADVENTURE_LEGENDARIES.filter((l) =>
-      l.name.toLowerCase().includes(q),
-    );
-  }, [query]);
+    if (selectedTypes.length === 0) return DYNAMAX_ADVENTURE_LEGENDARIES;
+    return DYNAMAX_ADVENTURE_LEGENDARIES.filter((l) => {
+      const types = l.types.filter((t): t is PokemonType => !!t);
+      return selectedTypes.every((t) => types.includes(t));
+    });
+  }, [selectedTypes]);
+
+  // Auto-select when narrowed to one result
+  useEffect(() => {
+    if (filteredLegendaries.length === 1) {
+      setSelectedId(filteredLegendaries[0].speciesId);
+    }
+  }, [filteredLegendaries]);
 
   const selected =
     DYNAMAX_ADVENTURE_LEGENDARIES.find((l) => l.speciesId === selectedId) ??
@@ -101,19 +117,50 @@ export default function DynamaxAdventuresPage() {
         <div className="grid items-start gap-5 xl:grid-cols-[1fr_380px]">
           {/* ── Legendary grid ── */}
           <div>
-            <div className="mb-3 flex h-9 items-center gap-2 rounded-lg border border-[#302a43] bg-[#151421] px-3">
-              <Search className="h-3.5 w-3.5 shrink-0 text-[#554a70]" />
-              <label htmlFor="legendary-search" className="sr-only">
-                Search legendaries
-              </label>
-              <input
-                id="legendary-search"
-                type="search"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search legendaries…"
-                className="min-w-0 flex-1 bg-transparent text-[11px] font-medium text-[#f8f0df] outline-none placeholder:text-[#554a70]"
-              />
+            <div className="mb-3 rounded-lg border border-[#302a43] bg-[#151421] p-3">
+              <div className="mb-2 flex items-center justify-between gap-2">
+                <p className="text-[10px] font-black uppercase tracking-widest text-[#554a70]">
+                  Filter by legendary type
+                  {selectedTypes.length > 0 && (
+                    <span className="ml-2 text-[#8b5cf6]">
+                      ({selectedTypes.length} selected)
+                    </span>
+                  )}
+                </p>
+                {selectedTypes.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setSelectedTypes([])}
+                    className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[9px] font-bold text-[#554a70] transition hover:text-[#f8f0df]"
+                  >
+                    <X className="h-2.5 w-2.5" />
+                    Clear
+                  </button>
+                )}
+              </div>
+              <div className="flex flex-wrap gap-1">
+                {TYPES.map((type) => {
+                  const active = selectedTypes.includes(type);
+                  return (
+                    <button
+                      key={type}
+                      type="button"
+                      onClick={() => toggleType(type)}
+                      className="rounded px-2 py-1 text-[10px] font-black uppercase tracking-wide transition"
+                      style={{
+                        backgroundColor: active
+                          ? TYPE_COLORS[type]
+                          : `${TYPE_COLORS[type]}22`,
+                        color: active ? "#fff" : TYPE_COLORS[type],
+                        border: `1px solid ${active ? TYPE_COLORS[type] : `${TYPE_COLORS[type]}44`}`,
+                        opacity: !active && selectedTypes.length >= 2 ? 0.4 : 1,
+                      }}
+                    >
+                      {type}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
 
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -129,7 +176,14 @@ export default function DynamaxAdventuresPage() {
 
             {filteredLegendaries.length === 0 && (
               <p className="rounded-xl border border-dashed border-[#302a43] py-10 text-center text-xs font-semibold text-[#554a70]">
-                No legendaries match.
+                No legendaries have{" "}
+                {selectedTypes.map((t, i) => (
+                  <span key={t}>
+                    {i > 0 && " + "}
+                    <span style={{ color: TYPE_COLORS[t] }}>{t}</span>
+                  </span>
+                ))}{" "}
+                typing.
               </p>
             )}
           </div>
