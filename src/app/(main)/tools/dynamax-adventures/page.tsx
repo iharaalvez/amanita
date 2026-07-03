@@ -40,27 +40,17 @@ function buildEffectivenessList(
 }
 
 export default function DynamaxAdventuresPage() {
-  const [selectedTypes, setSelectedTypes] = useState<PokemonType[]>([]);
+  const [typeFilter, setTypeFilter] = useState<PokemonType | null>(null);
   const [selectedId, setSelectedId] = useState<number>(
     DYNAMAX_ADVENTURE_LEGENDARIES[0].speciesId,
   );
 
-  const toggleType = (type: PokemonType) => {
-    setSelectedTypes((prev) => {
-      if (prev.includes(type)) return prev.filter((t) => t !== type);
-      // Max 2 types — drop the first if already at cap
-      if (prev.length >= 2) return [prev[1], type];
-      return [...prev, type];
-    });
-  };
-
   const filteredLegendaries = useMemo(() => {
-    if (selectedTypes.length === 0) return DYNAMAX_ADVENTURE_LEGENDARIES;
-    return DYNAMAX_ADVENTURE_LEGENDARIES.filter((l) => {
-      const types = l.types.filter((t): t is PokemonType => !!t);
-      return selectedTypes.every((t) => types.includes(t));
-    });
-  }, [selectedTypes]);
+    if (!typeFilter) return DYNAMAX_ADVENTURE_LEGENDARIES;
+    return DYNAMAX_ADVENTURE_LEGENDARIES.filter((l) =>
+      l.types.includes(typeFilter),
+    );
+  }, [typeFilter]);
 
   // Auto-select when narrowed to one result
   useEffect(() => {
@@ -120,17 +110,12 @@ export default function DynamaxAdventuresPage() {
             <div className="mb-3 rounded-lg border border-[#302a43] bg-[#151421] p-3">
               <div className="mb-2 flex items-center justify-between gap-2">
                 <p className="text-[10px] font-black uppercase tracking-widest text-[#554a70]">
-                  Filter by legendary type
-                  {selectedTypes.length > 0 && (
-                    <span className="ml-2 text-[#8b5cf6]">
-                      ({selectedTypes.length} selected)
-                    </span>
-                  )}
+                  Filter by type
                 </p>
-                {selectedTypes.length > 0 && (
+                {typeFilter && (
                   <button
                     type="button"
-                    onClick={() => setSelectedTypes([])}
+                    onClick={() => setTypeFilter(null)}
                     className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[9px] font-bold text-[#554a70] transition hover:text-[#f8f0df]"
                   >
                     <X className="h-2.5 w-2.5" />
@@ -140,12 +125,12 @@ export default function DynamaxAdventuresPage() {
               </div>
               <div className="flex flex-wrap gap-1">
                 {TYPES.map((type) => {
-                  const active = selectedTypes.includes(type);
+                  const active = typeFilter === type;
                   return (
                     <button
                       key={type}
                       type="button"
-                      onClick={() => toggleType(type)}
+                      onClick={() => setTypeFilter(active ? null : type)}
                       className="rounded px-2 py-1 text-[10px] font-black uppercase tracking-wide transition"
                       style={{
                         backgroundColor: active
@@ -153,7 +138,6 @@ export default function DynamaxAdventuresPage() {
                           : `${TYPE_COLORS[type]}22`,
                         color: active ? "#fff" : TYPE_COLORS[type],
                         border: `1px solid ${active ? TYPE_COLORS[type] : `${TYPE_COLORS[type]}44`}`,
-                        opacity: !active && selectedTypes.length >= 2 ? 0.4 : 1,
                       }}
                     >
                       {type}
@@ -177,12 +161,11 @@ export default function DynamaxAdventuresPage() {
             {filteredLegendaries.length === 0 && (
               <p className="rounded-xl border border-dashed border-[#302a43] py-10 text-center text-xs font-semibold text-[#554a70]">
                 No legendaries have{" "}
-                {selectedTypes.map((t, i) => (
-                  <span key={t}>
-                    {i > 0 && " + "}
-                    <span style={{ color: TYPE_COLORS[t] }}>{t}</span>
+                {typeFilter && (
+                  <span style={{ color: TYPE_COLORS[typeFilter] }}>
+                    {typeFilter}
                   </span>
-                ))}{" "}
+                )}{" "}
                 typing.
               </p>
             )}
