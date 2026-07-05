@@ -16,6 +16,7 @@ import {
   ChevronRight,
   Clock3,
   Gamepad2,
+  Info,
   LayoutGrid,
   ListChecks,
   RefreshCw,
@@ -24,6 +25,7 @@ import {
   X,
 } from "lucide-react";
 import { useLivingDexEntries, usePokemonEvolution } from "@/hooks/usePokemon";
+import { useEncounters } from "@/hooks/useEncounters";
 import { useGameHomeBoxDex } from "@/hooks/useGamePokedex";
 import { GAME_LIST, getGameById } from "@/config/games";
 import { GENDER_DIFFERENCE_FORM_KEYS } from "@/config/cosmetic-forms";
@@ -477,6 +479,77 @@ function TemplateSlot({
         {compactName}
       </div>
     </button>
+  );
+}
+
+function TemplateInfoButton({
+  entry,
+  gameName,
+}: {
+  entry: LivingDexEntry;
+  gameName: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const { data: encounters, isLoading } = useEncounters(
+    open ? entry.speciesId : null,
+  );
+  const locations = (encounters ?? []).filter((loc) =>
+    loc.games.includes(gameName),
+  );
+
+  useEffect(() => {
+    if (!open) return;
+    const onPointerDown = (e: MouseEvent) => {
+      if (!rootRef.current?.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", onPointerDown);
+    return () => document.removeEventListener("mousedown", onPointerDown);
+  }, [open]);
+
+  return (
+    <div
+      ref={rootRef}
+      className="absolute bottom-0.5 right-0.5 z-30"
+    >
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          setOpen((v) => !v);
+        }}
+        aria-label={`Where to find ${entry.displayName}`}
+        title={`Where to find ${entry.displayName}`}
+        className="grid h-3.5 w-3.5 place-items-center rounded bg-[#0d2a35] text-[#67d9ff] shadow-[0_0_0_1px_rgba(0,0,0,0.4)] transition hover:bg-[#123847]"
+      >
+        <Info className="h-2.5 w-2.5" />
+      </button>
+      {open && (
+        <div className="absolute bottom-full right-0 z-40 mb-1 w-44 rounded-lg border border-[#27304c] bg-[#070914]/98 p-2 text-left shadow-[0_18px_45px_rgba(0,0,0,0.5)] backdrop-blur">
+          <p className="mb-1 truncate font-mono text-[8px] font-black uppercase tracking-[0.14em] text-[#67d9ff]">
+            {entry.displayName} · {gameName}
+          </p>
+          {isLoading ? (
+            <p className="font-mono text-[9px] text-[#53607c]">Loading…</p>
+          ) : locations.length > 0 ? (
+            <ul className="grid gap-1">
+              {locations.map((loc) => (
+                <li
+                  key={loc.location}
+                  className="font-mono text-[9px] leading-tight text-[#d7c8ff]"
+                >
+                  {loc.location}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="font-mono text-[9px] text-[#53607c]">
+              No location data for this game.
+            </p>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -1984,17 +2057,24 @@ export default function HomeOrganizerStream() {
                 }}
               >
                 {currentBox.map((slot, index) => (
-                  <TemplateSlot
-                    key={slot ? slotKey(slot) : `empty-${index}`}
-                    slot={slot}
-                    slotNumber={index + 1}
-                    highlighted={!!slot && highlightedKeys.has(slotKey(slot))}
-                    isSearchFocus={!!slot && highlightedKeys.has(slotKey(slot))}
-                    progressScopeId={layoutProgressId || undefined}
-                    onMark={(s) =>
-                      setRecentlyMarked((prev) => [s, ...prev].slice(0, 8))
-                    }
-                  />
+                  <div key={slot ? slotKey(slot) : `empty-${index}`} className="relative min-h-0">
+                    <TemplateSlot
+                      slot={slot}
+                      slotNumber={index + 1}
+                      highlighted={!!slot && highlightedKeys.has(slotKey(slot))}
+                      isSearchFocus={!!slot && highlightedKeys.has(slotKey(slot))}
+                      progressScopeId={layoutProgressId || undefined}
+                      onMark={(s) =>
+                        setRecentlyMarked((prev) => [s, ...prev].slice(0, 8))
+                      }
+                    />
+                    {slot && slot.source === "game" && slot.gameId && (
+                      <TemplateInfoButton
+                        entry={slot.entry}
+                        gameName={getGameById(slot.gameId)?.name ?? slot.gameId}
+                      />
+                    )}
+                  </div>
                 ))}
               </div>
             </Panel>
