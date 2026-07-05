@@ -55,6 +55,7 @@ const BOX_SIZE = 30;
 const COLS = 6;
 const ROWS = BOX_SIZE / COLS;
 const HOME_DEX_GAME_ID = "home";
+const STRIP_PAGE_SIZE = 8;
 const EMPTY_BOX: (SlotData | null)[] = [];
 const DEFAULT_GAME_BOX_ID = "legends-za";
 const EMPTY_GAME_FLAGS: Record<string, GameDexFlags> = {};
@@ -1423,21 +1424,25 @@ export default function HomeOrganizerStream() {
     hour12: false,
   });
 
-  const STRIP_PAGE_SIZE = 8;
   const [stripStartBase, setStripStart] = useState(0);
 
-  // Clamp stripStartBase so safeIndex stays visible, but allow the strip
-  // arrows to scroll freely within that constraint.
-  const stripStartMin = Math.max(0, safeIndex - STRIP_PAGE_SIZE + 1);
-  const stripStartMax = Math.min(
-    safeIndex,
-    Math.max(0, totalBoxes - STRIP_PAGE_SIZE),
-  );
-  const stripStart = Math.max(
-    stripStartMin,
-    Math.min(stripStartBase, stripStartMax),
-  );
+  // The strip's own bounds only depend on how many boxes exist, so the
+  // page arrows can scroll it freely in either direction.
+  const stripStartMax = Math.max(0, totalBoxes - STRIP_PAGE_SIZE);
+  const stripStart = Math.max(0, Math.min(stripStartBase, stripStartMax));
   const stripEnd = Math.min(stripStart + STRIP_PAGE_SIZE, totalBoxes);
+
+  // Separately, snap the strip back into view whenever the selected box
+  // moves outside the currently visible page (e.g. via search or jump nav).
+  useEffect(() => {
+    setStripStart((current) => {
+      if (safeIndex < current) return safeIndex;
+      if (safeIndex > current + STRIP_PAGE_SIZE - 1) {
+        return Math.max(0, safeIndex - STRIP_PAGE_SIZE + 1);
+      }
+      return current;
+    });
+  }, [safeIndex]);
   const visibleBoxStats = boxStats.slice(stripStart, stripEnd);
 
   const prev = () => setBoxIndex((index) => Math.max(0, index - 1));
