@@ -9,6 +9,7 @@ import {
   useState,
 } from "react";
 import Image from "next/image";
+import { createPortal } from "react-dom";
 import { useQuery } from "@tanstack/react-query";
 import {
   CheckCircle2,
@@ -302,7 +303,7 @@ function TemplateSlot({
 
   if (!slot) {
     return (
-      <div className="min-h-0 rounded border border-[#192031]/60 bg-[#070914]/70" />
+      <div className="absolute inset-0 rounded border border-[#192031]/60 bg-[#070914]/70" />
     );
   }
 
@@ -391,7 +392,7 @@ function TemplateSlot({
               ? " owned"
               : " missing"
       }`}
-      className={`group relative min-h-0 overflow-hidden rounded border text-left transition ${
+      className={`group absolute inset-0 overflow-hidden rounded border text-left transition ${
         isSearchFocus
           ? "border-[#f7c948] bg-[#211a08] shadow-[0_0_18px_rgba(247,201,72,0.25)]"
           : highlighted
@@ -475,7 +476,7 @@ function TemplateSlot({
         />
       </div>
 
-      <div className="absolute inset-x-1 bottom-1 z-10 truncate text-center text-[10px] font-black leading-none text-[#f3f0ff] drop-shadow-[0_1px_2px_rgba(0,0,0,0.85)]">
+      <div className="absolute bottom-1 left-1 right-4 z-10 truncate text-center text-[10px] font-black leading-none text-[#f3f0ff] drop-shadow-[0_1px_2px_rgba(0,0,0,0.85)]">
         {compactName}
       </div>
     </button>
@@ -490,7 +491,9 @@ function TemplateInfoButton({
   gameName: string;
 }) {
   const [open, setOpen] = useState(false);
-  const rootRef = useRef<HTMLDivElement>(null);
+  const [anchor, setAnchor] = useState<DOMRect | null>(null);
+  const btnRef = useRef<HTMLButtonElement>(null);
+  const popoverRef = useRef<HTMLDivElement>(null);
   const { data: encounters, isLoading } = useEncounters(
     open ? entry.speciesId : null,
   );
@@ -501,55 +504,83 @@ function TemplateInfoButton({
   useEffect(() => {
     if (!open) return;
     const onPointerDown = (e: MouseEvent) => {
-      if (!rootRef.current?.contains(e.target as Node)) setOpen(false);
+      const target = e.target as Node;
+      if (btnRef.current?.contains(target)) return;
+      if (popoverRef.current?.contains(target)) return;
+      setOpen(false);
     };
     document.addEventListener("mousedown", onPointerDown);
     return () => document.removeEventListener("mousedown", onPointerDown);
   }, [open]);
 
+  const POPOVER_WIDTH = 176;
+  const POPOVER_MAX_HEIGHT = 160;
+  const popoverStyle = (() => {
+    if (!anchor) return null;
+    const openUpward = anchor.bottom + POPOVER_MAX_HEIGHT > window.innerHeight;
+    const left = Math.min(
+      Math.max(4, anchor.right - POPOVER_WIDTH),
+      window.innerWidth - POPOVER_WIDTH - 4,
+    );
+    return {
+      left,
+      width: POPOVER_WIDTH,
+      ...(openUpward
+        ? { bottom: window.innerHeight - anchor.top + 4 }
+        : { top: anchor.bottom + 4 }),
+    };
+  })();
+
   return (
-    <div
-      ref={rootRef}
-      className="absolute bottom-0.5 right-0.5 z-30"
-    >
+    <>
       <button
+        ref={btnRef}
         type="button"
         onClick={(e) => {
           e.stopPropagation();
+          if (!open) setAnchor(btnRef.current?.getBoundingClientRect() ?? null);
           setOpen((v) => !v);
         }}
         aria-label={`Where to find ${entry.displayName}`}
         title={`Where to find ${entry.displayName}`}
-        className="grid h-3.5 w-3.5 place-items-center rounded bg-[#0d2a35] text-[#67d9ff] shadow-[0_0_0_1px_rgba(0,0,0,0.4)] transition hover:bg-[#123847]"
+        className="absolute bottom-0.5 right-0.5 z-30 grid h-3.5 w-3.5 place-items-center rounded bg-[#0d2a35] text-[#67d9ff] shadow-[0_0_0_1px_rgba(0,0,0,0.4)] transition hover:bg-[#123847]"
       >
         <Info className="h-2.5 w-2.5" />
       </button>
-      {open && (
-        <div className="absolute bottom-full right-0 z-40 mb-1 w-44 rounded-lg border border-[#27304c] bg-[#070914]/98 p-2 text-left shadow-[0_18px_45px_rgba(0,0,0,0.5)] backdrop-blur">
-          <p className="mb-1 truncate font-mono text-[8px] font-black uppercase tracking-[0.14em] text-[#67d9ff]">
-            {entry.displayName} · {gameName}
-          </p>
-          {isLoading ? (
-            <p className="font-mono text-[9px] text-[#53607c]">Loading…</p>
-          ) : locations.length > 0 ? (
-            <ul className="grid gap-1">
-              {locations.map((loc) => (
-                <li
-                  key={loc.location}
-                  className="font-mono text-[9px] leading-tight text-[#d7c8ff]"
-                >
-                  {loc.location}
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="font-mono text-[9px] text-[#53607c]">
-              No location data for this game.
+      {open &&
+        popoverStyle &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div
+            ref={popoverRef}
+            style={{ position: "fixed", ...popoverStyle }}
+            className="z-[9999] rounded-lg border border-[#27304c] bg-[#070914]/98 p-2 text-left shadow-[0_18px_45px_rgba(0,0,0,0.5)] backdrop-blur"
+          >
+            <p className="mb-1 truncate font-mono text-[8px] font-black uppercase tracking-[0.14em] text-[#67d9ff]">
+              {entry.displayName} · {gameName}
             </p>
-          )}
-        </div>
-      )}
-    </div>
+            {isLoading ? (
+              <p className="font-mono text-[9px] text-[#53607c]">Loading…</p>
+            ) : locations.length > 0 ? (
+              <ul className="grid gap-1">
+                {locations.map((loc) => (
+                  <li
+                    key={loc.location}
+                    className="font-mono text-[9px] leading-tight text-[#d7c8ff]"
+                  >
+                    {loc.location}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="font-mono text-[9px] text-[#53607c]">
+                No location data for this game.
+              </p>
+            )}
+          </div>,
+          document.body,
+        )}
+    </>
   );
 }
 
