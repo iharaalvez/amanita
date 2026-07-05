@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   CheckCircle2,
   Clock3,
   Gamepad2,
+  Info,
   Minus,
   MonitorPlay,
   Plus,
@@ -14,6 +15,7 @@ import {
   X,
 } from "lucide-react";
 import { useLivingDexEntries } from "@/hooks/usePokemon";
+import { useEncounters } from "@/hooks/useEncounters";
 import { GAME_LIST, getGameById } from "@/config/games";
 import { EncounterAutoCounter } from "@/components/stream/EncounterAutoCounter";
 import { usePokedexStore, ownedKey } from "@/store/pokedexStore";
@@ -275,17 +277,93 @@ function PokemonSprite({
   );
 }
 
+function PokemonInfoButton({
+  entry,
+  gameName,
+  panelPosition = "top",
+}: {
+  entry: LivingDexEntry;
+  gameName: string;
+  panelPosition?: "top" | "bottom";
+}) {
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const { data: encounters, isLoading } = useEncounters(
+    open ? entry.speciesId : null,
+  );
+  const locations = (encounters ?? []).filter((loc) =>
+    loc.games.includes(gameName),
+  );
+
+  useEffect(() => {
+    if (!open) return;
+    const onPointerDown = (e: MouseEvent) => {
+      if (!rootRef.current?.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", onPointerDown);
+    return () => document.removeEventListener("mousedown", onPointerDown);
+  }, [open]);
+
+  return (
+    <div ref={rootRef} className="relative">
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          setOpen((v) => !v);
+        }}
+        aria-label={`Where to find ${entry.displayName}`}
+        title={`Where to find ${entry.displayName}`}
+        className="grid h-4 w-4 place-items-center rounded-full border border-[#27304c] bg-[#050814]/95 text-[#67d9ff] shadow transition hover:border-[#67d9ff]"
+      >
+        <Info className="h-2.5 w-2.5" />
+      </button>
+      {open && (
+        <div
+          className={`absolute left-0 z-40 w-52 rounded-lg border border-[#27304c] bg-[#070914]/97 p-2.5 shadow-[0_18px_45px_rgba(0,0,0,0.5)] backdrop-blur ${
+            panelPosition === "top" ? "bottom-full mb-1.5" : "top-full mt-1.5"
+          }`}
+        >
+          <p className="mb-1.5 truncate font-mono text-[9px] font-black uppercase tracking-[0.14em] text-[#67d9ff]">
+            {entry.displayName} · {gameName}
+          </p>
+          {isLoading ? (
+            <p className="font-mono text-[10px] text-[#53607c]">Loading…</p>
+          ) : locations.length > 0 ? (
+            <ul className="grid gap-1">
+              {locations.map((loc) => (
+                <li
+                  key={loc.location}
+                  className="font-mono text-[10px] leading-4 text-[#d7c8ff]"
+                >
+                  {loc.location}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="font-mono text-[10px] text-[#53607c]">
+              No location data for this game.
+            </p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function RecentFind({
   event,
   entry,
+  gameName,
 }: {
   event: CatchEvent;
   entry?: LivingDexEntry;
+  gameName: string;
 }) {
   const game = getGameById(event.gameId);
   return (
     <div className="grid grid-cols-[42px_minmax(0,1fr)_auto] items-center gap-2 rounded border border-[#27304c] bg-[#050814]/80 px-2 py-1.5">
-      <div className="grid h-10 w-10 place-items-center rounded bg-[#0d1324]">
+      <div className="relative grid h-10 w-10 place-items-center rounded bg-[#0d1324]">
         {entry ? (
           <PokemonSprite
             entry={entry}
@@ -296,6 +374,11 @@ function RecentFind({
           <span className="font-mono text-[10px] text-[#687696]">
             {event.speciesId}
           </span>
+        )}
+        {entry && (
+          <div className="absolute -bottom-1 -right-1">
+            <PokemonInfoButton entry={entry} gameName={gameName} />
+          </div>
         )}
       </div>
       <div className="min-w-0">
@@ -952,6 +1035,7 @@ export default function GameStreamOverlay() {
                           key={`${event.speciesId}-${event.formName ?? "base"}-${event.gameId}-${event.date}`}
                           event={event}
                           entry={findEntryForEvent(entriesByKey, event)}
+                          gameName={selectedGame?.name ?? settings.gameId}
                         />
                       ))
                     ) : (
@@ -1017,9 +1101,17 @@ export default function GameStreamOverlay() {
                       }
                       className="grid h-14 grid-cols-[46px_minmax(0,1fr)] items-center gap-2 rounded border border-[#27304c] bg-[#050814]/90 px-2"
                     >
-                      <div className="grid h-11 w-11 place-items-center rounded bg-[#0d1324]">
+                      <div className="relative grid h-11 w-11 place-items-center rounded bg-[#0d1324]">
                         {entry ? (
-                          <PokemonSprite entry={entry} className="h-10 w-10" />
+                          <>
+                            <PokemonSprite entry={entry} className="h-10 w-10" />
+                            <div className="absolute -bottom-1 -right-1">
+                              <PokemonInfoButton
+                                entry={entry}
+                                gameName={selectedGame?.name ?? settings.gameId}
+                              />
+                            </div>
+                          </>
                         ) : (
                           <span className="font-mono text-[10px] text-[#53607c]">
                             {index + 1}

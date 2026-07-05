@@ -159,23 +159,24 @@ export function normalizeHomeName(raw: string): string | null {
 }
 
 /**
- * Strips "A wild … appeared!" framing and normalises casing.
+ * Matches the "A wild … appeared!" dialog framing and extracts the name.
+ * Returns null for anything that isn't this specific phrase, so stray OCR
+ * noise from the background (not an actual encounter dialog) never counts.
  * Handles both modern Title Case and old ALL-CAPS DS-era dialog.
  */
 export function normalizeEncounterName(raw: string): string | null {
-  let t = raw.trim();
+  const t = raw.trim();
   if (!t) return null;
-  // Strip common dialog framing
-  t = t
-    .replace(/^a\s+wild\s+/i, "")
-    .replace(/\s+appeared[.!]*$/i, "")
+  const m = t.match(/wild\s+([a-z0-9 .':-]+?)\s+appeared/i);
+  if (!m) return null;
+  let name = m[1]
     .replace(/[^A-Za-z0-9 .':'-]/g, " ")
     .replace(/\s+/g, " ")
     .trim();
-  if (t.length < 2) return null;
+  if (name.length < 2) return null;
   // Normalise ALL-CAPS to Title Case
-  if (t === t.toUpperCase()) {
-    t = t.toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
+  if (name === name.toUpperCase()) {
+    name = name.toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
   }
-  return t;
+  return name;
 }
