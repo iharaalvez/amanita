@@ -59,6 +59,12 @@ const COLS = 6;
 const ROWS = BOX_SIZE / COLS;
 const HOME_DEX_GAME_ID = "home";
 const STRIP_PAGE_SIZE = 8;
+// The Snacksworth Legendaries have their own dex/tab for tracking purposes,
+// but for physical box-sorting in the stream's Game Dex Boxes view we want
+// them to visually continue right after this host game's own boxes (e.g.
+// filling out the tail of Scarlet/Violet's box 18 alongside Miraidon).
+const SNACKSWORTH_HOST_GAME_ID = "scarlet-violet";
+const SNACKSWORTH_GAME_ID = "scarlet-violet-snacksworth";
 const EMPTY_BOX: (SlotData | null)[] = [];
 const DEFAULT_GAME_BOX_ID = "legends-za";
 const EMPTY_GAME_FLAGS: Record<string, GameDexFlags> = {};
@@ -727,6 +733,7 @@ export default function HomeOrganizerStream() {
 
   const { data: allEntries, isLoading } = useLivingDexEntries();
   const gameBoxQuery = useGameHomeBoxDex(selectedGameId);
+  const snacksworthBoxQuery = useGameHomeBoxDex(SNACKSWORTH_GAME_ID);
   const evolutionQuery = usePokemonEvolution(
     assistEvoSpeciesId ?? 0,
     assistEvoSpeciesId !== null,
@@ -890,14 +897,32 @@ export default function HomeOrganizerStream() {
 
   const allSlots = useMemo((): SlotData[] => {
     if (boxSource === "game") {
-      return (gameBoxQuery.data ?? []).map((entry: GameHomeBoxEntry) => ({
-        entry,
-        isShiny: false,
-        shinyAvailable: true,
-        source: "game",
-        gameId: selectedGameId,
-        entryNumber: entry.entryNumber,
-      }));
+      const mainSlots: SlotData[] = (gameBoxQuery.data ?? []).map(
+        (entry: GameHomeBoxEntry) => ({
+          entry,
+          isShiny: false,
+          shinyAvailable: true,
+          source: "game",
+          gameId: selectedGameId,
+          entryNumber: entry.entryNumber,
+        }),
+      );
+      if (selectedGameId !== SNACKSWORTH_HOST_GAME_ID) return mainSlots;
+
+      // Physically continue right after this game's own boxes, so the
+      // Snacksworth legendaries fill out the tail box (e.g. alongside
+      // Miraidon) instead of needing a whole separate box sequence.
+      const bonusSlots: SlotData[] = (snacksworthBoxQuery.data ?? []).map(
+        (entry: GameHomeBoxEntry) => ({
+          entry,
+          isShiny: false,
+          shinyAvailable: true,
+          source: "game",
+          gameId: SNACKSWORTH_GAME_ID,
+          entryNumber: mainSlots.length + entry.entryNumber,
+        }),
+      );
+      return [...mainSlots, ...bonusSlots];
     }
 
     if (isPairedMode) {
@@ -938,6 +963,7 @@ export default function HomeOrganizerStream() {
     isShinyMode,
     isShinyTrackedEntry,
     selectedGameId,
+    snacksworthBoxQuery.data,
   ]);
 
   const boxes = useMemo(() => buildSlotBoxes(allSlots), [allSlots]);
@@ -1529,24 +1555,29 @@ export default function HomeOrganizerStream() {
   });
 
   const [stripStartBase, setStripStart] = useState(0);
+  const [stripSyncedIndex, setStripSyncedIndex] = useState(safeIndex);
 
   // The strip's own bounds only depend on how many boxes exist, so the
   // page arrows can scroll it freely in either direction.
   const stripStartMax = Math.max(0, totalBoxes - STRIP_PAGE_SIZE);
-  const stripStart = Math.max(0, Math.min(stripStartBase, stripStartMax));
-  const stripEnd = Math.min(stripStart + STRIP_PAGE_SIZE, totalBoxes);
+  let stripStart = Math.max(0, Math.min(stripStartBase, stripStartMax));
 
-  // Separately, snap the strip back into view whenever the selected box
-  // moves outside the currently visible page (e.g. via search or jump nav).
-  useEffect(() => {
-    setStripStart((current) => {
-      if (safeIndex < current) return safeIndex;
-      if (safeIndex > current + STRIP_PAGE_SIZE - 1) {
-        return Math.max(0, safeIndex - STRIP_PAGE_SIZE + 1);
-      }
-      return current;
-    });
-  }, [safeIndex]);
+  // Snap the strip back into view whenever the selected box moves outside
+  // the currently visible page (e.g. via search or jump nav). Adjusting
+  // state during render, guarded by comparing to the last-seen index,
+  // avoids the extra render pass a useEffect would cause here.
+  if (safeIndex !== stripSyncedIndex) {
+    setStripSyncedIndex(safeIndex);
+    if (safeIndex < stripStart) {
+      stripStart = safeIndex;
+      setStripStart(safeIndex);
+    } else if (safeIndex > stripStart + STRIP_PAGE_SIZE - 1) {
+      stripStart = Math.max(0, safeIndex - STRIP_PAGE_SIZE + 1);
+      setStripStart(stripStart);
+    }
+  }
+
+  const stripEnd = Math.min(stripStart + STRIP_PAGE_SIZE, totalBoxes);
   const visibleBoxStats = boxStats.slice(stripStart, stripEnd);
 
   const prev = () => setBoxIndex((index) => Math.max(0, index - 1));
