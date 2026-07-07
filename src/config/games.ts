@@ -118,7 +118,7 @@ export const GAME_LIST: readonly GameEntry[] = [
   },
   {
     id: "scarlet-violet-snacksworth",
-    name: "Snacksworth Legendaries",
+    name: "Indigo Disk Specials",
     generation: 9,
     hasShinyCharm: false,
     dlcOf: "scarlet-violet",

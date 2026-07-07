@@ -59,10 +59,11 @@ const COLS = 6;
 const ROWS = BOX_SIZE / COLS;
 const HOME_DEX_GAME_ID = "home";
 const STRIP_PAGE_SIZE = 8;
-// The Snacksworth Legendaries have their own dex/tab for tracking purposes,
-// but for physical box-sorting in the stream's Game Dex Boxes view we want
-// them to visually continue right after this host game's own boxes (e.g.
-// filling out the tail of Scarlet/Violet's box 18 alongside Miraidon).
+// "Indigo Disk Specials" (Snacksworth legendaries + Meloetta) have their own
+// dex/tab for tracking purposes, but for physical box-sorting in the stream's
+// Game Dex Boxes view we want them to visually continue right after this
+// host game's own boxes (e.g. filling out the tail of Scarlet/Violet's box
+// 18 alongside Miraidon).
 const SNACKSWORTH_HOST_GAME_ID = "scarlet-violet";
 const SNACKSWORTH_GAME_ID = "scarlet-violet-snacksworth";
 const EMPTY_BOX: (SlotData | null)[] = [];
