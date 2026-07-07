@@ -117,6 +117,13 @@ export const GAME_LIST: readonly GameEntry[] = [
     dlcOf: "scarlet-violet",
   },
   {
+    id: "scarlet-violet-snacksworth",
+    name: "Snacksworth Legendaries",
+    generation: 9,
+    hasShinyCharm: false,
+    dlcOf: "scarlet-violet",
+  },
+  {
     id: "legends-za",
     name: "Legends: Z-A",
     generation: 9,
